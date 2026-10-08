@@ -38,7 +38,7 @@ erDiagram
     text kind "firm | person | pool | party (immutable)"
     uuid entity_type_id FK
     text display_name "editable label, not identity"
-    uuid home_entity_id FK "environment it lives in"
+    uuid managed_in_env_id FK "environment it was created in (nullable)"
     text status "active | inactive | archived"
   }
   ENTITY_MEMBERSHIP {
@@ -54,7 +54,7 @@ erDiagram
     text kind "cash | bank | wallet"
     uuid type_id FK "Tijori, Drawer, Locker…"
     uuid custody_person_id FK "set for 'cash with <person>'"
-    uuid home_entity_id FK
+    uuid managed_in_env_id FK
     text disclosure "name | generic | hidden | owner_only"
   }
   LOCATION_ACCESS {
@@ -77,7 +77,7 @@ erDiagram
 - A person may be an owner of one firm, a partner of another and a worker of a third (RULEBOOK-03 §2): several
   `entity_membership` rows, one person entity, one user at most.
 - Two people are never merged: each is its own `entity` with its own books (RULEBOOK-03 §5).
-- A worker created by Partner 1 lives in Partner 1's environment (`home_entity_id`); Partner 2 sees it only with access
+- A worker created by Partner 1 lives in Partner 1's environment (`managed_in_env_id`); Partner 2 sees it only with access
   to that environment (RULEBOOK-03 §6).
 
 ## Level 3 — Financial model
@@ -88,7 +88,8 @@ From a real-world event to the ledger, balances, obligations and settlement.
 erDiagram
   TXN_TYPE ||--o{ TXN : "type (label over an engine intent)"
   TXN ||--|{ TXN_ENTITY : "involves (payer, owner, receiver, holder…)"
-  TXN ||--|{ TXN_LEG : "sources, destinations, allocations"
+  TXN ||--|{ TXN_LEG : "sources, destinations, allocations (the amounts)"
+  TXN ||--o{ TXN_NOTE : "private notes, one environment each"
   TXN ||--o{ TXN_LINK : "reverses / corrects / refunds"
   TXN ||--o{ JOURNAL : "posted as (one per entity per step)"
   TXN ||--o{ APPROVAL_REQUEST : "needs"
@@ -106,6 +107,8 @@ erDiagram
   BALANCE_SLICE ||--|| BALANCE_CURRENT : "running balance"
   BALANCE_SLICE ||--o{ BALANCE_PERIOD : "movement and closing per period"
   OPEN_ITEM }o--|| TXN : "originates in"
+  OPEN_ITEM ||--|{ OPEN_ITEM_ORIGIN : "came from lines (per side)"
+  JOURNAL_LINE ||--o{ OPEN_ITEM_ORIGIN : ""
   OPEN_ITEM ||--o{ SETTLEMENT_ALLOCATION : "settled by"
   TXN ||--o{ SETTLEMENT_ALLOCATION : "settles (payment, offset, write-off)"
   FUND ||--o{ BALANCE_HOLD : "reserved / locked / pending outgoing"
@@ -116,9 +119,7 @@ erDiagram
     text intent_type "engine intent"
     text status "state machine"
     date value_date
-    bytea amount_enc "headline amount"
-    bytea amount_bidx "exact-amount search"
-    text reason "searchable"
+    text reason "shared description, searchable"
   }
   TXN_LEG {
     uuid id PK
@@ -129,6 +130,7 @@ erDiagram
     uuid fund_id FK
     uuid category_id FK
     bytea amount_enc
+    bytea amount_bidx "exact-amount search, per environment"
   }
   JOURNAL {
     uuid id PK
@@ -185,7 +187,7 @@ How the ₹45,000 Angadiya expense paid by Krish lands (Mint ₹30,000 + JSK ₹
 
 | Table | Rows |
 |---|---|
-| `txn` | 1 (TX-…, intent `expense`, amount ₹45,000 encrypted) |
+| `txn` | 1 (TX-…, intent `expense`; no amount on the header — the total is the source leg) |
 | `txn_entity` | Krish (payer, owner), Mint (owner), JSK (owner) |
 | `txn_leg` | 1 source (Krish, Krish savings, ₹45,000) · 3 allocations (Mint ₹30,000 hotel, JSK ₹5,000 travel, Krish ₹10,000 food) |
 | `journal` | 3 — Mint, JSK, Krish |
@@ -310,9 +312,9 @@ flowchart LR
     location_holder; balance_hold
   end
   subgraph ledgerm[Events and ledger]
-    txn; txn_status_transition; txn_entity; txn_leg; txn_link; txn_tag; posting_rule_version; accounting_period
-    journal_chain_head; journal; journal_line; balance_slice; balance_current; balance_period; open_item
-    settlement_allocation; custody_event; approval_request; period_close_run
+    txn; txn_status_transition; txn_entity; txn_leg; txn_note; txn_link; txn_tag; posting_rule_version
+    accounting_period; journal_chain_head; journal; journal_line; balance_slice; balance_current; balance_period
+    open_item; open_item_origin; settlement_allocation; custody_event; approval_request; period_close_run
   end
   subgraph control[Control]
     reconciliation; bank_statement_import; bank_statement_line; exception_finding; integrity_run
@@ -353,7 +355,6 @@ flowchart LR
   entity_membership --> entity
   contact --> entity
   category --> category
-  txn_type --> posting_rule_version
   expense_event --> entity
   expense_event --> lookup_value
   custom_field_value --> custom_field_def
@@ -392,6 +393,10 @@ flowchart LR
   txn_leg --> fund
   txn_leg --> category
   txn_link --> txn
+  txn_note --> txn
+  txn_note --> entity
+  open_item_origin --> open_item
+  open_item_origin --> journal_line
   txn_tag --> txn
   txn_tag --> tag
   accounting_period --> entity
@@ -417,7 +422,6 @@ flowchart LR
   balance_period --> accounting_period
   open_item --> txn
   open_item --> entity
-  open_item --> journal_line
   settlement_allocation --> open_item
   settlement_allocation --> txn
   custody_event --> txn
@@ -464,7 +468,7 @@ flowchart LR
 | Relationship | Cardinality | Required? | Implemented by | On delete |
 |---|---|---|---|---|
 | user → person entity | 1 : 1 | yes (every user is a person) | `app_user.person_entity_id` unique, composite FK to `entity (id, kind='person')` | restrict |
-| entity → home environment | n : 1 | yes (self for firms, persons, pools) | `entity.home_entity_id` | restrict |
+| entity → environment it was created in | n : 0..1 | no (top-level firms and users' own person entities have none) | `entity.managed_in_env_id` | restrict |
 | organisation ↔ member | m : n over time | — | `entity_membership` (junction with history) | restrict |
 | entity → funds | 1 : n, exactly one default | yes (≥ 1) | `fund.entity_id`; partial unique index on default | restrict |
 | entity → ledger accounts | 1 : n | yes (from template) | `ledger_account.entity_id`; unique `(entity_id, code)` | restrict |
@@ -478,7 +482,7 @@ flowchart LR
 | line → account / fund of same entity | n : 1 | yes | composite FKs `(ledger_account_id, entity_id)`, `(fund_id, entity_id)` | restrict |
 | line → location, counterparty, category | n : 0..1 | per account role (trigger) | FKs | restrict |
 | txn ↔ txn (reverse, correct, refund) | m : n | — | `txn_link` (a txn is fully reversed at most once) | restrict |
-| open item → origin | n : 1 | yes | `open_item.origin_txn_id` (+ origin lines) | restrict |
+| open item → origin event and lines | n : 1 event, 1 : n lines | yes | `open_item.origin_txn_id`; `open_item_origin` junction to each side's lines | restrict |
 | open item ↔ settling txns | m : n | — | `settlement_allocation` (junction with amount) | restrict |
 | attachment ↔ evidence target | m : n | — | `attachment_link` (one FK per target type, exactly one set) | restrict |
 | share request → recipient, document | n : 1 | recipient yes, document per format | FKs | restrict |

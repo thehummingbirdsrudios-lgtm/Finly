@@ -1,17 +1,21 @@
 # 3. Table list and detailed schema
 
 Add-on 11 §30 items 3 (table list), 4 (detailed schema) and 5 (data dictionary, design level). The migrations in
-`backend/db/migrations/` implement exactly this; every table and column there carries a `COMMENT`, and
-`deno task db:dictionary` generates [DATA-DICTIONARY.md](DATA-DICTIONARY.md) from the live catalog, so the
-column-level dictionary can never drift from the schema.
+`backend/db/migrations/` implement exactly this. Every table, and every column whose meaning is not obvious, carries
+a `COMMENT`; `deno task db:dictionary` generates [DATA-DICTIONARY.md](DATA-DICTIONARY.md) — every column with its
+type, nullability, default, keys, constraints, indexes and sensitivity — from the migrated catalog, so the
+column-level dictionary can never drift from the schema. `tests/db/catalog_test.ts` fails if this table list and the
+migrations disagree.
 
 **Conventions**
 
 - All tables live in schema `finly`. Every primary key is `uuid` (UUIDv7) unless stated.
 - Every master table carries `status` (`active | inactive | archived`), `version int` (optimistic concurrency,
-  incremented on every update), `created_at`, `created_by`, `updated_at`, `change_seq bigint` (from the global
-  `finly.change_seq` sequence, set by trigger on insert and update; drives mobile delta sync). These are written once
-  here as **[std]** and not repeated per table.
+  incremented on every update), `created_at`, `created_by`, `updated_at`, `change_xid xid8` (the id of the
+  transaction that last wrote the row, set by trigger; drives mobile delta sync with a snapshot watermark, see
+  06 §6.6). These are written once here as **[std]** and not repeated per table.
+- Workflow states are named after their record (`item_status`, `request_status`, `custody_status`, `period_status`,
+  `recon_status`, `share_status`, `finding_status`…) so they are never confused with the master-data `status`.
 - Sensitivity: **C** encrypted (AES-256-GCM, `*_enc bytea` + `key_version`), **H** one-way hashed or keyed index,
   **R** plaintext but row-level-security restricted, **P** non-sensitive configuration.
 - RLS class (see [05-security-rls.md](05-security-rls.md)): **ENV** environment-scoped, **CFG** readable by every
@@ -63,7 +67,7 @@ column-level dictionary can never drift from the schema.
 | 38 | `custom_field_def` | Masters | Custom field definitions | CFG |
 | 39 | `custom_field_value` | Masters | Custom field values (encrypted when sensitive) | ENV |
 | 40 | `form_definition` | Masters | Configurable forms and conditional rules | CFG |
-| 41 | `approval_rule` | Masters | Who must approve what | CFG |
+| 41 | `approval_rule` | Masters | Who must approve what | approval managers; posting service |
 | 42 | `notification_rule` | Masters | Which events notify whom, in which content mode | CFG |
 | 43 | `message_template` | Masters | Message / photo / PDF templates | CFG |
 | 44 | `report_definition` | Masters | System and custom report definitions | OWN / CFG |
@@ -81,39 +85,41 @@ column-level dictionary can never drift from the schema.
 | 56 | `txn` | Ledger | Master transaction: one real-world event | ENV |
 | 57 | `txn_entity` | Ledger | Entities involved in a transaction and their role | ENV |
 | 58 | `txn_leg` | Ledger | Business legs: sources, destinations, allocations | ENV |
-| 59 | `txn_link` | Ledger | Reversal / correction / refund relationships | ENV |
-| 60 | `txn_tag` | Ledger | Transaction ↔ tag | ENV |
-| 61 | `posting_rule_version` | Ledger | Versioned posting rules (engine version + definition) | CFG |
-| 62 | `accounting_period` | Ledger | Monthly periods per entity | ENV |
-| 63 | `journal_chain_head` | Ledger | Head of the journal hash chain (one row) | LEDGER |
-| 64 | `journal` | Ledger | One balanced journal per entity per step | ENV / LEDGER |
-| 65 | `journal_line` | Ledger | Debit or credit lines with every dimension | ENV / LEDGER |
-| 66 | `balance_slice` | Ledger | The dimension tuple a balance is kept for | ENV / LEDGER |
-| 67 | `balance_current` | Ledger | Encrypted running balance per slice | ENV / LEDGER |
-| 68 | `balance_period` | Ledger | Encrypted movement and closing per slice per period | ENV / LEDGER |
-| 69 | `open_item` | Ledger | Receivables, payables, advances, loans, inter-entity dues | ENV / LEDGER |
-| 70 | `settlement_allocation` | Ledger | Which settlement closed how much of which item | ENV / LEDGER |
-| 71 | `custody_event` | Ledger | Handover steps and confirmation | ENV |
-| 72 | `approval_request` | Ledger | Approval steps for transactions and sensitive changes | ENV |
-| 73 | `period_close_run` | Ledger | Close and reopen runs with their checklist | ENV |
-| 74 | `reconciliation` | Control | Expected vs actual, investigation, resolution | ENV |
-| 75 | `bank_statement_import` | Control | Imported statement files | ENV |
-| 76 | `bank_statement_line` | Control | Statement lines and their matching | ENV |
-| 77 | `exception_finding` | Control | Deterministic exception and integrity findings | ENV / SYS |
-| 78 | `integrity_run` | Control | Integrity Verifier runs | SYS |
-| 79 | `attachment` | Files | Evidence files (metadata only) | ENV |
-| 80 | `attachment_link` | Files | Attachment ↔ what it evidences | ENV |
-| 81 | `document` | Files | Generated proof (message, photo, PDF, secure PDF) | ENV |
-| 82 | `share_profile` | Sharing | Per-recipient share defaults and limits | OWN |
-| 83 | `share_request` | Sharing | One share from preview to hand-off | OWN |
-| 84 | `share_event` | Sharing | Every state change of a share | OWN |
-| 85 | `secure_link` | Sharing | Secure Viewer links (token hash only) | OWN |
-| 86 | `secure_link_access` | Sharing | Every Secure Viewer access attempt | OWN |
-| 87 | `idempotency_record` | Operations | Exactly-once mutations (online and offline) | OWN |
-| 88 | `sync_review` | Operations | Offline operations needing review | OWN |
-| 89 | `notification` | Operations | In-app and push notifications (no amounts stored) | OWN |
-| 90 | `audit_log` | Operations | Tamper-evident audit trail | ENV / OWN |
-| 91 | `audit_chain_head` | Operations | Head of the audit hash chain (one row) | SYS |
+| 59 | `txn_note` | Ledger | Private notes on an event, one environment at a time | ENV |
+| 60 | `txn_link` | Ledger | Reversal / correction / refund relationships | ENV |
+| 61 | `txn_tag` | Ledger | Transaction ↔ tag | ENV |
+| 62 | `posting_rule_version` | Ledger | Versioned posting rules (engine version + definition) | CFG |
+| 63 | `accounting_period` | Ledger | Monthly periods per entity | ENV |
+| 64 | `journal_chain_head` | Ledger | Head of the journal hash chain (one row) | LEDGER |
+| 65 | `journal` | Ledger | One balanced journal per entity per step | ENV / LEDGER |
+| 66 | `journal_line` | Ledger | Debit or credit lines with every dimension | ENV / LEDGER |
+| 67 | `balance_slice` | Ledger | The dimension tuple a balance is kept for | ENV / LEDGER |
+| 68 | `balance_current` | Ledger | Encrypted running balance per slice | ENV / LEDGER |
+| 69 | `balance_period` | Ledger | Encrypted movement and closing per slice per period | ENV / LEDGER |
+| 70 | `open_item` | Ledger | Receivables, payables, advances, loans, inter-entity dues | ENV / LEDGER |
+| 71 | `open_item_origin` | Ledger | The journal lines an open item came from, per side | ENV / LEDGER |
+| 72 | `settlement_allocation` | Ledger | Which settlement closed how much of which item | ENV / LEDGER |
+| 73 | `custody_event` | Ledger | Handover steps and confirmation | ENV |
+| 74 | `approval_request` | Ledger | Approval steps for transactions and sensitive changes | ENV |
+| 75 | `period_close_run` | Ledger | Close and reopen runs with their checklist | ENV |
+| 76 | `reconciliation` | Control | Expected vs actual, investigation, resolution | ENV |
+| 77 | `bank_statement_import` | Control | Imported statement files | ENV |
+| 78 | `bank_statement_line` | Control | Statement lines and their matching | ENV |
+| 79 | `exception_finding` | Control | Deterministic exception and integrity findings | ENV / SYS |
+| 80 | `integrity_run` | Control | Integrity Verifier runs | SYS |
+| 81 | `attachment` | Files | Evidence files (metadata only) | ENV |
+| 82 | `attachment_link` | Files | Attachment ↔ what it evidences | ENV |
+| 83 | `document` | Files | Generated proof (message, photo, PDF, secure PDF) | ENV |
+| 84 | `share_profile` | Sharing | Per-recipient share defaults and limits | OWN |
+| 85 | `share_request` | Sharing | One share from preview to hand-off | OWN |
+| 86 | `share_event` | Sharing | Every state change of a share | OWN |
+| 87 | `secure_link` | Sharing | Secure Viewer links (token hash only) | OWN |
+| 88 | `secure_link_access` | Sharing | Every Secure Viewer access attempt | OWN |
+| 89 | `idempotency_record` | Operations | Exactly-once mutations (online and offline) | OWN |
+| 90 | `sync_review` | Operations | Offline operations needing review | OWN |
+| 91 | `notification` | Operations | In-app and push notifications (no amounts stored) | OWN |
+| 92 | `audit_log` | Operations | Tamper-evident audit trail | ENV / OWN |
+| 93 | `audit_chain_head` | Operations | Head of the audit hash chain (one row) | SYS |
 
 ### Coverage of BUILD_PROMPT I2
 
@@ -128,8 +134,8 @@ Every entity the specification lists maps to a table (or, where marked, to a col
 | Projects · Trips / Expense Events · Categories · Expense/Income types · Transaction types · Tags · Statuses · Confidentiality levels | `expense_event` (kinds include project) · `category` (kind) · `txn_type` · `tag`, `txn_tag` · CHECK constraints + `label_override` · `confidentiality_level` |
 | Custom fields · Custom labels · Custom forms + conditional rules | `custom_field_def`, `custom_field_value` · `label_override` · `form_definition` |
 | Master Transactions · Transaction lines · Ledger entries · Posting rules | `txn` · `txn_leg` · `journal`, `journal_line` · `posting_rule_version` |
-| Fund allocations · Allocation adjustments · Expenses · Expense lines · Expense splits | `journal_line.fund_id` · an `allocation_adjustment` txn type with balanced journals (H5) · `txn` (intent expense) · `txn_leg` (allocation legs) · `txn_leg` amounts |
-| Advances · Reimbursements · Outstanding · Settlements · Handovers · Opening balances | `open_item` (kind advance) · `open_item` (kind interentity) · `open_item` · `settlement_allocation` · `custody_event` · `txn` (intent opening_balance) + `journal.kind = 'opening'` |
+| Fund allocations · Allocation adjustments · Expenses · Expense lines · Expense splits | `journal_line.fund_id` · between entities: a `withdrawal` or `interentity_transfer` posted at the same location (AC10 example 7); between funds of one entity: an `allocation_adjustment` intent, schema-ready, engine planned for M7 · `txn` (intent expense) · `txn_leg` (allocation legs) · `txn_leg` amounts |
+| Advances · Reimbursements · Outstanding · Settlements · Handovers · Opening balances | `open_item` (kind advance) · `open_item` (kind interentity) · `open_item`, `open_item_origin` · `settlement_allocation` · `custody_event` · `txn` (intent opening_balance) + `journal.kind = 'opening'` |
 | Periods · Approvals / workflows / thresholds · Workflow rules | `accounting_period`, `period_close_run` · `approval_rule`, `approval_request` · `approval_rule.steps` |
 | Reconciliation records · Exception findings · Attachments | `reconciliation`, `bank_statement_*` · `exception_finding` · `attachment`, `attachment_link` |
 | Reports · Dashboards · Documents · Document versions | `report_definition` · `dashboard_config` · `document` · `document.supersedes_document_id` |
@@ -297,7 +303,8 @@ enter), `granted_by`, `granted_at`, `revoked_at`, `revoked_by`, `reason`. Unique
 
 Constraints: unique `(user_id, env_entity_id, source) WHERE revoked_at IS NULL`; `valid_until > valid_from`.
 **A4 trigger:** a row for a *person* environment is accepted only when `source = 'self'` and the user is that person,
-or when `granted_by` is the user of that person (owner grant). Super Admin, admins and break-glass cannot open anyone
+or when the **actor of the transaction** is that person (owner grant) — never on the strength of a `granted_by` value
+the caller wrote; `granted_by` must equal the actor. Rows are never edited, only revoked (history). Super Admin, admins and break-glass cannot open anyone
 else's personal finance. Firm access never implies personal access (RULEBOOK-03 §4, §18).
 
 ### `access_rule` (R, CFG) — fine-grained rules (L2–L9)
@@ -310,8 +317,10 @@ view_attachments, view_audit, manage), `effect text check in ('allow','deny')`, 
 ('full','rounded','range','hidden','existence')`, `detail_level smallint check between 1 and 5`, `conditions jsonb`
 (ABAC: transaction types, device trust, auth strength…), `valid_from`, `valid_until`, `source text check in
 ('role_default','admin','owner','temporary','share')`, `granted_by`, `reason`, `revoked_at`, `revoked_by`, [std].
-Same A4 trigger for allow rules inside a person environment. Evaluation: explicit deny > explicit allow > role default
-(L8), central in the API; deny rules on funds and locations are mirrored in RLS.
+Same A4 trigger for allow rules, checked against both the stated scope and the resource's own environment; an allow
+on an owner-only fund or location must come from an owner of it. Rules are never re-pointed, only revoked.
+Evaluation: explicit deny > explicit allow > role default (L8), central in the API; deny rules and owner-only
+confidentiality on funds and locations are mirrored in RLS.
 
 ### `break_glass` (R, CFG)
 `id`, `user_id`, `env_entity_id` (never a person environment — trigger), `reason text not null`, `auth_strength`,
@@ -364,7 +373,7 @@ Unique `(org_entity_id, member_entity_id, engine_role) WHERE valid_to IS NULL`; 
 `verified_by`, `key_version`, [std]. A share recipient (Q3, Q9).
 
 ### `category` (P, CFG)
-`id`, `kind text check in ('expense','revenue')`, `key text unique`, `name`, `parent_id` → category (same kind —
+`id`, `kind text check in ('expense','income')` (the engine's words; income categories post to revenue-class accounts), `key text unique`, `name`, `parent_id` → category (same kind —
 composite FK `(parent_id, kind) → category (id, kind)`), `account_code text not null` (the ledger account code it posts
 to in every entity's chart), `managed_in_env_id` (null = global), `sort_order`, [std]. Unique `(id, kind)`.
 
@@ -505,13 +514,8 @@ any status change not listed.
 | entered_at | timestamptz | no | now() | entry timestamp |
 | submitted_at / approved_at / posted_at | timestamptz | yes | | AC8 separate dates; `posted_at` required when status is posted, reversed or corrected |
 | currency | char(3) | no | `'INR'` | check `= 'INR'` |
-| amount_enc | bytea | yes | | C — headline amount |
-| amount_bidx | bytea | yes | | H — HMAC(entity-scoped key, amount): exact search "45000" |
-| amount_bucket | bytea | yes | | H — HMAC of the amount band (range filters) |
-| key_version | int | yes | | |
-| reason | text | yes | | R — searchable; field-level visibility applied by the API (open question Q2) |
+| reason | text | yes | | R — the shared description of the event, visible to every participant environment (open question Q2); private remarks go to `txn_note` |
 | search_tsv | tsvector | no | generated from reason + reference | full-text search, no extension |
-| notes_enc | bytea | yes | | C — internal note |
 | payment_method_id | uuid | yes | | → lookup_value (payment_method) |
 | expense_event_id | uuid | yes | | → expense_event |
 | options | jsonb | no | `'{}'` | non-sensitive engine options: route, treatment, via_transit |
@@ -520,10 +524,15 @@ any status change not listed.
 | handled_by_entity_id | uuid | yes | | → entity (person who physically handled it) |
 | client_ref | uuid | yes | | id the phone generated offline; unique per user (sync dedupe) |
 | device_id | uuid | yes | | |
-| version / change_seq | | no | | |
+| version / change_xid | | no | | |
 
 Unique `(id, value_date)` (target of `txn_entity`'s cascading copy). Index and search design in
 [04-index-performance.md](04-index-performance.md).
+
+**No headline amount on the event.** The total is Σ of its source legs; storing it again would duplicate a fact
+and, worse, reveal the whole of a mixed event to someone who may see only one side (a Mint user seeing that Krish's
+₹45,000 event was more than Mint's ₹30,000). Amounts and their search indexes live on the legs, each visible only in
+its own environment. A commit-time check refuses any submitted event without legs.
 
 ### `txn_entity` (R, ENV)
 `txn_id`, `entity_id`, `role text check in ('payer','owner','receiver','giver','holder','counterparty','lender',
@@ -533,14 +542,21 @@ acknowledgement, open question Q1), `ack_by`, `ack_at`, `ack_note`. PK `(txn_id,
 
 ### `txn_leg` (C/R, ENV)
 `id`, `txn_id`, `seq smallint`, `leg_kind text check in ('source','destination','allocation')`, `entity_id`,
-`location_id`, `fund_id` → `fund (id, entity_id)` when set, `category_id`, `counterparty_entity_id`,
-`expense_event_id`, `amount_enc not null`, `key_version`, `treatment text check in ('withdrawal','owes')` (F8),
-`attributes jsonb` (non-sensitive). Unique `(txn_id, leg_kind, seq)`. **Trigger:** legs can be inserted, changed or
-removed only while the parent is `draft`; afterwards they are frozen (what was approved is what posts).
+`location_id`, `fund_id` → `fund (id, entity_id)` — **required for every entity with books** (it decides who may see
+the leg), `category_id`, `counterparty_entity_id`, `expense_event_id`, `amount_enc not null`,
+`amount_bidx` (H — HMAC with a per-environment key: exact-amount search), `amount_bucket` (H — band for range
+filters), `key_version`, `treatment text check in ('withdrawal','owes')` (F8), `attributes jsonb` (non-sensitive).
+Unique `(txn_id, leg_kind, seq)`. **Trigger:** legs can be inserted, changed or removed only while the parent is
+`draft`; afterwards they are frozen (what was approved is what posts). Planned lines point back at their leg
+(`journal_line.txn_leg_id`, from the engine's `PlannedLine.leg`).
+
+### `txn_note` (C/R, ENV)
+`id`, `txn_id`, `env_entity_id` (whose side the note belongs to), `note_enc`, `key_version`, `created_by`,
+`created_at`. Private remarks one environment at a time: a note on Krish's side is never shown to a Mint user.
 
 ### `txn_link` (R, ENV)
 `from_txn_id`, `to_txn_id`, `kind text check in ('reverses','corrects','partially_reverses','refunds','replaces',
-'duplicate_of')`, `created_at`, `created_by`. PK `(from_txn_id, to_txn_id, kind)`; check `from_txn_id <> to_txn_id`;
+'duplicate_of','confirms')` (`confirms`: a handover confirmation event confirms its initiating transfer), `created_at`, `created_by`. PK `(from_txn_id, to_txn_id, kind)`; check `from_txn_id <> to_txn_id`;
 unique `(to_txn_id) WHERE kind = 'reverses'` — a transaction is fully reversed at most once.
 
 ### `txn_tag` (R, ENV)
@@ -568,7 +584,7 @@ posting: one global order of journals.
 | txn_id | uuid | no | → txn |
 | entity_id | uuid | no | → entity (has books) — whose books |
 | step | smallint | no | 1, 2 … (through-owner flows have two linked steps) |
-| kind | text | no | standard, reversal, closing, opening, adjustment |
+| kind | text | no | the engine's `JOURNAL_KINDS`: standard, transfer, settlement, opening, adjusting, closing, reversal, correction (a catalog test keeps them equal) |
 | period_id | uuid | no | → `accounting_period (id, entity_id)` — same entity |
 | value_date | date | no | must fall inside the period |
 | posted_at | timestamptz | no | |
@@ -624,16 +640,19 @@ fund appearing in it has both sides. **Update/delete:** refused (one audited exc
 | kind | text | no | interentity, supplier_payable, customer_receivable, advance, loan |
 | debtor_entity_id / creditor_entity_id | uuid | no | explicit (RULEBOOK-01 §169); check different |
 | debtor_role / creditor_role | text | yes | ledger role on each side (null where that side has no books) |
-| debtor_fund_id / creditor_fund_id | uuid | yes | |
+| debtor_fund_id / creditor_fund_id | uuid | yes | → `fund (id, entity_id)` of that side: the fund the item is carried in; a settlement clears it there (per-fund balancing) |
 | origin_txn_id | uuid | no | → txn |
-| origin_debtor_line_id / origin_creditor_line_id | uuid | yes | → journal_line on each side that has books |
 | original_enc | bytea | no | C |
 | remaining_enc | bytea | no | C — maintained; = original − Σ allocations (verifier) |
-| status | text | no | open, partially_settled, settled, written_off, reversed |
+| item_status | text | no | open, partially_settled, settled, written_off, reversed |
 | due_date | date | yes | aging |
 | reason | text | no | R |
 | settled_at | timestamptz | yes | |
-| key_version, version, change_seq | | | |
+| key_version, version, change_xid | | | |
+
+### `open_item_origin` (R, ENV/LEDGER)
+`open_item_id`, `journal_line_id`, `side text check in ('debtor','creditor')`, PK both ids. The lines an item came
+from on each side with books (AC11): an expense paid from two sources has two per side. Insert-only.
 
 ### `settlement_allocation` (C/R, ENV/LEDGER)
 `id`, `settlement_txn_id` → txn, `open_item_id` → open_item, `kind text check in ('payment','offset','write_off',

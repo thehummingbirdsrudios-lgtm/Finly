@@ -36,7 +36,7 @@ most one page of rows or a few hundred balance slices — never "all lines" (Edg
    shared precomputed view would either be useless (ciphertext) or leak across scopes. The encrypted snapshots are
    the precomputation, kept exact in the posting transaction.
 6. **No shared caches across permission scopes** (O). The phone keeps its own authorised results in its encrypted local
-   database; master data uses ETags derived from `max(change_seq)`.
+   database; master data uses ETags derived from the newest `change_xid`.
 7. Foreign keys are indexed when a query or a parent-side check needs it. Parent rows are never deleted (archive
    policy), so cascades never need child indexes.
 
@@ -48,8 +48,8 @@ most one page of rows or a few hundred balance slices — never "all lines" (Edg
 | Q2 | Pending work: drafts, pending approvals, approved, failed in an environment | `txn (primary_env_id, status, value_date DESC) WHERE status IN ('draft','pending_approval','approved','failed')` | Small partial index; posted history (the bulk) is not in it |
 | Q3 | Open a transaction by reference; prefix search `TX-20261008…` | `txn (reference)` unique, column collation `"C"` | Equality and `LIKE 'prefix%'` from one B-tree |
 | Q4 | Search words in reason (`45000 Angadiya`) | `txn USING gin (search_tsv)` | Full-text search without extensions; Hindi and Gujarati words with the `simple` configuration |
-| Q5 | Search an exact amount (`45000`), duplicate warning (same amount, same day) | `txn (amount_bidx, value_date DESC) WHERE amount_bidx IS NOT NULL` | Exact-amount lookup over encrypted amounts via the keyed blind index |
-| Q6 | Filter an amount range (₹10,000–₹50,000) | `txn (amount_bucket, value_date DESC) WHERE amount_bucket IS NOT NULL` | Candidate rows by band, then exact filter after decryption of that page only |
+| Q5 | Search an exact amount (`45000`), duplicate warning (same amount, same day) | `txn_leg (amount_bidx)` → `txn` by id | Exact-amount lookup over encrypted amounts via the keyed blind index — only on legs the viewer may see, so a search never reveals a hidden side's total |
+| Q6 | Filter an amount range (₹10,000–₹50,000) | `txn_leg (amount_bucket)` → `txn` by id | Candidate legs by band, then exact filter after decryption of that page only |
 | Q7 | Location statement (Tijori, Savan Bank), newest first | `journal_line (location_id, value_date DESC, journal_id) WHERE location_id IS NOT NULL` | Statement pages without touching other lines |
 | Q8 | Ledger-account statement of an entity (General Ledger, Explain Balance) | `journal_line (entity_id, ledger_account_id, value_date DESC)` | Same, per account |
 | Q9 | Counterparty sub-ledger (lines between Mint and Krish) | `journal_line (entity_id, counterparty_entity_id, value_date DESC) WHERE counterparty_entity_id IS NOT NULL` | Reciprocity checks and "who owes whom" drill-down |
@@ -68,7 +68,7 @@ most one page of rows or a few hundred balance slices — never "all lines" (Edg
 | Q22 | RLS: environments of the actor; rules of the actor and the actor's roles | `env_access (user_id) WHERE revoked_at IS NULL`, `user_role (user_id) WHERE revoked_at IS NULL`, `access_rule (subject_user_id) WHERE revoked_at IS NULL`, `access_rule (subject_role_id) WHERE revoked_at IS NULL` | The per-statement visibility sets are computed from a handful of rows |
 | Q23 | Members of a firm; firms of a person (owner checks, non-owner rule) | `entity_membership (org_entity_id) WHERE valid_to IS NULL`, `entity_membership (member_entity_id) WHERE valid_to IS NULL` | Engine `isOwner` and membership screens |
 | Q24 | Autocomplete people, firms, parties by name | `entity (lower(display_name) text_pattern_ops)` | Prefix search; results then permission-filtered |
-| Q25 | Mobile delta sync of masters | `(change_seq)` on each synced table | `WHERE change_seq > cursor ORDER BY change_seq LIMIT n` |
+| Q25 | Mobile delta sync of masters | `(change_xid)` on each synced table | `WHERE change_xid >= cursor ORDER BY change_xid, id LIMIT n`; next cursor = the snapshot's `xmin` (06 §6.6) |
 | Q26 | Notification centre; unread badge | `notification (user_id, created_at DESC) WHERE dismissed_at IS NULL`, `notification (user_id) WHERE read_at IS NULL` | Badge is an index-only count |
 | Q27 | Share history (mine; of a transaction) | `share_request (initiated_by, created_at DESC)`, `share_request (txn_id)` | |
 | Q28 | Audit trail of an object; of an environment; of a user | `audit_log (object_id, occurred_at)`, `audit_log (env_entity_id, occurred_at DESC)`, `audit_log (actor_user_id, occurred_at DESC)` | Detail history, audit screens, access logs |

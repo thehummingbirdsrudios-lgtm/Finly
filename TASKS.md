@@ -21,9 +21,13 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · ⛔ gate
 - [ ] Threat model (STRIDE) and data-flow diagrams
 - [ ] Client-independent architecture, API contracts and versioning, error model
 - [ ] Encryption and key-management design (AC7), backup design
-- [x] Database architecture and schema design (add-on 11): ERD levels 1–6, 91 tables, data dictionary, index and RLS design, concurrency, sync, migration and backup strategies, edge-case matrix, open questions — [docs/database/](docs/database/README.md)
-- [ ] Migrations implementing the design, database tests (RLS, immutability, constraints, concurrency), benchmark
-- ⛔ **Gate 3 — database schema** delivered as documents (D-019, D-025); open questions Q1–Q12 await the owner
+- [x] Database architecture and schema design (add-on 11): ERD levels 1–6, 93 tables, data dictionary, index and RLS design, concurrency, sync, migration and backup strategies, edge-case matrix, open questions — [docs/database/](docs/database/README.md)
+- [x] Independent architecture review of the design; all findings fixed (docs/database/README "Independent review")
+- [x] Migrations 0001–0009 implementing the design (roles, 93 tables, guards, RLS, seeds, column meanings)
+- [x] Database tests: ledger structure, privacy and RLS, lifecycles, catalog parity (design ↔ schema ↔ engine ↔
+  dictionary) — 40 tests; generated [data dictionary](docs/database/DATA-DICTIONARY.md)
+- [ ] Two-connection concurrency tests and the query benchmark (`db:bench`) — need PostgreSQL 17 in CI
+- ⛔ **Gate 3 — database schema** delivered as documents (D-019, D-025); open questions Q1–Q14 await the owner
 
 ## M2 — Design, UX blueprint, edge cases
 

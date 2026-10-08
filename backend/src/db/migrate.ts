@@ -1,0 +1,87 @@
+/**
+ * Forward-only, checksummed migration runner (D-027). Plain SQL files run in name order, each in its own
+ * transaction; an applied file whose content changed stops the run. Works on any PostgreSQL 17 and on PGlite.
+ */
+
+export interface Sql {
+  /** Runs one or more statements without parameters. */
+  exec(text: string): Promise<void>;
+  /** Runs one parameterised statement and returns its rows. */
+  query<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T[]>;
+  /** Runs `fn` inside one transaction: commit on success, rollback on any error. */
+  transaction<T>(fn: (tx: Sql) => Promise<T>): Promise<T>;
+}
+
+export interface Migration {
+  version: string;
+  name: string;
+  sql: string;
+  checksum: string;
+}
+
+const FILE_NAME = /^(\d{4})_([a-z0-9_]+)\.sql$/;
+
+export async function sha256Hex(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Reads `NNNN_name.sql` files from a directory, sorted by version. */
+export async function loadMigrations(dir: URL | string): Promise<Migration[]> {
+  const found: Migration[] = [];
+  for await (const entry of Deno.readDir(dir)) {
+    if (!entry.isFile) continue;
+    const match = FILE_NAME.exec(entry.name);
+    if (!match) throw new Error(`Unexpected file in migrations: ${entry.name}`);
+    const url = new URL(entry.name, dir instanceof URL ? dir : `file://${dir}/`);
+    const sql = await Deno.readTextFile(url);
+    found.push({ version: match[1], name: entry.name, sql, checksum: await sha256Hex(sql) });
+  }
+  found.sort((a, b) => a.version.localeCompare(b.version));
+  for (let i = 1; i < found.length; i++) {
+    if (found[i].version === found[i - 1].version) throw new Error(`Duplicate migration version ${found[i].version}`);
+  }
+  return found;
+}
+
+const BOOTSTRAP = `
+create schema if not exists finly;
+create table if not exists finly.schema_migration (
+  version text primary key,
+  name text not null,
+  checksum text not null,
+  applied_at timestamptz not null default now()
+);`;
+
+/** Applies every pending migration; returns the versions applied. */
+export async function migrate(db: Sql, migrations: Migration[]): Promise<string[]> {
+  await db.exec(BOOTSTRAP);
+  const applied = await db.query<{ version: string; checksum: string }>(
+    'select version, checksum from finly.schema_migration order by version',
+  );
+  const byVersion = new Map(applied.map((r) => [r.version, r.checksum]));
+  for (const m of migrations) {
+    const sum = byVersion.get(m.version);
+    if (sum !== undefined && sum !== m.checksum) {
+      throw new Error(`Migration ${m.name} was changed after it was applied. Write a new migration instead.`);
+    }
+  }
+  const known = new Set(migrations.map((m) => m.version));
+  for (const v of byVersion.keys()) {
+    if (!known.has(v)) throw new Error(`The database has migration ${v}, which this code does not know.`);
+  }
+  const done: string[] = [];
+  for (const m of migrations) {
+    if (byVersion.has(m.version)) continue;
+    await db.transaction(async (tx) => {
+      await tx.exec(m.sql);
+      await tx.query('insert into finly.schema_migration (version, name, checksum) values ($1, $2, $3)', [
+        m.version,
+        m.name,
+        m.checksum,
+      ]);
+    });
+    done.push(m.version);
+  }
+  return done;
+}

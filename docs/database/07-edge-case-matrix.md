@@ -2,7 +2,8 @@
 
 Add-on 11 item 28 and §30 item 14: every scenario simulated against the schema before implementation. Each row says
 which rows are written, what the **database itself** guarantees, what the engine/API guarantees, and the result.
-"DB test" names the test in `backend/tests/db/` that proves the database's part (written with the migrations).
+"DB test" names the test in `backend/tests/db/` that proves the database's part. Rows needing two concurrent
+connections (#24) run only against PostgreSQL 17 in CI; PGlite has one connection.
 
 Amounts are the owner's examples. Notation: `[E]` = entity E's journal.
 

@@ -32,7 +32,8 @@ to another entity, cross-environment reads by the wrong user.
 
 **PostgreSQL 17** in our own `finly` schema, hosted on Supabase's free plan in Mumbai (D-013), with nothing
 Supabase-specific in the ledger (S12): plain SQL, plain roles, plain row-level security, no extensions. The same
-migrations run unchanged on any PostgreSQL 17 and on PGlite (PostgreSQL 17 in WebAssembly) in tests (D-024).
+migrations run unchanged on any PostgreSQL 17 or later; tests run them on PGlite 0.5.8 (PostgreSQL 18.3 in
+WebAssembly) and CI on a real PostgreSQL 17, the production version (D-028). Nothing PostgreSQL 18-only is used.
 
 | Considered | Verdict |
 |---|---|
@@ -84,7 +85,7 @@ users created at deployment (passwords never in migrations or Git):
 |---|---|---|---|
 | `finly_auth` | identity service | read/write identity tables: users, credentials, MFA, devices, sessions, refresh tokens, security events | read any financial or master table |
 | `finly_api` | every request handler | read business tables **through RLS by actor**; write drafts, master data, shares, notifications, attachments metadata | read credential tables; `UPDATE`/`DELETE` posted history; bypass RLS |
-| `finly_ledger` | posting service only | read structural and balance rows across the environments involved in one authorised posting; insert journals, lines, open items, settlements; update balance snapshots and transaction status | read credential tables; change posted lines; act without an actor (its policies require `finly.actor_user_id`) |
+| `finly_ledger` | the posting service: **every financial command** — submit, approve, post, reverse, correct, settle, hold, confirm a handover, close and reopen a month — each in one transaction under this one role | read what an authorised posting touches in any environment (the counterpart side of a mixed event); create events, legs, journals, lines, open items, settlements; update snapshots, holds, statuses | read credential tables; change posted lines; act without an actor (every policy requires `finly.actor_user_id`); serve query screens (they use `finly_api`) |
 | `finly_system` | scheduled jobs (Integrity Verifier, period-close checks, notification fan-out, retention) | read everything needed for verification; write findings, runs, retention results | read credentials; update posted lines (one audited exception: key rotation re-encryption, §5) |
 
 Every API transaction begins with `set_config('finly.actor_user_id', …, true)` (and session, device, request IDs),
@@ -106,12 +107,12 @@ queries, least-privilege roles and encryption do.
 | Authorisation | `role`, `permission`, `role_permission`, `user_role`, `env_access`, `access_rule`, `break_glass` | what you may do and see |
 | Entities and masters | `entity_type`, `entity`, `person_profile`, `firm_profile`, `entity_membership`, `contact`, `category`, `txn_type`, `tag`, `place`, `expense_event`, `custom_field_def`, `custom_field_value`, `form_definition`, `approval_rule`, `notification_rule`, `message_template`, `report_definition`, `dashboard_config` | the configurable structure |
 | Money structure | `coa_template_account`, `ledger_account`, `fund`, `location`, `bank_account_detail`, `location_ownership`, `location_access`, `location_holder`, `balance_hold` | where money can be and who controls what |
-| Events and ledger | `txn`, `txn_status_transition`, `txn_entity`, `txn_leg`, `txn_link`, `txn_tag`, `posting_rule_version`, `accounting_period`, `journal_chain_head`, `journal`, `journal_line`, `balance_slice`, `balance_current`, `balance_period`, `open_item`, `settlement_allocation`, `custody_event`, `approval_request`, `period_close_run` | what happened and its accounting |
+| Events and ledger | `txn`, `txn_status_transition`, `txn_entity`, `txn_leg`, `txn_note`, `txn_link`, `txn_tag`, `posting_rule_version`, `accounting_period`, `journal_chain_head`, `journal`, `journal_line`, `balance_slice`, `balance_current`, `balance_period`, `open_item`, `open_item_origin`, `settlement_allocation`, `custody_event`, `approval_request`, `period_close_run` | what happened and its accounting |
 | Control | `reconciliation`, `bank_statement_import`, `bank_statement_line`, `exception_finding`, `integrity_run` | proving the books match reality |
 | Files and sharing | `attachment`, `attachment_link`, `document`, `share_profile`, `share_request`, `share_event`, `secure_link`, `secure_link_access` | evidence in, proof out |
 | Operations | `idempotency_record`, `sync_review`, `notification`, `audit_log`, `audit_chain_head` | exactly-once requests, offline review, alerts, accountability |
 
-Ninety-one tables. The full list with purpose, keys and relationships is [03-schema.md](03-schema.md).
+Ninety-three tables. The full list with purpose, keys and relationships is [03-schema.md](03-schema.md).
 
 ## 1.6 The financial ledger model (add-on 11 item 7)
 
@@ -183,7 +184,7 @@ consistent. There are no others.
 | `journal_line.entity_id`, `journal_line.value_date` | Index-only filtering and keyset pagination of statements without joining `journal` | `journal` | **Composite foreign key** `(journal_id, entity_id, value_date) → journal` — the database refuses any difference |
 | `txn_entity.value_date` | List "Mint's transactions, newest first" from one index | `txn.value_date` | Composite foreign key `(txn_id, value_date) → txn ON UPDATE CASCADE` |
 | `journal_line.holder_person_id` | "Who held the Tijori when this cash went in" must survive later holder changes | `location_holder` at posting time | Written once by the engine; lines are immutable |
-| `txn.amount_bidx`, `txn.amount_bucket` | Search by amount over encrypted values | `txn.amount_enc` | Computed by the encryption service in the same write |
+| `txn_leg.amount_bidx`, `txn_leg.amount_bucket` | Search by amount over encrypted values | `txn_leg.amount_enc` | Computed by the encryption service in the same write; the leg is frozen after submission |
 | `journal_chain_head`, `audit_chain_head` | Serialise the hash chains without scanning | last chained row | Locked and updated in the same transaction as the appended row |
 
 ### Money and numeric types (add-on 11 item 10)
@@ -273,7 +274,7 @@ only its status moves to `reversed` or `corrected`, together with the linked mir
 | Data | Policy |
 |---|---|
 | Posted transactions, journals, lines, settlements, open items, snapshots | **Never deleted.** Corrected by reversal, correction or adjustment (H15, RULEBOOK-03 §62). `DELETE` is not granted and a trigger refuses it. |
-| Drafts, pending approvals | Cancelled (status), never deleted, so the audit trail and sync stay simple. |
+| Drafts, pending approvals | Cancelled (status), never deleted, so the audit trail and sync stay simple. The only `DELETE` privilege in Finly: the legs and tags of the actor's own draft while it is still a draft. |
 | Master data with history (entities, funds, ledger accounts, locations, categories, users) | Inactive → archived; rename is a label change over the stable ID. Never deleted once referenced; an unreferenced master created by mistake may be archived immediately. |
 | Access grants, holders, ownership of locations | Ended (`revoked_at`, `valid_to`), never deleted — history is the point (F5). |
 | Audit log, security events, hash chains | Append-only; retention per `retention_policy` (proposed 8 years, open question Q8). |
@@ -292,6 +293,9 @@ only its status moves to `reversed` or `corrected`, together with the linked mir
   journals (`journal.kind = 'closing'`) roll income and expense into retained earnings per fund (F4). Each slice's
   `balance_period.closing_enc` is fixed at close and becomes the next period's opening.
 - Reopen: high privilege + reason + step-up; recorded as a `period_close_run` of kind `reopen` and in the audit log.
+- **Order is enforced by the database:** a month closes only when every earlier month of that entity is closed, and
+  reopens only when every later month is open, so "closing balance = next opening" can never be broken. The journal
+  insert trigger takes the period row `FOR SHARE`, so a posting and a close of the same month serialise.
 
 ## 1.10 Files and proof (add-on 11 item 21)
 
@@ -328,8 +332,9 @@ money or security is versioned (`version` column) and audited (T1).
 - Forward-only. Destructive changes follow expand → migrate → contract across releases; dropping a table or column
   that ever held financial data is not allowed. Each file's header states purpose, data impact and how to recover.
 - Every migration is tested: the suite applies all migrations to an empty database (PGlite in tests, PostgreSQL 17 in
-  CI), then checks the catalog (RLS on every table, no grants to client roles, every table commented, constraints
-  present) and runs the database tests.
+  CI), then checks the catalog — RLS and at least one policy on every table, nothing granted to PUBLIC, no credential
+  access for the API role, no DELETE beyond draft legs, every table commented, every table of 03 present and nothing
+  else, seeds and kind lists equal to the engine's — and runs the database tests (`backend/tests/db/`).
 - Production: backup first (§1.14), apply, run the Integrity Verifier, smoke-test. A failed migration rolls back as a
   whole; a bad but successful one is fixed forward, or the database is restored from the pre-migration backup.
 

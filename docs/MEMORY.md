@@ -4,14 +4,23 @@ Running context between sessions. Newest entries first in §3. Read with [TASKS.
 
 ## 1. Where we are
 
-- **Milestone:** M0 complete except approval. **Waiting for Gate 1 (stack) and Gate 2 (accounting model)** —
-  [DECISIONS.md](DECISIONS.md), sections "Stack Decision Record" and "Accounting Model Record".
-- **Branch:** `chore/m0-foundation` (local only; nothing pushed; the private GitHub repository is created after the owner confirms).
+- **Milestones:** M0 done; Gates 1 and 2 resolved (D-013..D-018, D-021); the accounting engine is built and tested
+  (`backend/src/domain/engine`, 49 tests); **M1 database: design and implementation done** — 93 tables, 9 migrations,
+  40 database tests, generated data dictionary ([docs/database/](database/README.md), D-025..D-028). Gate 3 is delivered
+  as documents (D-019) with open questions Q1–Q14 and flags F8–F9 for the owner.
+- **Branches:** work on `feat/database`; `main` is fast-forwarded after each verified milestone. Remote `origin` =
+  github.com/thehummingbirdsrudios-lgtm/Finly (public). **Nothing pushed yet:** this PC's saved GitHub credentials belong
+  to another account (TheDevKriish → 403); the owner signs in and runs `git push -u origin main`.
+- **Next:** the persistence layer (posting service writing the schema in one transaction, encryption service, Integrity
+  Verifier), then the identity service and the HTTP API, then the Flutter app screens.
+- **Backend verification:** `cd backend && deno task verify` (format, lint, types, all tests). Database tests run on
+  PGlite 0.5.8 (PostgreSQL 18.3 in WebAssembly); PGlite 0.3 crashed on any error raised in PL/pgSQL (D-028).
+- **Android build here:** Gradle needs `JAVA_TOOL_OPTIONS=-Djdk.net.unixdomain.tmpdir=<a writable folder>` in this
+  sandbox, otherwise "Unable to establish loopback connection".
 - **Design system draft:** [Finly Design System artifact](https://claude.ai/artifact/TS2kABqmbQoASrgxM6r79J), source in
   `design-system/`. Revision for add-ons 08 and 09 is planned for M2, before Gate 4.
-- **Machine:** Flutter 3.47.6 / Dart 3.13.5 at `D:\flutter\flutter` (the `C:\flutter` PATH entry is stale); Android SDK
-  at `C:\Android\sdk` (platforms 34–36); JDK 21; Node 24; Deno 2.9. **Not yet:** Docker, Supabase CLI, an emulator, a
-  connected phone, accepted Android SDK licences (the owner runs `flutter doctor --android-licenses`). D: has ~5.7 GB free.
+- **Machine:** Flutter 3.47.6 / Dart 3.13.5 at `D:\flutter\flutter`; Android SDK at `C:\Android\sdk`; JDK 21;
+  Node 24; Deno 2.9. **Not yet:** Docker, Supabase CLI, a connected phone.
 - **Supabase:** the owner's free org has one active project ("vepari", Mumbai) → one free slot for Finly.
 
 ## 2. First-session restatement (BUILD_PROMPT, "First session — what to do now", step 1)
@@ -50,6 +59,18 @@ original expense. How each entity's share is broken down by category is an open 
 
 ## 3. Session log
 
+### 2026-10-09 — Session 3 (continued)
+
+- Owner sent the database master prompt (add-on 11): designed the database first — the 16 required outputs in
+  `docs/database/` — then implemented it.
+- An independent architecture review found 2 blockers and 9 major issues; all fixed in design, migrations and engine
+  (engine: funds on open items, settlement kinds, leg references — commit 9187e41). Tests then found two policy loops
+  and a leg-without-fund leak, also fixed.
+- PGlite 0.3.3 crashed on every PL/pgSQL error; upgraded to 0.5.8 (PostgreSQL 18.3) after checking its age and licence.
+- 9 migrations, 93 tables, 40 database tests (ledger structure, privacy/RLS, lifecycle, catalog parity with the design
+  document, the engine and the generated dictionary). Mutation checks: breaking the engine or the owner-grant guard
+  makes the intended tests fail.
+
 ### 2026-10-08 — Session 2
 
 - Owner approved Gate 1 with conditions (D-013..D-017: portable Supabase use, Android 7.0+, backups on the owner's
@@ -86,7 +107,10 @@ original expense. How each entity's share is broken down by category is an open 
   GitHub repository and push; create the backup storage account.
 - The owner may want to review Supabase dashboard AI opt-ins on the organisation (data-privacy setting; not changed).
 
-## 5. Next steps after the gates
+## 5. Next steps
 
-M1: threat model and data-flow diagrams, API contracts, encryption and key design, the full schema → Gate 3.
-M2: design-system revision (add-ons 08, 09), UX blueprint with tap budgets, master Edge-Case Matrix → Gate 4.
+1. Persistence: posting service (lock protocol of docs/database/06 §6.2), encryption and blind-index service (HKDF
+   keys, D-026), audit and journal hash chains, Integrity Verifier — tested end to end against PGlite.
+2. Identity service (Argon2id, sessions, devices, M-PIN, TOTP) and the versioned HTTP API with the policy engine.
+3. Flutter app: theme from tokens, startup and sign-in flows, quick entry, activity, balances, outstanding.
+4. M2 design-system revision (add-ons 08, 09), UX blueprint, master edge-case matrix → Gate 4.

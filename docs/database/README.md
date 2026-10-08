@@ -55,12 +55,12 @@ this design.
 | Auditable? | Hash-chained audit written in the same transaction; commit refused without it | 05 §5.8 |
 | ACID-safe? | One operation = one transaction; deferred structural checks at commit | 06 §6.1–6.2 |
 | Concurrency-safe? | Row locks in a global order, version checks, unique keys on every race | 06 §6.3–6.4 |
-| Mobile-friendly? | Pagination, selective fields, `change_seq` delta sync, idempotent offline queue | 04, 06 §6.6 |
+| Mobile-friendly? | Pagination, selective fields, commit-safe `change_xid` delta sync, idempotent offline queue | 04, 06 §6.6 |
 | Scalable? | Years of headroom on the free plan; UUIDv7 keys; partitioning of `audit_log` and `journal_line` by year possible later without changing the model | 04 §4.1 |
 | Migration-safe? | Forward-only, checksummed, tested on an empty database every run; expand/contract | 01 §1.13 |
 | Backup-safe? | Encrypted dumps, keys elsewhere, monthly restore drill with the verifier | 01 §1.14 |
 | Future iOS / web ready? | Nothing client-specific in the database; one API | 01 §1.3 |
-| Edge cases covered? | 40 scenarios traced, each with its test | 07 |
+| Edge cases covered? | 40 scenarios traced, each with its test; 40 database tests and 49 engine tests pass | 07, `backend/tests/` |
 | Financially correct? | Invariants owned by the database, the engine or the verifier — none unowned | 01 §1.6 |
 | No duplicate source of truth? | Every copy listed with its source and its consistency mechanism | 01 §1.6 |
 | No unnecessary complexity? | No extensions, no materialised views, no enum types, no polymorphic keys; one generic lookup table made type-safe | 01, 03 |
@@ -96,6 +96,29 @@ this design.
 | RULEBOOK-03 §60 offline cases | 06 §6.6 |
 | RULEBOOK-03 §64 core transaction data model | `txn`, `txn_leg`, `txn_entity`, `txn_link`, `open_item` |
 | Owner F1–F7, revision 3 | 01 §1.6; engine |
+
+## Independent review (2026-10-09)
+
+An architecture reviewer (separate agent) read the design against the sources before implementation and reported 2
+blockers, 9 major and 4 minor findings. All were fixed in the design, the migrations and the engine (commit history:
+`fix(engine): carry funds on open items…`, `feat(db): …`):
+
+| Finding | Resolution |
+|---|---|
+| One transaction cannot span roles; grants missing | `finly_ledger` runs every financial command end to end; grants completed (05 §5.2) |
+| `journal.kind` did not match the engine | CHECK taken from the engine's `JOURNAL_KINDS`; catalog test keeps them equal |
+| Period close could race a posting; months could close out of order | Journal trigger takes the period `FOR SHARE`; ordered close and reopen enforced (01 §1.9) |
+| A4 trigger trusted a caller-written column | Grantor = the transaction's actor; grants and rules immutable; user's person immutable |
+| RLS gaps (balances, legs, open items, custody, child tables) | Filters through the parent slice or row; every table has a policy (catalog test) |
+| Authorisation tables readable by everyone | Own rows, the environment's owner, or access managers; approval rules for approval managers only |
+| Mixed events leaked the headline amount, its search index and notes | No amount on `txn`; amounts and blind indexes on legs; private notes in `txn_note` |
+| Sequence-based delta sync could skip late commits | `change_xid` + snapshot-`xmin` cursor (06 §6.6) |
+| Plans not storable (no settlement kind, one origin line, no fund on items, no leg link) | Engine and schema both changed; `open_item_origin` junction |
+| Lock protocol gaps | Periods and open items locked before planning; ordered slice creation; audit last; `ON CONFLICT` idempotency |
+| Refused posting left no record | Outcome recorded in a second short transaction (06 §6.1) |
+
+Testing found two more, both fixed: two pairs of policies referred to each other (PostgreSQL refuses the loop), and a
+leg could omit its fund and so escape the hidden-fund filter (now refused).
 
 ## Gate 3 status
 

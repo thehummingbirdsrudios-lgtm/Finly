@@ -25,7 +25,7 @@ ciphertext. A stolen dump *and* the backup key still meets ciphertext without th
 | `finly_owner` | owns everything; used only by migrations |
 | `finly_auth` | identity tables: `SELECT, INSERT, UPDATE` on `app_user`, `user_credential`, `mfa_factor`, `recovery_code`, `device`, `unlock_credential`, `auth_session`, `refresh_token`; `INSERT, SELECT` on `security_event`; `SELECT` on `role`, `permission`, `role_permission`, `user_role`, `system_setting`, `security_policy`, `emergency_control`; `INSERT` on `audit_log` |
 | `finly_api` | `SELECT` through RLS on business tables; `INSERT/UPDATE` on drafts (`txn` in draft, `txn_leg`, `txn_entity`, `txn_tag`), master data, access configuration, shares, attachments metadata, notifications, idempotency, sync review; `INSERT` on `audit_log`; **no** `DELETE` on any table; **no** access to credential tables (it reads users through the `app_user_public` view: id, person, display name, status) |
-| `finly_ledger` | `SELECT` on structural and balance tables; `INSERT` on `journal`, `journal_line`, `balance_slice`, `open_item`, `settlement_allocation`, `custody_event`, `txn_link`, `reference_counter`; `UPDATE` on `balance_current`, `balance_period`, `open_item` (remaining, status), `txn` (status, posted fields), `journal_chain_head`, `reference_counter`, `balance_hold` (status); `INSERT` on `audit_log` |
+| `finly_ledger` | every financial command in one transaction: `SELECT` on structural, balance and approval-rule tables; `INSERT` on `txn`, `txn_entity`, `txn_leg`, `txn_note`, `txn_link`, `journal`, `journal_line`, `balance_slice`, `balance_current`, `balance_period`, `open_item`, `open_item_origin`, `settlement_allocation`, `custody_event`, `balance_hold`, `approval_request`, `period_close_run`, `accounting_period`, `idempotency_record`, `exception_finding`, `notification`, `audit_log`; `UPDATE` on `txn` (status), `txn_entity` (acknowledgement), `balance_current`, `balance_period`, `open_item`, `custody_event`, `balance_hold`, `approval_request`, `accounting_period`, `reconciliation`, `idempotency_record`, `journal_chain_head`, `audit_chain_head`; reference numbers through `finly.next_reference()` |
 | `finly_system` | `SELECT` on everything except credential tables; `INSERT/UPDATE` on `integrity_run`, `exception_finding`, `period_close_run`, `notification`; retention deletes on expired sessions, refresh tokens and idempotency records only |
 | `anon`, `authenticated`, `service_role`, `PUBLIC` | **nothing** on schema `finly` (revoked explicitly; a catalog test asserts it) |
 
@@ -51,12 +51,14 @@ Helper functions (`SECURITY DEFINER`, `STABLE`, owned by `finly_owner`, `search_
 |---|---|
 | `finly.actor_user_id()` | the actor's user id or null |
 | `finly.actor_person_id()` | the actor's person entity (only while the user is `active`) |
-| `finly.actor_env_ids(min_level)` | environments the actor may enter at `read`, `write` or `manage` level: their own person entity; active, unexpired `env_access` rows; all firms and pools if the actor holds `admin.full` (RULEBOOK-03 §7) — **never** another person's environment except through an owner grant |
+| `finly.actor_env_ids(min_level)` | environments the actor may enter at `read`, `write` or `manage` level: their own person entity; active, unexpired `env_access` rows; every firm if the actor holds `admin.full` (RULEBOOK-03 §7) — **never** another person's environment except through an owner grant, and pools only by explicit grant (Q13) |
 | `finly.actor_hidden_ids(resource_type)` | funds or locations the actor must not see: explicit deny rules for the actor or the actor's roles, plus `owner_only` and stricter confidentiality on resources of entities the actor does not own |
 | `finly.actor_has_permission(key, env)` | true when an active role (global or scoped to `env`) allows the permission and none denies it |
 
-Policies call them as `(select finly.actor_env_ids('read'))`, so PostgreSQL evaluates each once per statement
-(an InitPlan), not once per row.
+Policies call them as `(select finly.actor_env_ids('read'))::uuid[]` — a scalar subquery cast to an array, so
+PostgreSQL evaluates each once per statement (an InitPlan), not once per row. Policies only look "down" to tables whose
+own policies do not look back (tested: PostgreSQL refuses a policy loop); where a loop would arise, a definer helper
+such as `finly.actor_access_location_ids()` reads the fact instead.
 
 ## 5.4 Policy classes
 
@@ -65,9 +67,9 @@ Policies call them as `(select finly.actor_env_ids('read'))`, so PostgreSQL eval
 | **ENV** — entity-scoped financial and master rows (`ledger_account`, `fund`, `accounting_period`, `journal`, `journal_line`, `balance_*`, `custody_event`, `balance_hold`, `expense_event`, `attachment`, `reconciliation`…) | `entity_id = any(actor_env_ids('read'))` and, where the row has them, `fund_id <> all(actor_hidden_ids('fund'))`, `location_id is null or location_id <> all(actor_hidden_ids('location'))` | `with check` the same at `write` level; posted ledger rows are written only by `finly_ledger` |
 | `entity` | its own id, its `managed_in_env_id`, or an organisation it belongs to is in the visible set; or it is a member of a visible organisation | `masters.manage` in the target environment |
 | `location` | managed in a visible environment, or the actor currently has access to it, or it is the actor's own hand-cash location — and not hidden | `masters.manage` |
-| `txn` | some `txn_entity` row of it is in a visible environment, or the actor created it | drafts: `primary_env_id` at `write` level |
-| `txn_entity`, `txn_leg` | **their own `entity_id`** is visible — so the Mint side of an event is visible to a Mint user while Krish's personal leg and role in the same event are not | drafts only |
-| `open_item` | debtor or creditor is visible | `finly_ledger` only |
+| `txn` | **a leg of it is visible** (so an event wholly inside a hidden fund or location stays hidden), or it is the actor's own draft in an environment they may still write to | drafts: `primary_env_id` at `write` level |
+| `txn_entity`, `txn_leg`, `txn_note` | **their own `entity_id`** is visible (legs: and their fund and location are not hidden) — so the Mint side of an event is visible to a Mint user while Krish's personal leg, role and notes in the same event are not | drafts only |
+| `open_item` | the debtor or creditor side is visible **and** that side's fund is not hidden | `finly_ledger` only |
 | `settlement_allocation` | its open item is visible | `finly_ledger` only |
 | **CFG** (categories, types, lookups, labels, roles, permissions, policies, templates…) | every signed-in actor | `masters.manage` (or the specific permission: `access.manage`, `security.manage`) |
 | **OWN** (`notification`, `idempotency_record`, `sync_review`, `share_*`, `dashboard_config`, private `report_definition`) | `user_id`/`initiated_by`/`owner_user_id` = actor; share history also for holders of `share.audit` | same |
@@ -83,10 +85,12 @@ ever being available to a query handler. `finly_system` policies are `using (tru
 1. Every person has private books (`entity` of kind person). The only automatic access is `env_access` with
    `source = 'self'` for that person's own user.
 2. **No one else gets in without the owner.** A trigger on `env_access`, `access_rule` and `break_glass` refuses any
-   allow/grant on a person's environment unless the grantor is that person's user. Super Admin, admins and break-glass
+   allow/grant on a person's environment unless **the actor of the transaction** is that person — a `granted_by`
+   value written by the caller proves nothing and must equal the actor. Grants and rules are never edited, only
+   revoked, and a user's person can never be re-pointed (tested in `tests/db/rls_privacy_test.ts`). Super Admin, admins and break-glass
    are refused at the database, not only in the UI (A4, T2: "Cannot grant themselves access to someone's personal
    finance").
-3. `admin.full` covers firms and pools only.
+3. `admin.full` covers firms only (pools by explicit grant, Q13).
 4. Firm membership grants nothing personal (RULEBOOK-03 §4): partners of Firm A each see Firm A and their own books.
 5. Mixed events stay split: Krish paying ₹45,000 of which ₹10,000 is personal produces a Krish journal and a Krish
    allocation leg that only Krish (and his grantees) can read; Mint users see Mint's ₹30,000 and that Mint owes Krish.
@@ -142,6 +146,8 @@ amounts (I1, M); the alternative is no amount search at all.
   replacement and removal; emergency controls; key rotation.
 - **Fields:** who (`actor_user_id`, session, device, `auth_strength`), what (`action`, `object_type`, `object_id`),
   when, before/after (`changes_enc`), why (`reason`), related transaction, approval and share, request id, IP.
+- **One row per environment for a mixed event**, each holding only that environment's part, so the audit trail of
+  Mint never contains Krish's personal side.
 - **Written by the API in the same database transaction** as the change it records (the HMAC chain key is outside the
   database, so triggers cannot compute it). A deferred constraint trigger on `journal` and on status changes of `txn`
   refuses to commit unless an `audit_log` row for that object was written in the same transaction — an audit entry

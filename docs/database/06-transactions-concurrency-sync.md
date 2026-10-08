@@ -15,30 +15,39 @@ J2–J5, P7; RULEBOOK-03 §60.
 | Access change (Add / Replace) | access rows ended and created under one `change_id` · audit |
 | Share confirmation | verification re-check · status `confirmed` · share event · secure link · audit |
 
+Every row above is written by one role, `finly_ledger` (05 §5.2), because one database transaction runs as one role.
+
 Failure anywhere → `ROLLBACK`: no source without destination, no ledger without balance, no allocation without its
 open item, no partial reversal (add-on 11 item 4, J4). Nothing financial is committed in a second transaction "to
-finish later".
+finish later". The one thing recorded *after* a rollback, in a second short transaction, is the **outcome of the
+failure**: the idempotency record marked `failed` with its error code, an approved event moved to `failed`, and a
+`sync_review` row for an offline operation — so a refused request has a durable, visible result and its key is not
+silently reusable.
 
 ## 6.2 The posting pipeline in the database (J2 steps 12–30)
 
 ```text
 BEGIN (READ COMMITTED)
  1. set actor (transaction-local)                         -- RLS and audit attribution
- 2. INSERT idempotency_record (user, key, request_hash)  -- a concurrent duplicate blocks here, then replays
+ 2. INSERT idempotency_record … ON CONFLICT DO NOTHING    -- a concurrent duplicate waits on the key, then finds
+                                                            -- the first one's result and replays it (no 23505)
  3. SELECT txn … FOR UPDATE; check status transition     -- simultaneous approve/post of the same txn serialise
- 4. load legs; plan journals in memory (pure engine)      -- master data read unlocked; see the note below
- 5. SELECT open_item … FOR UPDATE ORDER BY id             -- items being settled or advanced
- 6. INSERT balance_slice … ON CONFLICT DO NOTHING         -- every slice the plan touches
- 7. SELECT balance_current … FOR UPDATE ORDER BY slice key
+ 4. SELECT accounting_period … FOR SHARE ORDER BY entity, start   -- a close of the same month waits, or is waited on
+ 5. SELECT open_item … FOR UPDATE ORDER BY id             -- ids come from the intent; locked BEFORE planning,
+                                                            -- because the plan depends on what remains
+ 6. load legs; plan journals in memory (pure engine)      -- master data read unlocked; see the note below
+ 7. INSERT balance_slice … ON CONFLICT DO NOTHING, one by one in slice-key order   -- no deadlock on new keys
+ 8. SELECT balance_current … FOR UPDATE ORDER BY slice key
     SELECT balance_hold WHERE active … FOR UPDATE ORDER BY id
- 8. decrypt; re-check available balance, negative-balance policy, reservations   -- authoritative, after the lock
- 9. check every invariant (checkJournal, checkPlan); impact + conflict analysis
-10. allocate reference (reference_counter row lock)
-11. SELECT journal_chain_head FOR UPDATE                 -- last, held for milliseconds
-12. INSERT journals, lines, open items, allocations, custody events
-13. UPDATE balance_current / balance_period (version = version + 1), open_item remaining/status, holds, txn status
-14. INSERT audit_log rows; UPDATE audit_chain_head
-COMMIT  -- deferred triggers run: ≥2 lines and both sides per journal and fund; audit row present
+ 9. decrypt; re-check available balance, negative-balance policy, reservations   -- authoritative, after the lock
+10. check every invariant (checkJournal, checkPlan); impact + conflict analysis
+11. allocate the reference if the event has none yet (references are allocated when a draft is created)
+12. SELECT journal_chain_head FOR UPDATE                 -- held for milliseconds
+13. INSERT journals, lines, open items + origins, allocations, custody events
+14. UPDATE balance_current / balance_period, open_item remaining/status, holds, txn status (draft/approved → posted)
+15. INSERT audit_log rows (one per environment); UPDATE audit_chain_head   -- always last
+COMMIT  -- deferred triggers: ≥ 2 lines and both sides per journal and fund; every journal entity a participant;
+        -- the event has legs; an audit row was written in this transaction
 ```
 
 *Note on step 4:* planning uses master data (accounts, funds, ownership, categories) that changes rarely; the plan is
@@ -47,8 +56,12 @@ deactivated meanwhile is refused by the journal insert trigger as well).
 
 ## 6.3 Locking order and deadlocks
 
-All postings take locks in one global order: **idempotency → txn → open items (by id) → slices (by entity, account,
-fund, location, counterparty, category) → holds (by id) → reference counter → chain heads**. Two postings that touch
+All postings take locks in one global order: **idempotency → txn → periods (by entity, start) → open items (by id) →
+slices (by entity, account, fund, location, counterparty, category; created in the same order) → holds (by id) →
+reference counter → journal chain head → audit chain head**. A period close takes its period row `FOR UPDATE` first,
+then the slices — the same order. Every writer appends audit rows last, so the audit chain head is held only for the
+final milliseconds of a transaction. Pending-outgoing holds (AC9) are created when an event is submitted for approval,
+under the same slice and hold locks, after checking the available balance. Two postings that touch
 the same rows therefore queue instead of deadlocking. `lock_timeout = 5s` turns an unexpected wait into a clean
 "please try again" error with nothing committed. A deadlock, if one ever occurs, aborts one transaction entirely;
 the client retries with the same idempotency key.
@@ -119,8 +132,11 @@ phone: synced (server reference) | rejected (reason) | needs review (sync_review
 | Same draft edited on two devices | Version conflict → `sync_review` (`conflict`); the user chooses |
 | Period closed while offline | Refused for the closed period; the user may post it in the open period as a late entry with reference |
 
-**Delta sync of reference data:** every synced master table has `change_seq` (global sequence, set by trigger on insert
-and update). The phone asks for `change_seq > cursor` per table, limited to what its user may see. Archived rows arrive
+**Delta sync of reference data:** every synced table has `change_xid` — the id of the transaction that last wrote the
+row (`xid8`, set by trigger). A page returns rows with `change_xid >= cursor` and hands back the query snapshot's
+`xmin` as the next cursor: every transaction below it had finished when the page was read, so a row committed late by
+a slow transaction is never skipped (a plain sequence number would skip it). Rows are deduplicated by id and version
+on the phone. The phone asks per table, limited to what its user may see. Archived rows arrive
 as status changes (nothing is ever deleted, so there are no tombstones to lose). Changes to the user's own `env_access`
 and `access_rule` rows are in the same feed: a revocation tells the phone which environments to purge. The phone never
 receives other users' data, ciphertext or keys; it receives decrypted, authorised values for its own encrypted cache.

@@ -2,7 +2,12 @@
   "version": "5",
   "specifiers": {
     "jsr:@std/assert@1.0.13": "1.0.13",
-    "jsr:@std/internal@^1.0.6": "1.0.14"
+    "jsr:@std/internal@^1.0.6": "1.0.14",
+    "npm:@electric-sql/pglite@0.5.8": "0.5.8",
+    "npm:@noble/hashes@1.8.0": "1.8.0",
+    "npm:jose@5.10.0": "5.10.0",
+    "npm:postgres@3.4.5": "3.4.5",
+    "npm:zod@3.24.2": "3.24.2"
   },
   "jsr": {
     "@std/assert@1.0.13": {
@@ -15,10 +20,27 @@
       "integrity": "291516b3d4c35024d6ffbc0a9df5bf4c64116e05b50012cf846710152d2ffdf7"
     }
   },
+  "npm": {
+    "@electric-sql/pglite@0.5.8": {
+      "integrity": "sha512-n9tsbUOhwx2epK1V0ZG9Ar4SHWUju04dhmzZXiSBXwBoleOvIfals33NAaWgagQVAL4Rbvx/Ptsu3P+pA09f6Q=="
+    },
+    "@noble/hashes@1.8.0": {
+      "integrity": "sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A=="
+    },
+    "jose@5.10.0": {
+      "integrity": "sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg=="
+    },
+    "postgres@3.4.5": {
+      "integrity": "sha512-cDWgoah1Gez9rN3H4165peY9qfpEo+SA61oQv65O3cRUE1pOEoJWwddwcqKE8XZYjbblOJlYDlLV4h67HrEVDg=="
+    },
+    "zod@3.24.2": {
+      "integrity": "sha512-lY7CDW43ECgW9u1TcT3IoXHflywfVqDYze4waEz812jR/bZ8FHDsl7pFQoSZTz5N+2NqRXs8GBwnAwo3ZNxqhQ=="
+    }
+  },
   "workspace": {
     "dependencies": [
       "jsr:@std/assert@1.0.13",
-      "npm:@electric-sql/pglite@0.3.3",
+      "npm:@electric-sql/pglite@0.5.8",
       "npm:@noble/hashes@1.8.0",
       "npm:jose@5.10.0",
       "npm:postgres@3.4.5",

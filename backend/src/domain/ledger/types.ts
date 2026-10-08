@@ -114,15 +114,18 @@ export interface LegRef {
   index: number;
 }
 
-export type JournalKind =
-  | 'standard'
-  | 'transfer'
-  | 'settlement'
-  | 'opening'
-  | 'adjusting'
-  | 'closing'
-  | 'reversal'
-  | 'correction';
+/** Journal kinds. The database CHECK on `journal.kind` lists exactly these (tests/db/catalog_test.ts). */
+export const JOURNAL_KINDS = [
+  'standard',
+  'transfer',
+  'settlement',
+  'opening',
+  'adjusting',
+  'closing',
+  'reversal',
+  'correction',
+] as const;
+export type JournalKind = typeof JOURNAL_KINDS[number];
 
 export interface PlannedJournal {
   entityId: Id;
@@ -132,12 +135,9 @@ export interface PlannedJournal {
   lines: PlannedLine[];
 }
 
-export type OpenItemKind =
-  | 'interentity' // one entity owes another (expense paid on behalf, own/personal money, current account)
-  | 'supplier_payable'
-  | 'customer_receivable'
-  | 'advance'
-  | 'loan';
+/** Open-item kinds; `interentity` = one entity owes another (expense paid on behalf, own money, current account). */
+export const OPEN_ITEM_KINDS = ['interentity', 'supplier_payable', 'customer_receivable', 'advance', 'loan'] as const;
+export type OpenItemKind = typeof OPEN_ITEM_KINDS[number];
 
 /** An obligation with explicit direction (RULEBOOK-02 §169): the debtor owes the creditor. */
 export interface PlannedOpenItem {
@@ -154,7 +154,8 @@ export interface PlannedOpenItem {
   reason: string;
 }
 
-export type SettlementKind = 'payment' | 'offset' | 'advance_use' | 'advance_return' | 'write_off';
+export const SETTLEMENT_KINDS = ['payment', 'offset', 'advance_use', 'advance_return', 'write_off'] as const;
+export type SettlementKind = typeof SETTLEMENT_KINDS[number];
 
 export interface PlannedSettlement {
   openItemId: Id;
