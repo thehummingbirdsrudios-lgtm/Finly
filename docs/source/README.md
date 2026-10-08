@@ -16,5 +16,7 @@ documents refine earlier ones, and **where two differ, the stricter security, pr
 | [ADDON-07](ADDON-07-finly-startup-branding-onboarding.md) | 2026-10-08 | The name Finly, branding and logo, splash, setup wizard |
 | [ADDON-08](ADDON-08-ui-ux-motion-visual-design.md) | 2026-10-08 | Best-in-class UI/UX, decoration, per-interaction motion |
 | [ADDON-09](ADDON-09-premium-theme.md) | 2026-10-08 | A distinctive, centralised premium theme |
+| [GATE-RESPONSE-01](GATE-RESPONSE-01-gates-1-2.md) | 2026-10-08 | Gate 1 approved with conditions; Gate 2 corrections (custody history, Angadiya split) |
+| [ADDON-10](ADDON-10-continue-to-full-completion.md) | 2026-10-08 | Continue to a complete, working app; stop only at external blockers |
 
 Other documents cite "the source documents" and link here, so a new add-on is recorded in one place.
