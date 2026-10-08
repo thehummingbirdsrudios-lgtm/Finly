@@ -1,6 +1,6 @@
 # Finly — Product Requirements (what and why)
 
-Source of truth: [BUILD_PROMPT.md](source/BUILD_PROMPT.md) and add-ons [01](source/ADDON-01-production-free-backend-git.md)–[08](source/ADDON-08-ui-ux-motion-visual-design.md).
+Source of truth: [BUILD_PROMPT.md](source/BUILD_PROMPT.md) and add-ons [01](source/ADDON-01-production-free-backend-git.md)–[09](source/ADDON-09-premium-theme.md).
 This document states the product; the [SRS](SRS.md) states the requirements in testable form.
 
 ## 1. The problem
@@ -38,13 +38,13 @@ to its owner by default — no other person, Super Admin included, sees it witho
 3. **Privacy by default** — owner-private personal finance, field- and amount-level visibility, totals computed only from what the viewer may see (A4, L).
 4. **Fast daily use** — quick entry in a few taps, global search, minimal typing, one-hand use, works offline (A8, K-UX, P).
 5. **Trusted proof** — generated messages, photo proofs and PDFs, verified before every external share; never screenshots (A3, Q).
-6. **A premium, distinctive experience** — a design system with its own visual and motion language (K, add-ons 04 and 08).
+6. **A premium, distinctive experience** — a design system with its own visual and motion language (K, add-ons 04, 08 and 09).
 7. **Zero or near-zero running cost** on free infrastructure, for private non-commercial use (add-on 01).
 
 ## 5. Scope
 
 **In scope now:** Android app (Flutter), one client-independent backend and database, everything in BUILD_PROMPT
-Parts F–V and add-ons 01–08.
+Parts F–V and add-ons 01–09.
 
 **Not in scope now (FUTURE, designed for but not built):** web client, iOS client, multi-currency, branches and
 cost centres, receipt OCR, automated bank-statement matching, forecasting (Part Z).
