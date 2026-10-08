@@ -68,3 +68,6 @@ desktop.ini
 *.log
 *.tmp
 *.swp
+
+# ---------- design-system local review pages (generated) ----------
+design-system/.review/
