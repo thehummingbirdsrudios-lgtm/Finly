@@ -1,0 +1,17 @@
+{
+  "name": "finely-design-system-tools",
+  "private": true,
+  "description": "Checks for the Finely design-system source: token generation, contrast and preview render checks.",
+  "license": "UNLICENSED",
+  "scripts": {
+    "tokens": "node make-tokens.js palette.json ../project/tokens.json",
+    "components": "node make-components.js",
+    "contrast": "node contrast.js palette.json",
+    "render": "node render-check.js",
+    "check": "node contrast.js palette.json && node render-check.js"
+  },
+  "devDependencies": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  }
+}

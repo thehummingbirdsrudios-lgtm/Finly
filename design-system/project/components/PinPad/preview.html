@@ -1,0 +1,12 @@
+<!-- @dsCard group="Security" height=520 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>PinPad — preview</title></head>
+<body>
+<div id="root" class="fy-root"></div>
+<script>
+  var F = window.Finely, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-demo' }, h(F.PinPad, { onBiometric: function () {}, onForgot: function () {} }), h(F.PinPad, { error: 'Wrong M-PIN. 2 attempts left.', onBiometric: function () {} }), h(F.PinPad, { lockedFor: '30 seconds' })));
+</script>
+</body>
+</html>

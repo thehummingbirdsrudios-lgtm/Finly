@@ -1,0 +1,12 @@
+<!-- @dsCard group="Lists & cards" height=560 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>TransactionCard — preview</title></head>
+<body>
+<div id="root" class="fy-root"></div>
+<script>
+  var F = window.Finely, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-stack' }, h(F.TransactionCard, { tx: { id: 'TX-20261008-001245', from: 'Mint', to: 'Tijori', amount: 5000, direction: 'in', reason: 'Cash received from Mint', date: '08 Oct 2026', day: 'Thursday', time: '10:15 AM', handler: 'Krish Patel', fund: 'Mint Fund' }, onClick: function () {} }), h(F.TransactionCard, { tx: { from: 'Tijori', to: 'Savan Bank', amount: 50000, direction: 'out', reason: 'Deposit of Mint cash', date: '08 Oct 2026', time: '11:40 AM', handler: 'Sujal', status: 'pending' } }), h(F.TransactionCard, { tx: { from: 'JSK', to: 'Mint', amount: 50000, direction: 'transfer', reason: 'Loan from JSK to Mint', date: '07 Oct 2026', time: '4:05 PM', handler: 'Krish Patel', status: 'reversed' } }), h(F.TransactionCard, { tx: { from: 'Krish Patel', to: 'Angadiya visit', amount: 45000, direction: 'out', reason: 'Travel, hotel, food, firm charges', date: '06 Oct 2026', time: '9:30 PM', handler: 'Krish Patel', status: 'exception', privacy: 'private' } }), h(F.TransactionCard, { tx: { from: 'Mint', to: 'Tijori', amount: 20000, direction: 'in', visibility: 'hidden', reason: 'Cash deposit', date: 'Today', time: '9:05 AM', handler: 'Sujal', status: 'queued' } })));
+</script>
+</body>
+</html>

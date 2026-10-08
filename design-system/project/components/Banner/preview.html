@@ -1,0 +1,12 @@
+<!-- @dsCard group="Feedback & states" height=420 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Banner — preview</title></head>
+<body>
+<div id="root" class="fy-root"></div>
+<script>
+  var F = window.Finely, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-stack' }, h(F.Banner, { kind: 'offline', text: 'You are offline. 2 entries are queued and will post when you are back online.' }), h(F.Banner, { kind: 'syncing', text: 'Syncing 2 queued entries…' }), h(F.Banner, { kind: 'sync-failed', text: '1 queued entry was rejected: the Tijori balance changed.', actionLabel: 'Fix' }), h(F.Banner, { kind: 'stale', text: 'Showing balances from 2 hours ago.', actionLabel: 'Refresh' }), h(F.Banner, { kind: 'read-only', text: 'October 2026 is closed. Changes go through a correction.' }), h(F.Banner, { kind: 'locked', text: 'Financial entries are paused by the administrator.' })));
+</script>
+</body>
+</html>

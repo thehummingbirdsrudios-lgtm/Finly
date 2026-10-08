@@ -1,0 +1,12 @@
+<!-- @dsCard group="Money" height=170 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>PrivacyBadge — preview</title></head>
+<body>
+<div id="root" class="fy-root"></div>
+<script>
+  var F = window.Finely, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-demo' }, h(F.PrivacyBadge, { level: 'private' }), h(F.PrivacyBadge, { level: 'family' }), h(F.PrivacyBadge, { level: 'business' }), h(F.PrivacyBadge, { level: 'restricted' }), h(F.PrivacyBadge, { level: 'shared' }), h(F.PrivacyBadge, { level: 'private', reason: 'Only you can see this. You set it to Owner-only.' }), h(F.PrivacyBadge, { level: 'restricted', reason: 'You can see that this exists, not its details.' })));
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+<!-- @dsCard group="Input" height=90 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Chip — preview</title></head>
+<body>
+<div id="root" class="fy-root"></div>
+<script>
+  var F = window.Finely, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-demo' }, h(F.Chip, { label: 'Mint', selected: true }), h(F.Chip, { label: 'JSK' }), h(F.Chip, { label: 'Pending', count: 3 }), h(F.Chip, { label: 'This month', icon: 'calendar' })));
+</script>
+</body>
+</html>

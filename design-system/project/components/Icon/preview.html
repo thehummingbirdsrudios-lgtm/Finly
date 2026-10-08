@@ -1,0 +1,12 @@
+<!-- @dsCard group="Foundations" height=380 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Icon — preview</title></head>
+<body>
+<div id="root" class="fy-root"></div>
+<script>
+  var F = window.Finely, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-icon-grid' }, F.iconNames.map(function (n) { return h('figure', { key: n, className: 'fy-icon-cell' }, h(F.Icon, { name: n }), h('figcaption', { className: 'caption fy-muted' }, n)); })));
+</script>
+</body>
+</html>

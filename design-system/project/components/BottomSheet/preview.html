@@ -1,0 +1,12 @@
+<!-- @dsCard group="Overlays" height=300 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>BottomSheet — preview</title></head>
+<body>
+<div id="root" class="fy-root"></div>
+<script>
+  var F = window.Finely, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-phone fy-scrim' }, h(F.BottomSheet, { title: 'When did it happen?' }, h(F.ListRow, { icon: 'calendar', title: 'Now', subtitle: 'Today, 10:15 AM', onClick: function () {} }), h(F.ListRow, { icon: 'calendar', title: 'Earlier today', onClick: function () {} }), h(F.ListRow, { icon: 'calendar', title: 'Pick a date and time', onClick: function () {} }))));
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+<!-- @dsCard group="Sharing & proof" height=720 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>PdfPage — preview</title></head>
+<body>
+<div id="root" class="fy-root"></div>
+<script>
+  var F = window.Finely, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h(F.PdfPage, { title: 'Tijori statement', entity: 'Mint', period: '1–31 October 2026', summary: { opening: 400000, credits: 132000, debits: 50000, closing: 482000 }, rows: [{ date: '08-10', id: 'TX-001245', detail: 'Cash received from Mint', avak: 5000, javak: '' }, { date: '08-10', id: 'TX-001250', detail: 'Deposited to Savan Bank', avak: '', javak: 50000 }, { date: '08-10', id: 'TX-001262', detail: 'Handover from Sujal', avak: 127000, javak: '' }], totals: { date: 'Total', avak: 132000, javak: 50000 }, docId: 'DOC-20261031-0042', generated: '31 Oct 2026, 6:05 PM', classification: 'Confidential', watermark: 'CONFIDENTIAL · Father' }));
+</script>
+</body>
+</html>

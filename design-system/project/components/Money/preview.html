@@ -1,0 +1,12 @@
+<!-- @dsCard group="Money" height=300 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Money — preview</title></head>
+<body>
+<div id="root" class="fy-root"></div>
+<script>
+  var F = window.Finely, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-stack' }, h('div', { className: 'fy-demo' }, h(F.Money, { amount: 50000, direction: 'in', size: 'lg' }), h(F.Money, { amount: 50000, direction: 'out', size: 'lg' }), h(F.Money, { amount: 500000, direction: 'transfer', size: 'lg' }), h(F.Money, { amount: 5000, direction: 'in', size: 'lg', struck: true })), h('div', { className: 'fy-spec' }, [['Full', 'full'], ['Rounded', 'rounded'], ['Range', 'range'], ['Hidden', 'hidden'], ['Existence only', 'existence']].map(function (m) { return h('div', { key: m[1], className: 'fy-spec-row' }, h('span', { className: 'label fy-muted' }, m[0]), h(F.Money, { amount: 482000, visibility: m[1], size: 'md' })); }))));
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+<!-- @dsCard group="Navigation" height=160 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>TopBar — preview</title></head>
+<body>
+<div id="root" class="fy-root"></div>
+<script>
+  var F = window.Finely, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-stack' }, h('div', { className: 'fy-phone' }, h(F.TopBar, { title: 'Tijori', path: ['Money', 'Mint'], actions: [{ icon: 'search', label: 'Search' }, { icon: 'more', label: 'More options' }] })), h('div', { className: 'fy-phone' }, h(F.TopBar, { title: 'Activity', onBack: null, actions: [{ icon: 'search', label: 'Search' }] }))));
+</script>
+</body>
+</html>

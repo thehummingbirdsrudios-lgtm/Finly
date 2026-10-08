@@ -1,0 +1,12 @@
+<!-- @dsCard group="Security" height=340 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>StepUpSheet — preview</title></head>
+<body>
+<div id="root" class="fy-root"></div>
+<script>
+  var F = window.Finely, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-demo' }, h(F.StepUpSheet, { action: 'Share the Mint October statement with Father as a Confidential PDF.', reason: 'a confidential document' }), h(F.StepUpSheet, { action: 'Transfer ₹6,00,000 from JSK to Mint.', reason: 'above the ₹5,00,000 approval limit', failed: true })));
+</script>
+</body>
+</html>

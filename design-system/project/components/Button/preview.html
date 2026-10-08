@@ -1,0 +1,12 @@
+<!-- @dsCard group="Actions" height=150 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Button — preview</title></head>
+<body>
+<div id="root" class="fy-root"></div>
+<script>
+  var F = window.Finely, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-demo' }, h(F.Button, { variant: 'primary', icon: 'check' }, 'Save'), h(F.Button, null, 'Edit'), h(F.Button, { variant: 'quiet' }, 'Cancel'), h(F.Button, { variant: 'danger', icon: 'undo' }, 'Reverse'), h(F.Button, { variant: 'primary', loading: true, loadingLabel: 'Posting…' }, 'Confirm & post'), h(F.Button, { variant: 'primary', disabled: true }, 'Save'), h(F.Button, { variant: 'primary', size: 'sm' }, 'Settle')));
+</script>
+</body>
+</html>

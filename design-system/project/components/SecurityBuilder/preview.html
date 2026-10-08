@@ -1,0 +1,12 @@
+<!-- @dsCard group="Sharing & proof" height=720 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SecurityBuilder — preview</title></head>
+<body>
+<div id="root" class="fy-root"></div>
+<script>
+  var F = window.Finely, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h(F.SecurityBuilder, { policy: { password: 'default', encryption: 'mandatory', watermark: 'default', expiry: 'default', revocable: 'default', download: 'default', print: 'blocked' } }));
+</script>
+</body>
+</html>

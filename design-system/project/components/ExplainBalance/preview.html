@@ -1,0 +1,12 @@
+<!-- @dsCard group="Accounting" height=360 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ExplainBalance — preview</title></head>
+<body>
+<div id="root" class="fy-root"></div>
+<script>
+  var F = window.Finely, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h(F.ExplainBalance, { title: 'Tijori · Mint Fund · October 2026', from: '1 Oct', to: '8 Oct', opening: 400000, closing: 482000, movements: [{ label: 'Cash received from Mint', ref: 'TX-20261008-001245', amount: 5000, direction: 'in' }, { label: 'Deposited to Savan Bank', ref: 'TX-20261008-001250', amount: 50000, direction: 'out' }, { label: 'Handover from Sujal', ref: 'TX-20261008-001262', amount: 127000, direction: 'in' }] }));
+</script>
+</body>
+</html>
