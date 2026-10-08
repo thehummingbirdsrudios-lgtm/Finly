@@ -12,7 +12,7 @@ always generated (never a screenshot), and there is no AI anywhere.
 | Path | What |
 |---|---|
 | [docs/source/BUILD_PROMPT.md](docs/source/BUILD_PROMPT.md) | The authoritative build specification |
-| [docs/source/](docs/source/) | The product owner's add-ons 01–07, verbatim (the stricter reading wins) |
+| [docs/source/](docs/source/) | The product owner's add-ons 01–08, verbatim (the stricter reading wins) |
 | [docs/](docs/) | PRD, SRS, architecture, design, rules, security, test plan, decisions, memory, flow maps, privacy |
 | [design-system/](design-system/) | The Finly design system source — tokens, brand, logo, reference components — published as the [Design System artifact](https://claude.ai/artifact/TS2kABqmbQoASrgxM6r79J) |
 | [TASKS.md](TASKS.md) | Milestones M0–M10 and their approval gates |
