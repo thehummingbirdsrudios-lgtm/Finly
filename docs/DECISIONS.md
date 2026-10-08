@@ -179,3 +179,112 @@ account also costs money.
 - [sqlite3 hook options (SQLite3MultipleCiphers, SQLCipher)](https://github.com/simolus3/sqlite3.dart/blob/main/sqlite3/doc/hook.md) · [sqlcipher_flutter_libs end of life](https://pub.dev/packages/sqlcipher_flutter_libs)
 - [LibPDF encryption guide](https://libpdf.documenso.com/docs/guides/encryption) · [@pdfsmaller/pdf-encrypt](https://www.jsdelivr.com/package/npm/@pdfsmaller/pdf-encrypt)
 - Package versions from the pub.dev API on 2026-10-08; Flutter's default minimum Android version read from the installed Flutter 3.47.6 SDK (`FlutterExtension.kt`: minSdk 24, target and compile 36).
+
+---
+
+## Accounting Model Record (Gate 2) — Proposed
+
+The nine decisions of BUILD_PROMPT AC19, each with its options and **one recommendation**. Nothing in the ledger is
+built until these are approved. The glossary they rely on is in [SRS.md](SRS.md) §2.
+
+### A1. Accounting basis
+
+- Options: cash basis; accrual basis; hybrid.
+- **Recommendation: accrual.** Expenses, income, receivables, payables, reimbursements and advances are recognised when
+  they happen, not when cash moves — the outstanding, reimbursement and advance modules need this (AC19.1). Pure cash
+  movements (transfers, deposits, handovers) are simply posted as they occur, so day-to-day entry feels the same.
+
+### A2. Chart-of-accounts templates
+
+**Recommendation: three templates, created automatically with each entity; Super Admin can add, rename (labels over
+stable IDs) and disable accounts, never delete referenced ones.**
+
+| Class (normal side) | Company (Mint, JSK…) | Person (Krish…) | Pool (Family Fund…) |
+|---|---|---|---|
+| Assets (Dr) | Cash – <each location> · Bank – <each bank> · Wallet – <each> · Receivable – <party> · Due from – <entity> · Advance to – <person> · Reimbursement receivable – <entity> · Deposits | Cash – <each location> · Bank – <each> · Wallet · Receivable – <party> · Due from – <entity> · Reimbursement receivable – <entity> · Advance to – <person> | Cash – <each location> · Bank – <each> · Due from – <entity> |
+| Liabilities (Cr) | Payable – <vendor/person> · Due to – <entity> · Reimbursement payable – <person> · Advance received · Loans | Payable – <party> · Due to – <entity> · Reimbursement payable – <person> · Loans | Due to – <entity> |
+| Equity / net assets (Cr) | Owner capital – <owner> · Drawings – <owner> (contra, Dr) · Opening balance equity · Accumulated surplus · Fund balances by fund | Net worth · Opening balance equity · Accumulated surplus · Fund balances | Pool balance by member contribution · Opening balance equity · Accumulated surplus |
+| Income (Cr) | By configured income category | Salary · Owner distributions received · Gifts received (if configured) · other categories | Contributions (if configured) |
+| Expenses (Dr) | By configured category (Travel, Hotel, Food, Fuel, Salary, Rent, Firm charges, Bank charges…) · Cash over/short · Write-offs | Personal expense categories · Cash over/short | By configured category |
+| Control | Suspense (must be cleared; ageing is an exception) | Suspense | Suspense |
+
+"<each location>" accounts are created when a money location first holds that entity's value, so a Tijori holding
+Mint, JSK, Krish and Father money is four asset accounts, one in each entity's books (AC4).
+
+### A3. Custody
+
+- Options: holder as a **dimension** on cash lines; custody **sub-accounts** per holder.
+- **Recommendation: holder dimension.** A handover from Krish to Sujal is one journal in Mint's books moving the same
+  cash account from holder Krish to holder Sujal (AC10 example 6) — no account explosion when people change, and the
+  holder statement ("whose money is each person holding") is a query on the dimension. Locations stay accounts, holders
+  stay dimensions, owners stay entities: three separate things, as AC1 requires.
+
+### A4. Fund balancing inside an entity
+
+- Options: strict per-fund self-balancing; inter-fund due accounts.
+- **Recommendation: every journal balances per entity *and* per fund**; moving value between two funds of the same
+  entity uses explicit inter-fund transfer lines (Fund A: Dr Inter-fund transfer out / Cr Cash; Fund B: Dr Cash / Cr
+  Inter-fund transfer in), as AC10 example 7 shows. Fund balance = fund assets − fund liabilities, always provable.
+
+### A5. Cross-entity classification
+
+- **Recommendation: no silent default.** Any value crossing entities needs one of the configured classifications —
+  inter-entity loan (Due from / Due to), settlement of a matched open item, capital contribution, drawing or
+  distribution, expense of the payer / income of the receiver, or gift / family support where configured (AC3).
+- The form pre-selects the configured default **visibly** in the review sheet; the person confirms it.
+- **Personal expense paid by a business:** default **Due from <person>** (a receivable the business can recover, and
+  it stays visible as an open item); **Drawing** is allowed when the person is an owner and chooses it (AC10 example 8).
+- Reciprocity is an invariant: A's *Due from B* always equals B's *Due to A*.
+
+### A6. Period close
+
+- Options: closing journals; virtual close.
+- **Recommendation: monthly periods per entity, closed with closing journals** that roll income and expense into
+  accumulated surplus per fund. The close is then a visible, audited, hash-chained record; closing balances become the
+  next opening automatically. Reopening requires high privilege, a reason, step-up and audit, and reverses the closing
+  journal (AC12).
+
+### A7. Balances under application-level encryption
+
+- **Recommendation:** amounts are encrypted per line (AES-256-GCM, S3). The posting engine keeps **encrypted, versioned
+  balance snapshots** per entity × ledger account × fund × location × holder — one running "current" row updated in the
+  same transaction as the journal (row-locked), plus one row per closed period. Dashboards and reports decrypt only the
+  snapshots inside the viewer's authorised slice, in backend memory. The Integrity Verifier recomputes every snapshot
+  from lines (scheduled in batches within the 2 s CPU budget, on demand, and before every close) and checks the hash
+  chain; any mismatch is a Critical exception and can freeze writes; nothing is ever auto-fixed (AC7).
+- **No plaintext numeric copy** of any amount exists in the database.
+
+### A8. Split remainder rule
+
+- **One-way splits** (an amount across entities, funds or people): the **largest-remainder method** — floor every part,
+  then give the leftover rupees to the parts with the largest fractional remainders; ties go to the part listed first,
+  then the lower stable ID.
+- **Two-way splits** (category lines × entities, as in the Angadiya visit): **controlled rounding** — floor every cell,
+  give leftover rupees by largest remainder (same tie-break), and complete with deterministic augmenting paths. Every
+  category total and every entity total stays exact, and every cell is the floor or ceiling of its exact share. Verified
+  on the Angadiya example and 50,000 random cases ([research prototype](research/controlled-rounding.js)).
+- The review sheet always shows the final rupee amounts before saving; the person can switch to item-based assignment
+  (each line to one entity) instead.
+
+### A9. Advances held by persons
+
+- **Recommendation: an accountable-advance receivable** in the giver's books (Advance to <person>), with the person as
+  holder (AC19.9 default). The advance is not an expense when given and never enters the holder's personal net worth;
+  the expense report and any return or carry-forward settle it (AC10 example 5).
+
+### A10. First-session restatement and ambiguities found
+
+The first-session restatement (Part A, the glossary, AC10 example 4 as journal lines) is in [MEMORY.md](MEMORY.md).
+Ambiguities found while preparing this record, each resolved by a recommendation above:
+
+1. **Category lines vs entity totals in example 4.** The spec gives entity totals (Mint 30,000 · JSK 5,000 · Personal
+   10,000) and category lines (Travel 10,000 … Other 7,000) but not the cell values. Per-line largest remainder cannot
+   keep both totals exact → A8 controlled rounding, or item-based assignment.
+2. **"Bank or Cash – Krish" in example 4.** A posting needs a concrete source account (AC2) → the form resolves the
+   location before review; nothing posts against a vague entity.
+3. **Personal expense from a business account: drawing or due-from.** → A5 default Due from, Drawing on request for owners.
+4. **Add-ons 06/07 "Archive/Remove".** Referenced records cannot be deleted (H15) → archive (D-010).
+
+### A11. Decisions needed from the owner at Gate 2
+
+Approve or change A1–A9. If anything is unclear, the safest choice above stands until you decide.
