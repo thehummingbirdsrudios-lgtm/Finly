@@ -45,6 +45,8 @@ export interface OpenItemInfo {
   remaining: Rupees;
   debtorRole?: AccountRole;
   creditorRole?: AccountRole;
+  debtorFundId?: Id;
+  creditorFundId?: Id;
   status: OpenItemStatus;
 }
 

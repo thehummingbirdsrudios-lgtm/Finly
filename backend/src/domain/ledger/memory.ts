@@ -117,9 +117,12 @@ export class MemoryLedger implements EngineContext {
 
   /** Applies a checked plan; returns the ids of open items it created, in plan order. */
   apply(plan: PostingPlan): Id[] {
-    for (const s of plan.settlements) {
-      const item = this.openItem(s.openItemId);
-      if (s.amount > item.remaining) fail('SETTLEMENT_EXCEEDS_REMAINING', 'Settlement exceeds what remains.');
+    const settling = new Map<Id, Rupees>();
+    for (const s of plan.settlements) settling.set(s.openItemId, (settling.get(s.openItemId) ?? 0n) + s.amount);
+    for (const [id, amount] of settling) {
+      if (amount > this.openItem(id).remaining) {
+        fail('SETTLEMENT_EXCEEDS_REMAINING', 'Settlement exceeds what remains.');
+      }
     }
     for (const j of plan.journals) {
       const index = this.journals.push(j) - 1;
@@ -141,6 +144,8 @@ export class MemoryLedger implements EngineContext {
         remaining: o.amount,
         debtorRole: o.debtorRole,
         creditorRole: o.creditorRole,
+        debtorFundId: o.debtorFundId,
+        creditorFundId: o.creditorFundId,
         status: 'open',
       });
       return id;
@@ -153,7 +158,7 @@ export class MemoryLedger implements EngineContext {
   balance(
     entityId: Id,
     role: AccountRole,
-    slice: { locationId?: Id; counterpartyId?: Id; categoryId?: Id; code?: string } = {},
+    slice: { locationId?: Id; counterpartyId?: Id; categoryId?: Id; fundId?: Id; code?: string } = {},
   ): Rupees {
     let net = 0n;
     for (const l of this.lines) {
@@ -164,6 +169,7 @@ export class MemoryLedger implements EngineContext {
       if (slice.locationId && l.locationId !== slice.locationId) continue;
       if (slice.counterpartyId && l.counterpartyId !== slice.counterpartyId) continue;
       if (slice.categoryId && l.categoryId !== slice.categoryId) continue;
+      if (slice.fundId && l.fundId !== slice.fundId) continue;
       const normal = NORMAL_SIDE[a.cls];
       net += l.side === normal ? l.amount : -l.amount;
     }

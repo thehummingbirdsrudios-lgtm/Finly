@@ -9,12 +9,14 @@ import { checkPlan } from '../ledger/invariants.ts';
 import type {
   AccountRole,
   JournalKind,
+  LegRef,
   OpenItemKind,
   PlannedJournal,
   PlannedLine,
   PlannedOpenItem,
   PlannedSettlement,
   PostingPlan,
+  SettlementKind,
   Side,
 } from '../ledger/types.ts';
 import { type EngineContext, type EntityInfo, MONEY_ROLE } from './context.ts';
@@ -24,6 +26,8 @@ class PlanBuilder {
   private journals = new Map<string, PlannedJournal>();
   private openItems = new Map<string, PlannedOpenItem>();
   private settlements: PlannedSettlement[] = [];
+  /** The intent leg the next lines belong to (expense sources and allocations, bill lines). */
+  leg?: LegRef;
 
   constructor(private ctx: EngineContext, private kind: JournalKind = 'standard') {}
 
@@ -106,9 +110,13 @@ class PlanBuilder {
   }
 
   private push(entityId: Id, step: number, line: PlannedLine): void {
-    this.journal(entityId, step).lines.push(line);
+    this.journal(entityId, step).lines.push(this.leg ? { ...line, leg: this.leg } : line);
   }
 
+  /**
+   * Records who owes whom. Each side that keeps books carries the item in one fund (the fund its line was posted
+   * in), so items of different funds are never merged and a settlement clears the item in the same fund.
+   */
   owe(
     kind: OpenItemKind,
     debtorId: Id,
@@ -117,15 +125,30 @@ class PlanBuilder {
     reason: string,
     debtorRole?: AccountRole,
     creditorRole?: AccountRole,
+    funds: { debtor?: Id; creditor?: Id } = {},
   ): void {
-    const key = `${kind}:${debtorId}:${creditorId}:${debtorRole ?? ''}:${creditorRole ?? ''}`;
+    const debtorFundId = debtorRole ? this.fund(debtorId, funds.debtor) : undefined;
+    const creditorFundId = creditorRole ? this.fund(creditorId, funds.creditor) : undefined;
+    const key = [kind, debtorId, creditorId, debtorRole, creditorRole, debtorFundId, creditorFundId].join(':');
     const existing = this.openItems.get(key);
     if (existing) existing.amount += amount;
-    else this.openItems.set(key, { kind, debtorId, creditorId, amount, debtorRole, creditorRole, reason });
+    else {
+      this.openItems.set(key, {
+        kind,
+        debtorId,
+        creditorId,
+        amount,
+        debtorRole,
+        creditorRole,
+        debtorFundId,
+        creditorFundId,
+        reason,
+      });
+    }
   }
 
-  settle(openItemId: Id, amount: Rupees): void {
-    this.settlements.push({ openItemId, amount });
+  settle(openItemId: Id, amount: Rupees, kind: SettlementKind): void {
+    this.settlements.push({ openItemId, amount, kind });
   }
 
   build(): PostingPlan {
@@ -197,14 +220,14 @@ function expense(ctx: EngineContext, it: I.ExpenseIntent): PostingPlan {
   // Match allocations to funding in the order entered (documented, deterministic).
   let si = 0;
   let sourceLeft = it.sources[0].amount;
-  for (const alloc of it.allocations) {
+  for (const [ai, alloc] of it.allocations.entries()) {
     const owner = withBooks(ctx, alloc.ownerId);
     let need = alloc.amount;
     while (need > 0n) {
       const src = it.sources[si];
       const payer = withBooks(ctx, src.entityId);
       const portion = need < sourceLeft ? need : sourceLeft;
-      expensePortion(ctx, b, owner, payer, src, alloc, portion);
+      expensePortion(ctx, b, owner, payer, { ...src, index: si }, { ...alloc, index: ai }, portion);
       need -= portion;
       sourceLeft -= portion;
       if (sourceLeft === 0n && si + 1 < it.sources.length) {
@@ -221,13 +244,26 @@ function expensePortion(
   b: PlanBuilder,
   owner: EntityInfo,
   payer: EntityInfo,
-  src: I.ExpenseSource,
-  alloc: I.ExpenseAllocation,
+  src: I.ExpenseSource & { index: number },
+  alloc: I.ExpenseAllocation & { index: number },
   amount: Rupees,
 ): void {
+  const ownerSide: LegRef = { kind: 'allocation', index: alloc.index };
+  const payerSide: LegRef = { kind: 'source', index: src.index };
   if (owner.id === payer.id) {
+    if (b.fund(owner.id, alloc.fundId) !== b.fund(payer.id, src.fundId)) {
+      fail(
+        'FUND_MISMATCH',
+        'This expense is charged to a different fund from the one that paid it. ' +
+          'Pay it from the same fund, or move the money between funds first.',
+        { sourceFundId: src.fundId, allocationFundId: alloc.fundId },
+      );
+    }
+    b.leg = ownerSide;
     b.category(owner.id, alloc.categoryId, 'expense', 'Dr', amount, alloc.fundId, alloc.projectId);
-    b.money(payer.id, src.locationId, 'Cr', amount, alloc.fundId);
+    b.leg = payerSide;
+    b.money(payer.id, src.locationId, 'Cr', amount, src.fundId);
+    b.leg = undefined;
     return;
   }
   const ownersPersonal = payer.kind === 'firm' && owner.kind === 'person' && ctx.isOwner(payer.id, owner.id);
@@ -241,18 +277,24 @@ function expensePortion(
       );
     }
     if (alloc.ownerPersonalTreatment === 'withdrawal') {
+      b.leg = payerSide;
       b.party(payer.id, 'owner_drawings', owner.id, 'Dr', amount, src.fundId);
       b.money(payer.id, src.locationId, 'Cr', amount, src.fundId);
+      b.leg = ownerSide;
       b.category(owner.id, alloc.categoryId, 'expense', 'Dr', amount, alloc.fundId, alloc.projectId);
       b.party(owner.id, 'investment_in_firms', payer.id, 'Cr', amount, alloc.fundId);
+      b.leg = undefined;
       return;
     }
   }
   // General case: the owner records the expense and owes the payer.
+  b.leg = ownerSide;
   b.category(owner.id, alloc.categoryId, 'expense', 'Dr', amount, alloc.fundId, alloc.projectId);
   b.party(owner.id, 'interentity_payable', payer.id, 'Cr', amount, alloc.fundId);
+  b.leg = payerSide;
   b.party(payer.id, 'interentity_receivable', owner.id, 'Dr', amount, src.fundId);
   b.money(payer.id, src.locationId, 'Cr', amount, src.fundId);
+  b.leg = undefined;
   b.owe(
     'interentity',
     owner.id,
@@ -261,6 +303,7 @@ function expensePortion(
     `${payer.name} paid an expense of ${owner.name}`,
     'interentity_payable',
     'interentity_receivable',
+    { debtor: alloc.fundId, creditor: src.fundId },
   );
 }
 
@@ -274,20 +317,29 @@ function bill(ctx: EngineContext, it: I.BillIntent): PostingPlan {
   it.lines.forEach((l) => checkRupees(l.amount));
   const b = new PlanBuilder(ctx);
   const byFund = new Map<Id, Rupees>();
-  for (const l of it.lines) {
+  for (const [index, l] of it.lines.entries()) {
+    b.leg = { kind: 'allocation', index };
     b.category(owner.id, l.categoryId, 'expense', 'Dr', l.amount, l.fundId, l.projectId);
     const f = b.fund(owner.id, l.fundId);
     byFund.set(f, (byFund.get(f) ?? 0n) + l.amount);
   }
-  for (const [fundId, amount] of byFund) b.party(owner.id, 'supplier_payable', supplier.id, 'Cr', amount, fundId);
-  b.owe(
-    'supplier_payable',
-    owner.id,
-    supplier.id,
-    sum(it.lines.map((l) => l.amount)),
-    `Bill from ${supplier.name}`,
-    'supplier_payable',
-  );
+  b.leg = undefined;
+  // One payable, and one open item, per fund the bill is charged to.
+  for (const [fundId, amount] of byFund) {
+    b.party(owner.id, 'supplier_payable', supplier.id, 'Cr', amount, fundId);
+    b.owe(
+      'supplier_payable',
+      owner.id,
+      supplier.id,
+      amount,
+      `Bill from ${supplier.name}`,
+      'supplier_payable',
+      undefined,
+      {
+        debtor: fundId,
+      },
+    );
+  }
   return b.build();
 }
 
@@ -324,6 +376,7 @@ function nonOwnerPayment(ctx: EngineContext, it: I.NonOwnerPaymentIntent): Posti
         `${firm.name} gave ${recipient.name} money for own use`,
         'interentity_payable',
         'interentity_receivable',
+        { creditor: f },
       );
     }
     return b.build();
@@ -363,6 +416,7 @@ function nonOwnerPayment(ctx: EngineContext, it: I.NonOwnerPaymentIntent): Posti
     `${firm.name} money taken by ${owner.name} for ${recipient.name}`,
     'interentity_payable',
     'interentity_receivable',
+    { creditor: f },
   );
   b.owe(
     'interentity',
@@ -395,6 +449,7 @@ function income(ctx: EngineContext, it: I.IncomeIntent): PostingPlan {
       `Sale on credit to ${customer.name}`,
       undefined,
       'customer_receivable',
+      { creditor: it.fundId },
     );
     return b.build();
   }
@@ -415,6 +470,7 @@ function income(ctx: EngineContext, it: I.IncomeIntent): PostingPlan {
     `${receiver.name} received ${owner.name}'s income`,
     'interentity_payable',
     'interentity_receivable',
+    { debtor: at.fundId, creditor: it.fundId },
   );
   return b.build();
 }
@@ -436,7 +492,9 @@ function advanceGive(ctx: EngineContext, it: I.AdvanceGiveIntent): PostingPlan {
   const b = new PlanBuilder(ctx);
   b.party(giver.id, 'advances_given', holder.id, 'Dr', it.amount, it.fundId);
   b.money(giver.id, it.fromLocationId, 'Cr', it.amount, it.fundId);
-  b.owe('advance', holder.id, giver.id, it.amount, `Advance to ${holder.name}`, undefined, 'advances_given');
+  b.owe('advance', holder.id, giver.id, it.amount, `Advance to ${holder.name}`, undefined, 'advances_given', {
+    creditor: it.fundId,
+  });
   return b.build();
 }
 
@@ -453,7 +511,8 @@ function advanceAccount(ctx: EngineContext, it: I.AdvanceAccountIntent): Posting
   const returned = it.returned ? checkRupees(it.returned.amount) : 0n;
   if (used === 0n && returned === 0n) fail('VALIDATION', 'Enter what was spent or returned.');
   const b = new PlanBuilder(ctx);
-  for (const u of it.uses) b.category(giver.id, u.categoryId, 'expense', 'Dr', u.amount);
+  const gf = item.creditorFundId; // the giver's fund the advance was given from
+  for (const u of it.uses) b.category(giver.id, u.categoryId, 'expense', 'Dr', u.amount, gf);
 
   if (used > item.remaining) {
     if (returned > 0n) fail('VALIDATION', 'Nothing can be returned when more than the advance was spent.');
@@ -461,11 +520,11 @@ function advanceAccount(ctx: EngineContext, it: I.AdvanceAccountIntent): Posting
     if (!hasBooks(holder) || !it.overspendFromLocationId) {
       fail('VALIDATION', `Choose where ${holder.name} paid the extra ${formatInr(excess)} from.`);
     }
-    b.party(giver.id, 'advances_given', holder.id, 'Cr', item.remaining);
-    b.party(giver.id, 'interentity_payable', holder.id, 'Cr', excess);
+    b.party(giver.id, 'advances_given', holder.id, 'Cr', item.remaining, gf);
+    b.party(giver.id, 'interentity_payable', holder.id, 'Cr', excess, gf);
     b.party(holder.id, 'interentity_receivable', giver.id, 'Dr', excess);
     b.money(holder.id, it.overspendFromLocationId, 'Cr', excess);
-    b.settle(item.id, item.remaining);
+    b.settle(item.id, item.remaining, 'advance_use');
     b.owe(
       'interentity',
       giver.id,
@@ -474,6 +533,7 @@ function advanceAccount(ctx: EngineContext, it: I.AdvanceAccountIntent): Posting
       `${holder.name} spent more than the advance`,
       'interentity_payable',
       'interentity_receivable',
+      { debtor: gf },
     );
     return b.build();
   }
@@ -485,12 +545,15 @@ function advanceAccount(ctx: EngineContext, it: I.AdvanceAccountIntent): Posting
       { remaining: item.remaining },
     );
   }
-  if (used > 0n) b.party(giver.id, 'advances_given', holder.id, 'Cr', used);
-  if (returned > 0n) {
-    b.money(giver.id, it.returned!.toLocationId, 'Dr', returned);
-    b.party(giver.id, 'advances_given', holder.id, 'Cr', returned);
+  if (used > 0n) {
+    b.party(giver.id, 'advances_given', holder.id, 'Cr', used, gf);
+    b.settle(item.id, used, 'advance_use');
   }
-  b.settle(item.id, used + returned);
+  if (returned > 0n) {
+    b.money(giver.id, it.returned!.toLocationId, 'Dr', returned, gf);
+    b.party(giver.id, 'advances_given', holder.id, 'Cr', returned, gf);
+    b.settle(item.id, returned, 'advance_return');
+  }
   return b.build();
 }
 
@@ -536,23 +599,25 @@ function loanRepayment(ctx: EngineContext, it: I.LoanRepaymentIntent): PostingPl
   const lender = active(ctx, item.creditorId);
   const b = new PlanBuilder(ctx, 'settlement');
   const total = it.principal + it.interest;
+  const bf = item.debtorFundId;
+  const lf = item.creditorFundId;
   if (hasBooks(borrower)) {
     if (!it.payerLocationId) fail('VALIDATION', `Choose where ${borrower.name} paid from.`);
-    if (it.principal > 0n) b.party(borrower.id, 'loans_taken', lender.id, 'Dr', it.principal);
+    if (it.principal > 0n) b.party(borrower.id, 'loans_taken', lender.id, 'Dr', it.principal, bf);
     if (it.interest > 0n) {
-      b.category(borrower.id, interestCategory(ctx, borrower.id, 'expense'), 'expense', 'Dr', it.interest);
+      b.category(borrower.id, interestCategory(ctx, borrower.id, 'expense'), 'expense', 'Dr', it.interest, bf);
     }
-    b.money(borrower.id, it.payerLocationId, 'Cr', total);
+    b.money(borrower.id, it.payerLocationId, 'Cr', total, bf);
   }
   if (hasBooks(lender)) {
     if (!it.payeeLocationId) fail('VALIDATION', `Choose where ${lender.name} received the money.`);
-    b.money(lender.id, it.payeeLocationId, 'Dr', total);
-    if (it.principal > 0n) b.party(lender.id, 'loans_given', borrower.id, 'Cr', it.principal);
+    b.money(lender.id, it.payeeLocationId, 'Dr', total, lf);
+    if (it.principal > 0n) b.party(lender.id, 'loans_given', borrower.id, 'Cr', it.principal, lf);
     if (it.interest > 0n) {
-      b.category(lender.id, interestCategory(ctx, lender.id, 'income'), 'income', 'Cr', it.interest);
+      b.category(lender.id, interestCategory(ctx, lender.id, 'income'), 'income', 'Cr', it.interest, lf);
     }
   }
-  if (it.principal > 0n) b.settle(item.id, it.principal);
+  if (it.principal > 0n) b.settle(item.id, it.principal, 'payment');
   return b.build();
 }
 
@@ -607,6 +672,7 @@ function interEntityTransfer(ctx: EngineContext, it: I.InterEntityTransferIntent
     `${from.name} transferred money to ${to.name}`,
     'interentity_payable',
     'interentity_receivable',
+    { debtor: it.to.fundId, creditor: it.from.fundId },
   );
   return b.build();
 }
@@ -617,8 +683,9 @@ function settlement(ctx: EngineContext, it: I.SettlementIntent): PostingPlan {
   const payee = active(ctx, it.payeeId);
   const b = new PlanBuilder(ctx, 'settlement');
   const seen = new Set<Id>();
-  let payerTotal = 0n;
-  let payeeTotal = 0n;
+  // Money moves in the fund each item is carried in, so every fund balances on its own.
+  const payerByFund = new Map<Id, Rupees>();
+  const payeeByFund = new Map<Id, Rupees>();
   for (const a of it.allocations) {
     checkRupees(a.amount);
     if (seen.has(a.openItemId)) fail('VALIDATION', 'The same item is listed twice.');
@@ -640,23 +707,23 @@ function settlement(ctx: EngineContext, it: I.SettlementIntent): PostingPlan {
       );
     }
     if (item.debtorRole) {
-      b.party(payer.id, item.debtorRole, payee.id, 'Dr', a.amount);
-      payerTotal += a.amount;
+      const f = b.fund(payer.id, item.debtorFundId);
+      b.party(payer.id, item.debtorRole, payee.id, 'Dr', a.amount, f);
+      payerByFund.set(f, (payerByFund.get(f) ?? 0n) + a.amount);
     }
     if (item.creditorRole) {
-      b.party(payee.id, item.creditorRole, payer.id, 'Cr', a.amount);
-      payeeTotal += a.amount;
+      const f = b.fund(payee.id, item.creditorFundId);
+      b.party(payee.id, item.creditorRole, payer.id, 'Cr', a.amount, f);
+      payeeByFund.set(f, (payeeByFund.get(f) ?? 0n) + a.amount);
     }
-    b.settle(item.id, a.amount);
+    b.settle(item.id, a.amount, 'payment');
   }
-  if (payerTotal > 0n) {
-    if (!it.payerLocationId) fail('VALIDATION', `Choose where ${payer.name} paid from.`);
-    b.money(payer.id, it.payerLocationId, 'Cr', payerTotal);
+  if (payerByFund.size > 0 && !it.payerLocationId) fail('VALIDATION', `Choose where ${payer.name} paid from.`);
+  if (payeeByFund.size > 0 && !it.payeeLocationId) {
+    fail('VALIDATION', `Choose where ${payee.name} received the money.`);
   }
-  if (payeeTotal > 0n) {
-    if (!it.payeeLocationId) fail('VALIDATION', `Choose where ${payee.name} received the money.`);
-    b.money(payee.id, it.payeeLocationId, 'Dr', payeeTotal);
-  }
+  for (const [f, amount] of payerByFund) b.money(payer.id, it.payerLocationId!, 'Cr', amount, f);
+  for (const [f, amount] of payeeByFund) b.money(payee.id, it.payeeLocationId!, 'Dr', amount, f);
   return b.build();
 }
 
@@ -676,12 +743,17 @@ function offset(ctx: EngineContext, it: I.OffsetIntent): PostingPlan {
   const x = a.debtorId; // x owes y on item A; y owes x on item B
   const y = a.creditorId;
   const b = new PlanBuilder(ctx, 'settlement');
-  b.party(x, 'interentity_payable', y, 'Dr', it.amount);
-  b.party(x, 'interentity_receivable', y, 'Cr', it.amount);
-  b.party(y, 'interentity_payable', x, 'Dr', it.amount);
-  b.party(y, 'interentity_receivable', x, 'Cr', it.amount);
-  b.settle(a.id, it.amount);
-  b.settle(c.id, it.amount);
+  const xf = b.fund(x, a.debtorFundId);
+  const yf = b.fund(y, a.creditorFundId);
+  if (xf !== b.fund(x, c.creditorFundId) || yf !== b.fund(y, c.debtorFundId)) {
+    fail('FUND_MISMATCH', 'These amounts are carried in different funds; settle them separately.');
+  }
+  b.party(x, 'interentity_payable', y, 'Dr', it.amount, xf);
+  b.party(x, 'interentity_receivable', y, 'Cr', it.amount, xf);
+  b.party(y, 'interentity_payable', x, 'Dr', it.amount, yf);
+  b.party(y, 'interentity_receivable', x, 'Cr', it.amount, yf);
+  b.settle(a.id, it.amount, 'offset');
+  b.settle(c.id, it.amount, 'offset');
   return b.build();
 }
 

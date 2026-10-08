@@ -103,7 +103,15 @@ export interface PlannedLine {
   projectId?: Id;
   /** Who physically held the cash at the location when posted (snapshot from the location's holder history). */
   holderPersonId?: Id;
+  /** The business leg of the intent that produced this line (an expense's source or allocation), for drill-down. */
+  leg?: LegRef;
   memo?: string;
+}
+
+/** Points at one leg of an intent: `sources[index]`, `allocations[index]`, or the single from/to of simple intents. */
+export interface LegRef {
+  kind: 'source' | 'destination' | 'allocation';
+  index: number;
 }
 
 export type JournalKind =
@@ -140,12 +148,18 @@ export interface PlannedOpenItem {
   /** Which account each side carries it on, so a settlement can post the right lines later. */
   debtorRole?: AccountRole;
   creditorRole?: AccountRole;
+  /** Which fund each side carries it in; a settlement clears it in the same fund (per-fund balancing). */
+  debtorFundId?: Id;
+  creditorFundId?: Id;
   reason: string;
 }
+
+export type SettlementKind = 'payment' | 'offset' | 'advance_use' | 'advance_return' | 'write_off';
 
 export interface PlannedSettlement {
   openItemId: Id;
   amount: Rupees;
+  kind: SettlementKind;
 }
 
 export interface PostingPlan {
