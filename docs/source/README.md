@@ -18,5 +18,9 @@ documents refine earlier ones, and **where two differ, the stricter security, pr
 | [ADDON-09](ADDON-09-premium-theme.md) | 2026-10-08 | A distinctive, centralised premium theme |
 | [GATE-RESPONSE-01](GATE-RESPONSE-01-gates-1-2.md) | 2026-10-08 | Gate 1 approved with conditions; Gate 2 corrections (custody history, Angadiya split) |
 | [ADDON-10](ADDON-10-continue-to-full-completion.md) | 2026-10-08 | Continue to a complete, working app; stop only at external blockers |
+| [GATE-RESPONSE-02](GATE-RESPONSE-02-f1-f7.md) | 2026-10-08 | Answers to F1–F7; source of money ≠ expense owner; continue building; GitHub repository |
+| [RULEBOOK-01](RULEBOOK-01-accounting-core.md) | 2026-10-08 | Accounting core rulebook — 152 rules for the journal, ledger and double-entry engine |
+| [RULEBOOK-02](RULEBOOK-02-master-accounting-engine.md) | 2026-10-08 | Master accounting engine — loans, advances, inter-firm, settlements, the 100 non-negotiable rules |
+| [RULEBOOK-03](RULEBOOK-03-finance-engine-scenarios.md) | 2026-10-08 | Finance engine scenarios — entities, environments, access, masters, 42 acceptance tests |
 
 Other documents cite "the source documents" and link here, so a new add-on is recorded in one place.
