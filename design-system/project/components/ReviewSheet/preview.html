@@ -5,7 +5,7 @@
 <body>
 <div id="root" class="fy-root"></div>
 <script>
-  var F = window.Finely, h = React.createElement;
+  var F = window.Finly, h = React.createElement;
   ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-phone fy-scrim' }, h(F.ReviewSheet, { title: 'Review transfer', amount: 50000, direction: 'transfer', rows: [{ label: 'From', value: 'JSK · HDFC current' }, { label: 'To', value: 'Mint · Savan Bank' }, { label: 'Counts as', value: 'Loan from JSK to Mint' }, { label: 'Reason', value: 'Stock purchase for Mint' }, { label: 'When', value: 'Today, 10:15 AM' }, { label: 'Handled by', value: 'Krish Patel' }], impact: [{ area: 'JSK · Bank', before: 400000, after: 350000 }, { area: 'Mint · Bank', before: 200000, after: 250000 }, { area: 'Mint owes JSK', before: 0, after: 50000 }], stepUp: true })));
 </script>
 </body>

@@ -1,6 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Mukta:wght@400;500;600;700&family=Mukta+Vaani:wght@400;500;600;700&display=swap");
 
-/* Finely reference components. Every value comes from tokens.css; nothing here is a second source. */
+/* Finly reference components. Every value comes from tokens.css; nothing here is a second source. */
 body { margin: 0; font-family: var(--font-sans); background: var(--surface); color: var(--ink); -webkit-font-smoothing: antialiased; }
 .fy-demo { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: flex-start; padding: var(--space-4); }
 .fy-demo > * { flex: 0 1 auto; }

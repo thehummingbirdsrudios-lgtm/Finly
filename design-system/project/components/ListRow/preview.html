@@ -5,7 +5,7 @@
 <body>
 <div id="root" class="fy-root"></div>
 <script>
-  var F = window.Finely, h = React.createElement;
+  var F = window.Finly, h = React.createElement;
   ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-phone' }, h(F.ListRow, { icon: 'vault', title: 'Tijori', subtitle: 'Mint, JSK, Krish, Father', trailing: h(F.Money, { amount: 1000000, size: 'sm' }), onClick: function () {} }), h(F.ListRow, { icon: 'business', title: 'Savan Bank', subtitle: 'Mint · Current account ••4521', trailing: h(F.Money, { amount: 500000, size: 'sm' }), onClick: function () {} }), h(F.ListRow, { icon: 'lock', title: 'Wardrobe', reason: 'Owner-only. Ask Krish Patel for access.', disabled: true, onClick: function () {} })));
 </script>
 </body>

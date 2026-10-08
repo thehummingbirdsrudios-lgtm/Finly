@@ -51,7 +51,7 @@ const color = [
 const fam = 'sans';
 const st = (name, fontSize, lineHeight, fontWeight, sample, usage, extra = {}) => ({ name, fontSize, lineHeight, fontWeight, sample, usage, ...extra });
 const tokens = {
-  name: 'Finely', version: 1,
+  name: 'Finly', version: 1,
   color: { themes: [{ id: 'light', name: 'Light' }, { id: 'dark', name: 'Dark' }], tokens: color },
   type: {
     fonts: [],

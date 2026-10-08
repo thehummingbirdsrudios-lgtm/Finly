@@ -1,6 +1,6 @@
-# Finely design system — source
+# Finly design system — source
 
-This folder is the single source of the Finely design system (BUILD_PROMPT Part K). It is published as the
+This folder is the single source of the Finly design system (BUILD_PROMPT Part K). It is published as the
 Design System artifact <https://claude.ai/artifact/TS2kABqmbQoASrgxM6r79J>. The Flutter app's theme will be
 generated from the same `tokens.json` (`docs/DESIGN.md`).
 

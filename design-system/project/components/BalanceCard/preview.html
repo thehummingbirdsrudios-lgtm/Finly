@@ -5,7 +5,7 @@
 <body>
 <div id="root" class="fy-root"></div>
 <script>
-  var F = window.Finely, h = React.createElement;
+  var F = window.Finly, h = React.createElement;
   ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-demo' }, h(F.BalanceCard, { title: 'Mint · as Krish', path: 'Money › Mint', amount: 1200000, privacy: 'business', parts: [{ label: 'Savan Bank', amount: 500000 }, { label: 'Wardrobe (owner fund)', amount: 400000 }, { label: 'Tijori', amount: 300000 }], updated: 'Updated just now' }), h(F.BalanceCard, { title: 'Mint · as Father', path: 'Money › Mint', amount: 800000, privacy: 'business', parts: [{ label: 'Savan Bank', amount: 500000 }, { label: 'Tijori', amount: 300000 }], updated: 'Updated just now' }), h(F.BalanceCard, { title: 'Mint · as Sujal (worker)', amount: 300000, parts: [{ label: 'Tijori', amount: 300000 }], updated: 'Showing balances from 2 hours ago', stale: true })));
 </script>
 </body>

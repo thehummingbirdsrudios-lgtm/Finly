@@ -5,7 +5,7 @@
 <body>
 <div id="root" class="fy-root"></div>
 <script>
-  var F = window.Finely, h = React.createElement;
+  var F = window.Finly, h = React.createElement;
   ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-demo' }, h(F.AccessState, { kind: 'denied', actionLabel: 'Request access' }), h(F.AccessState, { kind: 'forbidden' }), h(F.AccessState, { kind: 'unauthorized', actionLabel: 'Unlock' })));
 </script>
 </body>

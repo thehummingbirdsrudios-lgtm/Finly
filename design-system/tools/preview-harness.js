@@ -58,7 +58,7 @@ for (const theme of ['light', 'dark']) {
     fs.writeFileSync(path.join(dir, n + '.html'), page);
     frames.push(`<section id="${n}"><h2>${n}</h2><iframe src="${theme}/${n}.html" style="width:960px;height:${height}px;border:1px solid #888"></iframe></section>`);
   }
-  fs.writeFileSync(path.join(out, `index-${theme}.html`), `<!doctype html><meta charset="utf-8"><title>Finely previews (${theme})</title>
+  fs.writeFileSync(path.join(out, `index-${theme}.html`), `<!doctype html><meta charset="utf-8"><title>Finly previews (${theme})</title>
 <style>body{font:14px system-ui;margin:16px;background:${theme === 'dark' ? '#000' : '#fff'};color:${theme === 'dark' ? '#fff' : '#000'}} h2{margin:24px 0 4px}</style>${frames.join('\n')}`);
 }
 fs.writeFileSync(path.join(out, 'tokens.css'), tokensCss);

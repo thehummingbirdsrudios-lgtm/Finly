@@ -5,7 +5,7 @@
 <body>
 <div id="root" class="fy-root"></div>
 <script>
-  var F = window.Finely, h = React.createElement;
+  var F = window.Finly, h = React.createElement;
   ReactDOM.createRoot(document.getElementById('root')).render(h(F.ConflictMessage, { title: 'Cannot change this transaction.', what: 'Moving ₹50,000 of this entry from Mint Fund to JSK Fund.', where: 'Tijori · TX-20261008-001245', why: 'This change would create an inconsistency between the fund balance and the account balance.', impact: 'Two settlements already use this entry.', note: 'Nothing was saved.', resolutions: [{ label: 'Start a correction' }, { label: 'Undo the settlements first' }, { label: 'Cancel' }] }));
 </script>
 </body>

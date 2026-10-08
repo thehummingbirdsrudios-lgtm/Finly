@@ -71,7 +71,7 @@ for (const s of specs) {
 <body>
 <div id="root" class="fy-root"></div>
 <script>
-  var F = window.Finely, h = React.createElement;
+  var F = window.Finly, h = React.createElement;
   ReactDOM.createRoot(document.getElementById('root')).render(${s.code});
 </script>
 </body>

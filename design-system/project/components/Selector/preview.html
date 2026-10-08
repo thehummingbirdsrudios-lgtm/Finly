@@ -5,7 +5,7 @@
 <body>
 <div id="root" class="fy-root"></div>
 <script>
-  var F = window.Finely, h = React.createElement;
+  var F = window.Finly, h = React.createElement;
   ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-demo' }, h('div', { className: 'fy-col' }, h(F.Selector, { label: 'From', defaultValue: 'mint-bank', options: [{ id: 'mint-bank', title: 'Savan Bank', subtitle: 'Mint', icon: 'business' }] })), h('div', { className: 'fy-col' }, h(F.Selector, { label: 'To', defaultOpen: true, recentLabel: 'RECENT', options: [{ id: 'tijori', title: 'Tijori', subtitle: 'Mint · Cash', icon: 'vault' }, { id: 'wallet', title: 'JSK Wallet', subtitle: 'JSK · Wallet', icon: 'wallet' }, { id: 'office', title: 'Office drawer', subtitle: 'Mint · Cash', icon: 'vault' }, { id: 'mint-bank', title: 'Savan Bank', subtitle: 'Mint', icon: 'business', disabled: true, reason: 'Already chosen as From' }] }))));
 </script>
 </body>

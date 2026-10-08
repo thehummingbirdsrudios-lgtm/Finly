@@ -1,6 +1,6 @@
 // Source for every components/<Name>/README.md and preview.html. Edit here, then run make-components.js.
 // Demo data uses only the build spec's F3 seed examples (Mint, JSK, Tijori, Krish Patel, Father, Sujal, Savan...).
-// `code` is the body of the preview script: F = window.Finely, h = React.createElement.
+// `code` is the body of the preview script: F = window.Finly, h = React.createElement.
 
 const TX_IN = "{ id: 'TX-20261008-001245', from: 'Mint', to: 'Tijori', amount: 5000, direction: 'in', reason: 'Cash received from Mint', date: '08 Oct 2026', day: 'Thursday', time: '10:15 AM', handler: 'Krish Patel', fund: 'Mint Fund' }";
 

@@ -19,15 +19,15 @@ const sandbox = { console, React };
 sandbox.window = sandbox;
 vm.createContext(sandbox);
 vm.runInContext(bundle, sandbox, { filename: 'bundle.js' });
-const F = sandbox.Finely;
-if (!F) throw new Error('bundle.js did not assign window.Finely');
+const F = sandbox.Finly;
+if (!F) throw new Error('bundle.js did not assign window.Finly');
 
 // 2. header components <-> folders <-> exports
 const header = JSON.parse(bundle.match(/@ds-bundle: (\{.*?\}) \*\//)[1]);
 const headerNames = header.components.map((c) => c.name);
 const folders = fs.readdirSync(COMP).filter((d) => fs.existsSync(path.join(COMP, d, 'preview.html')) && d !== 'Cover');
 for (const n of headerNames) {
-  if (typeof F[n] !== 'function') fail(`header lists ${n} but window.Finely.${n} is not a function`);
+  if (typeof F[n] !== 'function') fail(`header lists ${n} but window.Finly.${n} is not a function`);
   if (!folders.includes(n)) fail(`header lists ${n} but components/${n}/ has no preview`);
 }
 for (const d of folders) {

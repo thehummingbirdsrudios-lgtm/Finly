@@ -5,7 +5,7 @@
 <body>
 <div id="root" class="fy-root"></div>
 <script>
-  var F = window.Finely, h = React.createElement;
+  var F = window.Finly, h = React.createElement;
   ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-demo' }, h(F.Dialog, { title: 'Leave without saving?', icon: 'info', body: 'Your draft is kept, encrypted, on this phone.', actions: [h(F.Button, { key: 'k', variant: 'quiet' }, 'Keep editing'), h(F.Button, { key: 'l' }, 'Leave')] }), h(F.Dialog, { title: 'Reverse this entry?', tone: 'danger', icon: 'undo', body: 'A mirror entry will cancel ₹5,000 Mint → Tijori. The original stays in history.', actions: [h(F.Button, { key: 'k', variant: 'quiet' }, 'Keep'), h(F.Button, { key: 'r', variant: 'danger' }, 'Reverse')] })));
 </script>
 </body>

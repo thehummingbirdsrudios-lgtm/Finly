@@ -1,4 +1,4 @@
-// Finely reference components — props as documentation. Amounts are whole-rupee integers from the server.
+// Finly reference components — props as documentation. Amounts are whole-rupee integers from the server.
 import type * as React from 'react';
 
 export type Direction = 'in' | 'out' | 'transfer' | 'none';
@@ -78,7 +78,7 @@ export interface PdfPageProps { title: string; entity: string; period: string; s
 
 declare global {
   interface Window {
-    Finely: {
+    Finly: {
       Icon: React.FC<IconProps>; Money: React.FC<MoneyProps>; StatusBadge: React.FC<StatusBadgeProps>; PrivacyBadge: React.FC<PrivacyBadgeProps>;
       Button: React.FC<ButtonProps>; AddButton: React.FC<AddButtonProps>; TextField: React.FC<TextFieldProps>; AmountInput: React.FC<AmountInputProps>;
       SearchBar: React.FC<SearchBarProps>; Chip: React.FC<ChipProps>; Selector: React.FC<SelectorProps>; Tabs: React.FC<TabsProps>; TopBar: React.FC<TopBarProps>;

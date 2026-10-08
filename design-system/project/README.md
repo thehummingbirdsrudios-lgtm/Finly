@@ -1,4 +1,4 @@
-Finely is a private money app for one family and its businesses. It must feel like the simplest finance app on the phone while a full double-entry ledger runs underneath. Every screen answers four plain questions — how much, from where, to where, why — and the amount is always the first thing the eye lands on.
+Finly is a private money app for one family and its businesses. It must feel like the simplest finance app on the phone while a full double-entry ledger runs underneath. Every screen answers four plain questions — how much, from where, to where, why — and the amount is always the first thing the eye lands on.
 
 These rules apply to every screen, proof card, PDF and notification. The components here are reference renderings; the Flutter app implements the same tokens and behaviour (see *Flutter implementation*).
 

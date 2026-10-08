@@ -5,7 +5,7 @@
 <body>
 <div id="root" class="fy-root"></div>
 <script>
-  var F = window.Finely, h = React.createElement;
+  var F = window.Finly, h = React.createElement;
   ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-demo' }, h(F.JournalLines, { entity: 'Krish Patel (personal)', journalId: 'JE-20261006-000318', lines: [{ account: 'Personal expenses', side: 'Dr', amount: 10000, dims: 'Fund: Personal · Event: Angadiya visit' }, { account: 'Reimbursement receivable – Mint', side: 'Dr', amount: 30000 }, { account: 'Reimbursement receivable – JSK', side: 'Dr', amount: 5000 }, { account: 'Bank – Savan (Krish)', side: 'Cr', amount: 45000 }] }), h(F.JournalLines, { entity: 'Mint', journalId: 'JE-20261006-000319', lines: [{ account: 'Expenses – Travel, Hotel, Food', side: 'Dr', amount: 30000, dims: 'Fund: Mint Operating' }, { account: 'Reimbursement payable – Krish', side: 'Cr', amount: 30000 }] })));
 </script>
 </body>

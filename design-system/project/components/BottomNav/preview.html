@@ -5,7 +5,7 @@
 <body>
 <div id="root" class="fy-root"></div>
 <script>
-  var F = window.Finely, h = React.createElement;
+  var F = window.Finly, h = React.createElement;
   ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-phone', style: { paddingTop: '96px' } }, h(F.BottomNav, { onAdd: function () {}, items: [{ id: 'home', label: 'Home', icon: 'home' }, { id: 'money', label: 'Money', icon: 'wallet' }, { id: 'activity', label: 'Activity', icon: 'list' }, { id: 'outstanding', label: 'Outstanding', icon: 'hourglass', badge: 2 }, { id: 'more', label: 'More', icon: 'more' }] })));
 </script>
 </body>

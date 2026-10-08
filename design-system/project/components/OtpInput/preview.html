@@ -5,7 +5,7 @@
 <body>
 <div id="root" class="fy-root"></div>
 <script>
-  var F = window.Finely, h = React.createElement;
+  var F = window.Finly, h = React.createElement;
   ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-demo' }, h(F.OtpInput, { label: 'Code from your authenticator app', helper: 'Expires in 30 seconds.' }), h(F.OtpInput, { label: 'Code from your authenticator app', error: 'That code has expired. Enter the new one.' })));
 </script>
 </body>

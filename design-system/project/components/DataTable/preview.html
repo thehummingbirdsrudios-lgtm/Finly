@@ -5,7 +5,7 @@
 <body>
 <div id="root" class="fy-root"></div>
 <script>
-  var F = window.Finely, h = React.createElement;
+  var F = window.Finly, h = React.createElement;
   ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-col', style: { width: '420px' } }, h(F.DataTable, { caption: 'Angadiya visit · 6 Oct 2026', columns: [{ key: 'cat', label: 'Category' }, { key: 'mint', label: 'Mint', align: 'end', money: true }, { key: 'jsk', label: 'JSK', align: 'end', money: true }, { key: 'krish', label: 'Personal', align: 'end', money: true }], rows: [{ cat: 'Travel', mint: 7000, jsk: 1000, krish: 2000 }, { cat: 'Hotel', mint: 8000, jsk: 1000, krish: 3000 }, { cat: 'Food', mint: 3000, jsk: 500, krish: 1500 }, { cat: 'Local', mint: 2000, jsk: 500, krish: 500 }, { cat: 'Firm charges', mint: 6000, jsk: 2000, krish: 0 }, { cat: 'Other', mint: 4000, jsk: 0, krish: 3000 }], totals: { cat: 'Total ₹45,000', mint: 30000, jsk: 5000, krish: 10000 } })));
 </script>
 </body>

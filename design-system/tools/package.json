@@ -1,7 +1,7 @@
 {
-  "name": "finely-design-system-tools",
+  "name": "finly-design-system-tools",
   "private": true,
-  "description": "Checks for the Finely design-system source: token generation, contrast and preview render checks.",
+  "description": "Checks for the Finly design-system source: token generation, contrast and preview render checks.",
   "license": "UNLICENSED",
   "scripts": {
     "tokens": "node make-tokens.js palette.json ../project/tokens.json",

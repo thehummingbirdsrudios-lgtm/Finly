@@ -5,7 +5,7 @@
 <body>
 <div id="root" class="fy-root"></div>
 <script>
-  var F = window.Finely, h = React.createElement;
+  var F = window.Finly, h = React.createElement;
   ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-demo' }, h(F.ShareConfirm, { recipient: { name: 'Sujal', contact: '+91 98••• ••210', verified: true }, channel: 'WhatsApp', format: 'PDF', security: ['Password', 'Encryption', 'Watermark', 'Expiry 24h'], content: '₹50,000 · Mint → Tijori · TX-20261008-001245' }), h(F.ShareConfirm, { recipient: { name: 'Savan', contact: '+91 99••• ••034', verified: false }, channel: 'WhatsApp', format: 'Message', security: ['None'], content: '₹20,000 · JSK → Mint', invalidated: true })));
 </script>
 </body>
