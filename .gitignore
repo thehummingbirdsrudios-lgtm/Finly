@@ -1,0 +1,70 @@
+# ---------- secrets: never commit ----------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+key.properties
+**/android/key.properties
+**/android/app/upload-keystore.*
+google-services.json
+GoogleService-Info.plist
+supabase/.env
+supabase/**/.env
+*.age
+backups/
+
+# ---------- Flutter / Dart ----------
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
+*.g.dart.incremental
+pubspec_overrides.yaml
+.fvm/flutter_sdk
+
+# ---------- Android ----------
+**/android/.gradle/
+**/android/captures/
+**/android/local.properties
+**/android/**/GeneratedPluginRegistrant.java
+**/android/app/.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.hprof
+
+# ---------- iOS / macOS (future; generated files only) ----------
+**/ios/Flutter/ephemeral/
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/Generated.xcconfig
+**/ios/Runner/GeneratedPluginRegistrant.*
+
+# ---------- Supabase / Deno / Node ----------
+supabase/.temp/
+supabase/.branches/
+node_modules/
+.deno/
+deno.lock.bak
+
+# ---------- tooling / OS ----------
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+*.tmp
+*.swp
