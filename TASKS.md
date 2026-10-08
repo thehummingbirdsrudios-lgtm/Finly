@@ -21,8 +21,9 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · ⛔ gate
 - [ ] Threat model (STRIDE) and data-flow diagrams
 - [ ] Client-independent architecture, API contracts and versioning, error model
 - [ ] Encryption and key-management design (AC7), backup design
-- [ ] Database schema: ERD, tables, constraints, encryption map, index plan, invariants
-- ⛔ **Gate 3 — database schema**
+- [x] Database architecture and schema design (add-on 11): ERD levels 1–6, 91 tables, data dictionary, index and RLS design, concurrency, sync, migration and backup strategies, edge-case matrix, open questions — [docs/database/](docs/database/README.md)
+- [ ] Migrations implementing the design, database tests (RLS, immutability, constraints, concurrency), benchmark
+- ⛔ **Gate 3 — database schema** delivered as documents (D-019, D-025); open questions Q1–Q12 await the owner
 
 ## M2 — Design, UX blueprint, edge cases
 

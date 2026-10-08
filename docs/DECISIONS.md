@@ -31,6 +31,9 @@ document), `Proposed` (waiting for a gate) or `Superseded`. Gates: 1 stack, 2 ac
 | D-022 | Android application id `app.finly`, Flutter project in `app/` | Decided (2026-10-08) | Package names must avoid Kotlin keywords |
 | D-023 | **Finly runs its own identity service** inside the Finly API (Argon2id passwords, rotating refresh tokens bound to devices, TOTP MFA) instead of Supabase Auth. Supabase still hosts the database, the API and file storage | Decided (2026-10-08), owner informed | S12 portability (D-013); usernames, temporary passwords and Super Admin resets (add-ons 06/07) fit naturally; testable without Docker |
 | D-024 | Backend tests run against PGlite (PostgreSQL 17 compiled to WebAssembly, an npm dev dependency) when no Postgres server is available; CI also runs them against a real PostgreSQL 17 service | Decided (2026-10-08) | Docker is not installed; no system software installed |
+| D-025 | **Database design (Gate 3, add-on 11)** in [docs/database/](database/README.md): 91 tables in schema `finly`; five least-privilege roles (`finly_owner`, `finly_auth`, `finly_api`, `finly_ledger`, `finly_system`) with client roles denied; RLS by a transaction-local actor; encrypted amounts with balance snapshots per slice; composite foreign keys keep each line's account and fund in its own entity's books; global HMAC hash chains for journals and audit | Decided (2026-10-08); open questions Q1–Q12 flagged to the owner | Add-on 11; AC6, AC7, A4; delivered under D-019 |
+| D-026 | **No key material in the database.** Data, blind-index, hash-chain, file and M-PIN-pepper keys are derived with HKDF-SHA-256 from versioned KEKs in the function secret store; `key_version` stores version numbers only. Supersedes the wrapped-DEK plan in S3 | Decided (2026-10-08) | Part M ("never in ordinary DB tables"), stricter reading (A6.2) |
+| D-027 | Migrations are plain SQL in `backend/db/migrations/`, applied by our own checksummed runner (portable to any PostgreSQL 17 and PGlite); not tied to the Supabase CLI | Decided (2026-10-08) | S12 portability, D-024 |
 
 ---
 
@@ -98,6 +101,8 @@ in our own tables.
   database as the data.
 
 ### S4. Authentication
+
+*Superseded by D-023: Finly runs its own identity service; Supabase Auth is not used.*
 
 **Recommendation: Supabase Auth for passwords, sessions, refresh-token rotation and TOTP MFA; our own tables and API for
 devices, M-PINs, step-up, lockouts and recovery codes.**
