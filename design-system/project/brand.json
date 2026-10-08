@@ -11,5 +11,9 @@
     "launcherBackgroundToken": "logo-tile",
     "notification": "assets/Logos/finly-notification.svg"
   },
-  "splash": { "backgroundToken": "logo-tile", "icon": "assets/Logos/finly-launcher-foreground.svg" }
+  "splash": {
+    "backgroundToken": "surface",
+    "iconBackgroundToken": "logo-tile",
+    "icon": "assets/Logos/finly-launcher-foreground.svg"
+  }
 }

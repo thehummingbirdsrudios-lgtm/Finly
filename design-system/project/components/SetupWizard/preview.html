@@ -1,0 +1,12 @@
+<!-- @dsCard group="Startup" height=1360 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SetupWizard — preview</title></head>
+<body>
+<div id="root" class="fy-root"></div>
+<script>
+  var F = window.Finly, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-demo' }, h(F.SetupWizard, { current: 'firms', resumed: true, saved: 'Saved just now', steps: [{ id: 'account', title: 'Your account' }, { id: 'lock', title: 'Lock this phone' }, { id: 'people', title: 'People and users' }, { id: 'firms', title: 'Your firms', description: 'Each firm keeps its own books. You can add more later.' }, { id: 'places', title: 'Money places and funds' }, { id: 'opening', title: 'Opening balances' }, { id: 'perms', title: 'Who can see what' }, { id: 'prefs', title: 'Preferences', optional: true }, { id: 'review', title: 'Review' }] }, h(F.ListRow, { icon: 'business', title: 'Mint', subtitle: 'Owner: Krish Patel' }), h(F.ListRow, { icon: 'business', title: 'JSK', subtitle: 'Owner: Krish Patel' }), h(F.Button, { icon: 'plus' }, 'Add a firm')), h(F.SetupWizard, { current: 'prefs', steps: [{ id: 'account', title: 'Your account' }, { id: 'lock', title: 'Lock this phone' }, { id: 'prefs', title: 'Language and labels', description: 'Choose how Finly speaks to you. You can change this any time.', optional: true }] }, h(F.Tabs, { tabs: [{ id: 'en', label: 'English' }, { id: 'hi', label: 'हिन्दी' }, { id: 'gu', label: 'ગુજરાતી' }] }), h(F.Chip, { label: 'Show Avak / Javak', selected: true })), h(F.SetupWizard, { current: 'password', steps: [{ id: 'password', title: 'Choose your own password', description: 'The temporary password from your administrator works only once.' }, { id: 'lock', title: 'Lock this phone' }, { id: 'done', title: 'Ready' }], nextDisabled: true }, h(F.TextField, { label: 'New password', type: 'password', autoComplete: 'new-password', helper: 'At least 12 characters. A short sentence works well.' }), h(F.TextField, { label: 'Type it again', type: 'password', autoComplete: 'new-password', error: 'The two passwords do not match.' }))));
+</script>
+</body>
+</html>

@@ -53,6 +53,8 @@ const FLUTTER = {
   ShareConfirm: ['FyShareConfirm', 'showModalBottomSheet'],
   ProofCard: ['FyProofCard', 'rendered off-screen to PNG (RepaintBoundary.toImage) from server-authorised data'],
   PdfPage: ['(server document)', 'generated on the server; previewed in the app'],
+  SplashScreen: ['SplashPage', 'the Android 12 SplashScreen API for the system splash, then a Flutter page with the same layout'],
+  SetupWizard: ['SetupWizardPage', 'a PageView of step widgets driven by a server-chosen step list, with autosaved drafts'],
 };
 
 let written = 0;

@@ -77,6 +77,10 @@ export interface PdfPageProps { title: string; entity: string; period: string; s
   rows?: Record<string, React.ReactNode>[]; totals?: Record<string, React.ReactNode>; page?: number; pages?: number; docId?: string; generated?: string;
   classification?: string; watermark?: string }
 
+export interface SplashScreenProps { state?: 'starting' | 'checking' | 'offline' | 'failed' | 'disabled' | 'locked'; code?: string; onPrimary?: () => void; onSecondary?: () => void }
+export interface SetupWizardProps { steps: { id: string; title: string; description?: string; optional?: boolean }[]; current: string; title?: string; saved?: string; resumed?: boolean;
+  nextLabel?: string; nextDisabled?: boolean; onBack?: () => void; onNext?: () => void; onSkip?: () => void; children?: React.ReactNode }
+
 declare global {
   interface Window {
     Finly: {
@@ -91,7 +95,7 @@ declare global {
       EmptyState: React.FC<EmptyStateProps>; AccessState: React.FC<AccessStateProps>; PinPad: React.FC<PinPadProps>; OtpInput: React.FC<OtpInputProps>;
       UnlockScreen: React.FC<UnlockScreenProps>; StepUpSheet: React.FC<StepUpSheetProps>; SecurityBuilder: React.FC<SecurityBuilderProps>;
       MessagePreview: React.FC<MessagePreviewProps>; ShareConfirm: React.FC<ShareConfirmProps>; ProofCard: React.FC<ProofCardProps>; PdfPage: React.FC<PdfPageProps>;
-      StatesBoard: React.FC;
+      SplashScreen: React.FC<SplashScreenProps>; SetupWizard: React.FC<SetupWizardProps>; StatesBoard: React.FC;
       format: { inr(n: number): string; group(n: number): string; words(n: number): string; rounded(n: number): string; range(n: number): string };
       iconNames: string[];
       brand: { name: string; tagline: string };

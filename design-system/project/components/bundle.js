@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":4,"namespace":"Finly","components":[{"name":"Logo"},{"name":"Icon"},{"name":"Money"},{"name":"StatusBadge"},{"name":"PrivacyBadge"},{"name":"Button"},{"name":"AddButton"},{"name":"TextField"},{"name":"AmountInput"},{"name":"SearchBar"},{"name":"Chip"},{"name":"Selector"},{"name":"Tabs"},{"name":"TopBar"},{"name":"BottomNav"},{"name":"AddSheet"},{"name":"ListRow"},{"name":"TransactionCard"},{"name":"BalanceCard"},{"name":"FundCard"},{"name":"OutstandingCard"},{"name":"ExplainBalance"},{"name":"JournalLines"},{"name":"DataTable"},{"name":"FindingCard"},{"name":"BottomSheet"},{"name":"Dialog"},{"name":"ImpactPreview"},{"name":"ReviewSheet"},{"name":"ConflictMessage"},{"name":"Snackbar"},{"name":"Banner"},{"name":"Skeleton"},{"name":"EmptyState"},{"name":"AccessState"},{"name":"PinPad"},{"name":"OtpInput"},{"name":"UnlockScreen"},{"name":"StepUpSheet"},{"name":"SecurityBuilder"},{"name":"MessagePreview"},{"name":"ShareConfirm"},{"name":"ProofCard"},{"name":"PdfPage"}]} */
+/* @ds-bundle: {"format":4,"namespace":"Finly","components":[{"name":"Logo"},{"name":"Icon"},{"name":"Money"},{"name":"StatusBadge"},{"name":"PrivacyBadge"},{"name":"Button"},{"name":"AddButton"},{"name":"TextField"},{"name":"AmountInput"},{"name":"SearchBar"},{"name":"Chip"},{"name":"Selector"},{"name":"Tabs"},{"name":"TopBar"},{"name":"BottomNav"},{"name":"AddSheet"},{"name":"ListRow"},{"name":"TransactionCard"},{"name":"BalanceCard"},{"name":"FundCard"},{"name":"OutstandingCard"},{"name":"ExplainBalance"},{"name":"JournalLines"},{"name":"DataTable"},{"name":"FindingCard"},{"name":"BottomSheet"},{"name":"Dialog"},{"name":"ImpactPreview"},{"name":"ReviewSheet"},{"name":"ConflictMessage"},{"name":"Snackbar"},{"name":"Banner"},{"name":"Skeleton"},{"name":"EmptyState"},{"name":"AccessState"},{"name":"PinPad"},{"name":"OtpInput"},{"name":"UnlockScreen"},{"name":"StepUpSheet"},{"name":"SecurityBuilder"},{"name":"MessagePreview"},{"name":"ShareConfirm"},{"name":"ProofCard"},{"name":"PdfPage"},{"name":"SplashScreen"},{"name":"SetupWizard"}]} */
 (function () {
   'use strict';
   var React = window.React;
@@ -841,6 +841,56 @@
         h('span', null, 'Generated ' + p.generated), h('span', null, p.classification || 'Internal')));
   }
 
+  /* ---------- startup ---------- */
+  var SPLASH = {
+    starting: null,
+    checking: { kind: 'progress', text: 'Checking your secure session\u2026' },
+    offline: { kind: 'notice', icon: 'cloud-off', title: 'You are offline.', body: 'Your last unlocked data is available. Entries you add will post when you are back online.', primary: 'Continue offline', secondary: 'Retry' },
+    failed: { kind: 'notice', icon: 'alert-circle', title: 'could not start.', body: 'Nothing was changed. Try again; if it keeps happening, restart your phone.', primary: 'Try again', named: true },
+    disabled: { kind: 'notice', icon: 'ban', title: 'This account is disabled.', body: 'Contact your administrator.', secondary: 'Sign in as someone else' },
+    locked: { kind: 'notice', icon: 'timer', title: 'Too many sign-in attempts.', body: 'Try again in 15 minutes, or reset your password.', primary: 'Reset password' }
+  };
+
+  function SplashScreen(p) {
+    var st = SPLASH[p.state || 'starting'];
+    var title = st ? (st.named ? BRAND.name + ' ' + st.title : st.title) : null;
+    return h('div', { className: cx('fy-splash', p.className), role: 'status', 'aria-label': BRAND.name + (title ? ': ' + title : ' is starting') },
+      h('div', { className: 'fy-splash-brand' }, h(Logo, { size: 88 }), h(Logo, { variant: 'wordmark', size: 40, className: 'fy-splash-word' })),
+      st && st.kind === 'progress' ? h('div', { className: 'fy-splash-foot' }, h('span', { className: 'fy-splash-bar', 'aria-hidden': true }), h('p', { className: 'caption fy-muted' }, st.text)) : null,
+      st && st.kind === 'notice' ? h('div', { className: 'fy-splash-notice' },
+        h('span', { className: 'fy-empty-icon' }, h(Icon, { name: st.icon, size: 26 })),
+        h('h2', { className: 'section' }, title), h('p', { className: 'body-sm fy-muted' }, st.body),
+        p.code ? h('p', { className: 'figure fy-muted' }, 'Code ' + p.code) : null,
+        h('div', { className: 'fy-actions fy-actions--center' },
+          st.secondary ? h(Button, { variant: 'quiet', onClick: p.onSecondary }, st.secondary) : null,
+          st.primary ? h(Button, { variant: 'primary', onClick: p.onPrimary }, st.primary) : null)) : null);
+  }
+
+  function SetupWizard(p) {
+    var steps = p.steps || [];
+    var index = Math.max(0, steps.findIndex(function (x) { return x.id === p.current; }));
+    var step = steps[index] || {};
+    return h('div', { className: cx('fy-wizard', p.className) },
+      h('header', { className: 'fy-wizard-head' },
+        h('div', { className: 'fy-wizard-meta' }, h('span', { className: 'label fy-muted' }, (p.title || 'Set up ' + BRAND.name).toUpperCase()),
+          h('span', { className: 'caption fy-muted' }, 'Step ' + (index + 1) + ' of ' + steps.length)),
+        h('ol', { className: 'fy-wizard-progress', 'aria-label': 'Setup progress' }, steps.map(function (x, i) {
+          return h('li', { key: x.id, className: cx('fy-wizard-seg', i < index && 'fy-wizard-seg--done', i === index && 'fy-wizard-seg--now'), 'aria-current': i === index ? 'step' : undefined },
+            h('span', { className: 'fy-sr' }, x.title + (i < index ? ', done' : i === index ? ', current' : '')));
+        }))),
+      p.resumed ? h(Banner, { kind: 'partial', text: 'Continuing where you left off. Nothing was lost.' }) : null,
+      h('div', { className: 'fy-wizard-body' },
+        h('h1', { className: 'title-lg' }, step.title), step.description ? h('p', { className: 'body fy-muted' }, step.description) : null,
+        p.children),
+      h('footer', { className: 'fy-wizard-foot' },
+        h('div', { className: 'fy-wizard-status' },
+          h('p', { className: 'caption fy-muted fy-inline' }, h(Icon, { name: 'check', size: 14 }), p.saved || 'Saved'),
+          step.optional ? h(Button, { variant: 'quiet', size: 'sm', onClick: p.onSkip }, 'Skip for now') : null),
+        h('div', { className: 'fy-actions fy-wizard-actions' },
+          index > 0 ? h(Button, { variant: 'quiet', icon: 'back', onClick: p.onBack }, 'Back') : null,
+          h(Button, { variant: 'primary', onClick: p.onNext, disabled: p.nextDisabled, block: true }, p.nextLabel || (index === steps.length - 1 ? 'Finish' : 'Next')))));
+  }
+
   /* ---------- the K3 states board (a page, not an app component) ---------- */
   function StateTile(p) { return h('div', { className: 'fy-state-tile' }, h('p', { className: 'label fy-muted' }, p.name), h('div', { className: 'fy-state-body' }, p.children)); }
 
@@ -880,7 +930,8 @@
     ExplainBalance: ExplainBalance, JournalLines: JournalLines, DataTable: DataTable, FindingCard: FindingCard, BottomSheet: BottomSheet, Dialog: Dialog,
     ImpactPreview: ImpactPreview, ReviewSheet: ReviewSheet, ConflictMessage: ConflictMessage, Snackbar: Snackbar, Banner: Banner, Skeleton: Skeleton,
     EmptyState: EmptyState, AccessState: AccessState, PinPad: PinPad, OtpInput: OtpInput, UnlockScreen: UnlockScreen, StepUpSheet: StepUpSheet,
-    SecurityBuilder: SecurityBuilder, MessagePreview: MessagePreview, ShareConfirm: ShareConfirm, ProofCard: ProofCard, PdfPage: PdfPage, StatesBoard: StatesBoard,
+    SecurityBuilder: SecurityBuilder, MessagePreview: MessagePreview, ShareConfirm: ShareConfirm, ProofCard: ProofCard, PdfPage: PdfPage,
+    SplashScreen: SplashScreen, SetupWizard: SetupWizard, StatesBoard: StatesBoard,
     format: { inr: formatINR, group: groupIndian, words: amountWords, rounded: roundedText, range: rangeText },
     iconNames: ICON_NAMES,
     brand: BRAND

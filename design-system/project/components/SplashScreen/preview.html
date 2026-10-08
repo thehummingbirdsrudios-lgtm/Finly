@@ -1,0 +1,12 @@
+<!-- @dsCard group="Startup" height=680 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SplashScreen — preview</title></head>
+<body>
+<div id="root" class="fy-root"></div>
+<script>
+  var F = window.Finly, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-demo' }, h(F.SplashScreen, { state: 'starting' }), h(F.SplashScreen, { state: 'checking' }), h(F.SplashScreen, { state: 'offline' }), h(F.SplashScreen, { state: 'failed', code: 'FNL-INIT-03' }), h(F.SplashScreen, { state: 'disabled' }), h(F.SplashScreen, { state: 'locked' })));
+</script>
+</body>
+</html>

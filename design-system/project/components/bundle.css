@@ -272,6 +272,30 @@ button.fy-tx { cursor: pointer; }
 .fy-pdf-fig { padding: var(--space-2); border-radius: var(--radius-sm); background: var(--surface-sunken); }
 .fy-pdf-foot { margin-top: auto; display: flex; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap; padding-top: var(--space-2); border-top: 1px solid var(--line); }
 
+/* startup */
+.fy-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.fy-actions--center { justify-content: center; }
+.fy-splash { position: relative; width: 360px; max-width: 100%; height: 640px; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-8); padding: var(--space-6); background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius-xl); overflow: hidden; }
+.fy-splash-brand { display: flex; flex-direction: column; align-items: center; gap: var(--space-4); }
+.fy-splash-word { animation: fy-rise var(--duration-base) ease-out both; animation-delay: var(--duration-fast); }
+@keyframes fy-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.fy-splash-foot { position: absolute; left: var(--space-10); right: var(--space-10); bottom: var(--space-12); display: flex; flex-direction: column; align-items: center; gap: var(--space-3); }
+.fy-splash-bar { position: relative; display: block; width: 100%; height: 3px; border-radius: var(--radius-full); background: var(--surface-sunken); overflow: hidden; }
+.fy-splash-bar::after { content: ""; position: absolute; top: 0; bottom: 0; width: 30%; border-radius: inherit; background: var(--brand); animation: fy-slide 1400ms ease-in-out infinite; }
+@keyframes fy-slide { from { left: -30%; } to { left: 100%; } }
+.fy-splash-notice { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); text-align: center; max-width: 280px; }
+.fy-wizard { width: 360px; max-width: 100%; min-height: 640px; box-sizing: border-box; display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-xl); }
+.fy-wizard-head { display: flex; flex-direction: column; gap: var(--space-2); }
+.fy-wizard-meta { display: flex; justify-content: space-between; align-items: baseline; }
+.fy-wizard-progress { display: flex; gap: var(--space-1); }
+.fy-wizard-seg { position: relative; flex: 1; height: 4px; border-radius: var(--radius-full); background: var(--surface-sunken); transition: background-color var(--duration-base) ease-out; }
+.fy-wizard-seg--done { background: var(--brand); }
+.fy-wizard-seg--now { background: var(--accent); }
+.fy-wizard-body { flex: 1; display: flex; flex-direction: column; gap: var(--space-3); }
+.fy-wizard-foot { display: flex; flex-direction: column; gap: var(--space-2); }
+.fy-wizard-actions { flex-wrap: nowrap; }
+.fy-wizard-status { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-height: 40px; }
+
 /* states board */
 .fy-states { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--space-4); padding: var(--space-4); }
 .fy-state-tile { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-lg); border: 1px solid var(--line); background: var(--surface); }
