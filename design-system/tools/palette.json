@@ -1,0 +1,122 @@
+{
+ "surface": [
+  "#f5f6f2",
+  "#0e1411"
+ ],
+ "surface-raised": [
+  "#ffffff",
+  "#161e1a"
+ ],
+ "surface-sunken": [
+  "#eaece6",
+  "#1f2823"
+ ],
+ "line": [
+  "#d7dbd3",
+  "#2c3630"
+ ],
+ "line-strong": [
+  "#737c74",
+  "#7f8a83"
+ ],
+ "ink": [
+  "#131c17",
+  "#e9eeea"
+ ],
+ "ink-muted": [
+  "#4b5650",
+  "#a8b3ac"
+ ],
+ "brand": [
+  "#1d5c45",
+  "#7fd1ac"
+ ],
+ "on-brand": [
+  "#ffffff",
+  "#0b1712"
+ ],
+ "brand-soft": [
+  "#dcebe3",
+  "#173528"
+ ],
+ "accent": [
+  "#8a6a1f",
+  "#d9b45f"
+ ],
+ "on-accent": [
+  "#ffffff",
+  "#1a1405"
+ ],
+ "money-in": [
+  "#0a5aa8",
+  "#8ec5ff"
+ ],
+ "money-in-soft": [
+  "#e1edfa",
+  "#0f2a45"
+ ],
+ "money-out": [
+  "#b23c12",
+  "#ffb08a"
+ ],
+ "money-out-soft": [
+  "#fbe7de",
+  "#42200f"
+ ],
+ "transfer": [
+  "#4a5763",
+  "#b9c4cf"
+ ],
+ "transfer-soft": [
+  "#e6eaee",
+  "#232c34"
+ ],
+ "pending": [
+  "#7a5300",
+  "#f0c260"
+ ],
+ "pending-soft": [
+  "#f8eccb",
+  "#33270a"
+ ],
+ "blocked": [
+  "#a1231b",
+  "#ffb3ab"
+ ],
+ "blocked-soft": [
+  "#f9e1df",
+  "#3f1512"
+ ],
+ "reversed": [
+  "#665d55",
+  "#cdc4bc"
+ ],
+ "reversed-soft": [
+  "#eee9e4",
+  "#2c2723"
+ ],
+ "outstanding": [
+  "#74398c",
+  "#e2b3f5"
+ ],
+ "outstanding-soft": [
+  "#f1e4f6",
+  "#33193d"
+ ],
+ "reconciled": [
+  "#00675c",
+  "#7fd6c8"
+ ],
+ "reconciled-soft": [
+  "#dcefec",
+  "#0f2e2a"
+ ],
+ "exception": [
+  "#a01858",
+  "#ffafcf"
+ ],
+ "exception-soft": [
+  "#f9e0eb",
+  "#3d1226"
+ ]
+}
