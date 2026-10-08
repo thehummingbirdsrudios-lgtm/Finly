@@ -10,11 +10,11 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · ⛔ gate
 - [x] Repository, ignore rules, attributes
 - [x] Build specification and add-ons 01–09 recorded verbatim in `docs/source/`
 - [x] Design system draft: tokens (light/dark, WCAG AA checked), brand book, 47 reference components, logo, splash, setup wizard — published for review
-- [~] Documentation skeleton: README, TASKS, PRD, SRS (glossary, traceability), RULES, SECURITY (threat-model outline), TEST_PLAN, ARCHITECTURE, DESIGN, DECISIONS, MEMORY, FLOWS, privacy data inventory
-- [ ] First-session restatement: Part A, the AC1 glossary, AC10 example 4 as journal lines
-- [ ] Stack Decision Record (Flutter fixed; packages vs built-ins; backend evaluation with current free-tier facts)
-- [ ] Accounting Model Record (AC19, nine decisions)
-- ⛔ **Gate 1 — technology stack** · ⛔ **Gate 2 — accounting model**
+- [x] Documentation skeleton: README, TASKS, PRD, SRS (glossary, traceability), RULES, SECURITY (threat-model outline), TEST_PLAN, ARCHITECTURE, DESIGN, DECISIONS, MEMORY, FLOWS, privacy data inventory
+- [x] First-session restatement: Part A, the AC1 glossary, AC10 example 4 as journal lines
+- [x] Stack Decision Record (Flutter fixed; packages vs built-ins; backend evaluation with current free-tier facts) — `docs/DECISIONS.md`
+- [x] Accounting Model Record (AC19, nine decisions) — `docs/DECISIONS.md`
+- ⛔ **Gate 1 — technology stack** · ⛔ **Gate 2 — accounting model** — waiting for the owner
 
 ## M1 — Architecture and schema
 
