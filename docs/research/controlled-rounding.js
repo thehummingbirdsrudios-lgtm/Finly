@@ -1,4 +1,5 @@
-// Research prototype for the Accounting Model Record, decision A8 (split remainder rule).
+// Research prototype from revision 1 of the Accounting Model Record. NOT ADOPTED: the owner asked that no rule be
+// invented for the Angadiya category split (DECISIONS F1). Kept only as background for that decision.
 // Not product code: the backend and the app's domain layer implement this rule at M7, with property tests.
 // Run: node docs/research/controlled-rounding.js   (prints the Angadiya split and a 50,000-case property check)
 // Controlled rounding with exact row and column sums, deterministic.

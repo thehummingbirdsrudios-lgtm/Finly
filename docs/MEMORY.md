@@ -44,11 +44,9 @@ Food 5,000 · Local 3,000 · Firm charges 8,000 · Other 7,000); Mint bears 30,0
 Each entity balances on its own (45,000 = 45,000; 30,000 = 30,000; 5,000 = 5,000). Open items: Mint owes Krish 30,000;
 JSK owes Krish 5,000. Settling Mint's: [Mint] Dr Reimbursement payable – Krish 30,000 / Cr Bank – Mint 30,000;
 [Krish] Dr Bank – Krish 30,000 / Cr Reimbursement receivable – Mint 30,000 — the open item closes and links to the
-original expense. Under the recommended controlled-rounding rule, the category split is Mint: Travel 6,667 · Hotel
-8,000 · Food 3,333 · Local 2,000 · Firm charges 5,333 · Other 4,667; JSK: 1,111 · 1,333 · 556 · 333 · 889 · 778;
-Personal: 2,222 · 2,667 · 1,111 · 667 · 1,778 · 1,555 — every row and column exact.
+original expense. How each entity's share is broken down by category is an open question for the owner (DECISIONS F1) — the spec gives categories only for the whole ₹45,000.
 
-**Ambiguities found:** listed with their resolutions in [DECISIONS.md](DECISIONS.md), Accounting Model Record A10.
+**Ambiguities found:** see [DECISIONS.md](DECISIONS.md), Accounting Model Record revision 2 — F1 (Angadiya category split) and flags F2–F7.
 
 ## 3. Session log
 

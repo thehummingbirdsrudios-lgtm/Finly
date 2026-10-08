@@ -203,109 +203,177 @@ Supabase is used for what it does well, behind seams that let Finly move to plai
 
 ---
 
-## Accounting Model Record (Gate 2) — Proposed
+## Accounting Model Record — revision 2 (Gate 2, not yet approved)
 
-The nine decisions of BUILD_PROMPT AC19, each with its options and **one recommendation**. Nothing in the ledger is
-built until these are approved. The glossary they rely on is in [SRS.md](SRS.md) §2.
+Revision 1 (session 1) is superseded. The owner's corrections ([gate response 01](source/GATE-RESPONSE-01-gates-1-2.md)):
+custody must be full historical tracking, not a tag; the Angadiya split must not be decided by a new rule; every other
+choice follows professional double-entry practice and is **flagged** where it changes financial behaviour. The
+glossary is [SRS.md](SRS.md) §2.
 
-### A1. Accounting basis
+Status keys: **Spec** — required by the build specification, applied. **Practice** — standard double-entry practice,
+applied, flagged for confirmation. **Open** — not implemented until the owner decides.
 
-- Options: cash basis; accrual basis; hybrid.
-- **Recommendation: accrual.** Expenses, income, receivables, payables, reimbursements and advances are recognised when
-  they happen, not when cash moves — the outstanding, reimbursement and advance modules need this (AC19.1). Pure cash
-  movements (transfers, deposits, handovers) are simply posted as they occur, so day-to-day entry feels the same.
+### A1. Accounting basis — Practice, flagged (F4)
 
-### A2. Chart-of-accounts templates
+**Accrual.** Expenses, income, receivables, payables, reimbursements and advances are recognised when they happen, not
+when cash moves; the outstanding, reimbursement and advance modules need this (AC19.1). For an expense paid on the spot
+nothing changes for the user. **What it changes:** a vendor bill entered before it is paid creates a payable and
+an expense on the bill date; the cash leaves only when the payment is entered.
 
-**Recommendation: three templates, created automatically with each entity; Super Admin can add, rename (labels over
-stable IDs) and disable accounts, never delete referenced ones.**
+### A2. Chart-of-accounts templates — Practice
+
+Three templates, created with each entity; Super Admin can add, rename (labels over stable IDs) and disable accounts,
+never delete referenced ones.
 
 | Class (normal side) | Company (Mint, JSK…) | Person (Krish…) | Pool (Family Fund…) |
 |---|---|---|---|
-| Assets (Dr) | Cash – <each location> · Bank – <each bank> · Wallet – <each> · Receivable – <party> · Due from – <entity> · Advance to – <person> · Reimbursement receivable – <entity> · Deposits | Cash – <each location> · Bank – <each> · Wallet · Receivable – <party> · Due from – <entity> · Reimbursement receivable – <entity> · Advance to – <person> | Cash – <each location> · Bank – <each> · Due from – <entity> |
-| Liabilities (Cr) | Payable – <vendor/person> · Due to – <entity> · Reimbursement payable – <person> · Advance received · Loans | Payable – <party> · Due to – <entity> · Reimbursement payable – <person> · Loans | Due to – <entity> |
-| Equity / net assets (Cr) | Owner capital – <owner> · Drawings – <owner> (contra, Dr) · Opening balance equity · Accumulated surplus · Fund balances by fund | Net worth · Opening balance equity · Accumulated surplus · Fund balances | Pool balance by member contribution · Opening balance equity · Accumulated surplus |
-| Income (Cr) | By configured income category | Salary · Owner distributions received · Gifts received (if configured) · other categories | Contributions (if configured) |
-| Expenses (Dr) | By configured category (Travel, Hotel, Food, Fuel, Salary, Rent, Firm charges, Bank charges…) · Cash over/short · Write-offs | Personal expense categories · Cash over/short | By configured category |
-| Control | Suspense (must be cleared; ageing is an exception) | Suspense | Suspense |
+| Assets (Dr) | Cash – <each place> · **Cash in custody – <each person>** · **Cash in transit** · Bank – <each> · Wallet – <each> · Receivable – <party> · Due from – <entity> · Advance to – <person> · Reimbursement receivable – <entity> · Deposits | Same pattern for the person's own money | Cash – <each place> · Cash in custody – <person> · Bank – <each> · Due from – <entity> |
+| Liabilities (Cr) | Payable – <party> · Due to – <entity> · Reimbursement payable – <person> · Advance received · Loans | Payable – <party> · Due to – <entity> · Reimbursement payable – <person> · Loans | Due to – <entity> |
+| Equity / net assets (Cr) | Owner capital – <owner> · Drawings – <owner> (contra) · Opening balance equity · Accumulated surplus · Fund balances | Net worth · Opening balance equity · Accumulated surplus · Fund balances | Pool balance · Opening balance equity · Accumulated surplus |
+| Income (Cr) | By configured category | Salary · Owner distributions received · configured categories | Contributions (if configured) |
+| Expenses (Dr) | By configured category · Cash over/short · Write-offs | Personal categories · Cash over/short | By configured category |
+| Control | Suspense (must be cleared) | Suspense | Suspense |
 
-"<each location>" accounts are created when a money location first holds that entity's value, so a Tijori holding
-Mint, JSK, Krish and Father money is four asset accounts, one in each entity's books (AC4).
+An asset account exists per (entity, money location): a Tijori holding Mint, JSK, Krish and Father money is four
+accounts, one in each entity's books (AC4).
 
-### A3. Custody
+### A3. Custody — redesigned (owner correction), Spec + Practice, flagged (F2, F7)
 
-- Options: holder as a **dimension** on cash lines; custody **sub-accounts** per holder.
-- **Recommendation: holder dimension.** A handover from Krish to Sujal is one journal in Mint's books moving the same
-  cash account from holder Krish to holder Sujal (AC10 example 6) — no account explosion when people change, and the
-  holder statement ("whose money is each person holding") is a query on the dimension. Locations stay accounts, holders
-  stay dimensions, owners stay entities: three separate things, as AC1 requires.
+Five separate concepts, each stored separately and each with its own history:
 
-### A4. Fund balancing inside an entity
+| Concept | Example | Where it lives |
+|---|---|---|
+| Owner (entity) | Mint | Which entity's books the asset is in |
+| Fund | Mint Operating Fund | Fund dimension on every journal line |
+| Location / account | Savan Bank, Krish's hand, Tijori | The asset ledger account (one per entity × location) |
+| Holder / custodian | Krish, then Sujal, then the Tijori's custodian | **Person-custody locations** for cash carried by a person, and a **custodian history** for places; snapshot on every cash line |
+| Handler | Who entered or performed the step | On the master transaction and on each custody event |
 
-- Options: strict per-fund self-balancing; inter-fund due accounts.
-- **Recommendation: every journal balances per entity *and* per fund**; moving value between two funds of the same
-  entity uses explicit inter-fund transfer lines (Fund A: Dr Inter-fund transfer out / Cr Cash; Fund B: Dr Cash / Cr
-  Inter-fund transfer in), as AC10 example 7 shows. Fund balance = fund assets − fund liabilities, always provable.
+**Model.**
 
-### A5. Cross-entity classification
+1. **A person carrying cash is a money location.** Each person who may hold cash gets a custody location ("Cash in
+   custody – Sujal"); each entity whose money they hold gets an asset account for it. So "how much Mint money is Sujal
+   holding right now" is a ledger balance, provable by the same invariants as every other balance.
+2. **Places have custodian history.** A place such as the Tijori has a controller over time (who holds the key):
+   `location_custodians(location, person, from, to)`. Every cash line at a place records the custodian at posting time.
+3. **Every handover is a custody event** with its own record: from holder, to holder, from location, to location,
+   owner, fund, amount, handler, time, evidence, and a status — initiated → awaiting receiver confirmation →
+   confirmed, or disputed / cancelled — with who confirmed and when. It links to the master transaction and journals.
+4. **Unconfirmed money is in transit, not lost.** When confirmation is required, initiating a handover moves the money
+   to *Cash in transit*; the receiver's confirmation moves it into their custody. A dispute leaves it in transit and
+   raises an exception, so nothing silently changes hands.
+5. **Ownership and fund never change in a handover.** Custody movements are transfers within one entity's books.
 
-- **Recommendation: no silent default.** Any value crossing entities needs one of the configured classifications —
-  inter-entity loan (Due from / Due to), settlement of a matched open item, capital contribution, drawing or
-  distribution, expense of the payer / income of the receiver, or gift / family support where configured (AC3).
-- The form pre-selects the configured default **visibly** in the review sheet; the person confirms it.
-- **Personal expense paid by a business:** default **Due from <person>** (a receivable the business can recover, and
-  it stays visible as an open item); **Drawing** is allowed when the person is an owner and chooses it (AC10 example 8).
-- Reciprocity is an invariant: A's *Due from B* always equals B's *Due to A*.
+**The owner's example, as journals** (₹50,000 of Mint Operating Fund money):
 
-### A6. Period close
+| Step | [Mint] Dr | [Mint] Cr | Custody record |
+|---|---|---|---|
+| 1. Krish draws cash from Mint's Savan Bank account | Cash in custody – Krish 50,000 (holder Krish) | Bank – Savan 50,000 | Location Savan Bank → Krish; handler Krish |
+| 2a. Krish hands it to Sujal (initiated) | Cash in transit 50,000 (Krish → Sujal) | Cash in custody – Krish 50,000 | CE-1 initiated by Krish, awaiting Sujal |
+| 2b. Sujal confirms receipt | Cash in custody – Sujal 50,000 (holder Sujal) | Cash in transit 50,000 | CE-1 confirmed by Sujal at 10:40 |
+| 3. Sujal puts it in the Tijori | Cash – Tijori 50,000 (custodian at that time, e.g. Father) | Cash in custody – Sujal 50,000 | Location Sujal → Tijori; handler Sujal |
 
-- Options: closing journals; virtual close.
-- **Recommendation: monthly periods per entity, closed with closing journals** that roll income and expense into
-  accumulated surplus per fund. The close is then a visible, audited, hash-chained record; closing balances become the
-  next opening automatically. Reopening requires high privilege, a reason, step-up and audit, and reverses the closing
-  journal (AC12).
+Every journal balances; Mint's total and fund are unchanged throughout; the location chain (Savan Bank → Krish →
+in transit → Sujal → Tijori), the holder chain and the handler of each step are all queryable, dated and audited.
 
-### A7. Balances under application-level encryption
+**Flags:** F2 — should every person-to-person handover require the receiver's confirmation (recommended), or only above
+an amount? F7 — who is the custodian of each place today (Tijori, Wardrobe, office drawer, locker)?
 
-- **Recommendation:** amounts are encrypted per line (AES-256-GCM, S3). The posting engine keeps **encrypted, versioned
-  balance snapshots** per entity × ledger account × fund × location × holder — one running "current" row updated in the
-  same transaction as the journal (row-locked), plus one row per closed period. Dashboards and reports decrypt only the
-  snapshots inside the viewer's authorised slice, in backend memory. The Integrity Verifier recomputes every snapshot
-  from lines (scheduled in batches within the 2 s CPU budget, on demand, and before every close) and checks the hash
-  chain; any mismatch is a Critical exception and can freeze writes; nothing is ever auto-fixed (AC7).
-- **No plaintext numeric copy** of any amount exists in the database.
+### A4. Fund balancing inside an entity — Practice, flagged (F5)
 
-### A8. Split remainder rule
+Every journal balances per entity **and** per fund. Moving value between two funds of the same entity uses explicit
+inter-fund transfer lines (AC10 example 7). **What it changes:** a single entry can never move money between funds
+without saying so; an entity's total is unchanged by an inter-fund transfer.
 
-- **One-way splits** (an amount across entities, funds or people): the **largest-remainder method** — floor every part,
-  then give the leftover rupees to the parts with the largest fractional remainders; ties go to the part listed first,
-  then the lower stable ID.
-- **Two-way splits** (category lines × entities, as in the Angadiya visit): **controlled rounding** — floor every cell,
-  give leftover rupees by largest remainder (same tie-break), and complete with deterministic augmenting paths. Every
-  category total and every entity total stays exact, and every cell is the floor or ceiling of its exact share. Verified
-  on the Angadiya example and 50,000 random cases ([research prototype](research/controlled-rounding.js)).
-- The review sheet always shows the final rupee amounts before saving; the person can switch to item-based assignment
-  (each line to one entity) instead.
+### A5. Cross-entity classification — Spec, flagged (F3)
 
-### A9. Advances held by persons
+No silent default (AC3). Any value crossing entities requires the person to choose a classification — inter-entity
+loan (Due from / Due to), settlement of a matched open item, capital contribution, drawing or distribution, expense of
+the payer / income of the receiver, or gift / family support if configured. The form offers only the classifications
+valid for that pair; it pre-selects nothing unless **the owner** has configured a default for that pair.
+Reciprocity is an invariant: A's *Due from B* always equals B's *Due to A*.
 
-- **Recommendation: an accountable-advance receivable** in the giver's books (Advance to <person>), with the person as
-  holder (AC19.9 default). The advance is not an expense when given and never enters the holder's personal net worth;
-  the expense report and any return or carry-forward settle it (AC10 example 5).
+**Flag F3:** a personal expense paid from a business account can be recorded as *Due from <person>* (the business
+expects it back; it stays an open item) or *Drawing* (an owner's withdrawal; nothing is owed back). Both follow AC10
+example 8. Should Finly ask every time (recommended until decided), or should each owner set a default?
 
-### A10. First-session restatement and ambiguities found
+### A6. Period close — Practice, flagged (F6)
 
-The first-session restatement (Part A, the glossary, AC10 example 4 as journal lines) is in [MEMORY.md](MEMORY.md).
-Ambiguities found while preparing this record, each resolved by a recommendation above:
+Monthly periods per entity, closed with closing journals that roll income and expense into accumulated surplus per
+fund; closing balances become the next opening automatically; reopening needs high privilege, a reason, step-up and
+audit (AC12). **What it changes:** entries dated in a closed month are refused; corrections post in the open month
+with a reference (AC8).
 
-1. **Category lines vs entity totals in example 4.** The spec gives entity totals (Mint 30,000 · JSK 5,000 · Personal
-   10,000) and category lines (Travel 10,000 … Other 7,000) but not the cell values. Per-line largest remainder cannot
-   keep both totals exact → A8 controlled rounding, or item-based assignment.
-2. **"Bank or Cash – Krish" in example 4.** A posting needs a concrete source account (AC2) → the form resolves the
-   location before review; nothing posts against a vague entity.
-3. **Personal expense from a business account: drawing or due-from.** → A5 default Due from, Drawing on request for owners.
-4. **Add-ons 06/07 "Archive/Remove".** Referenced records cannot be deleted (H15) → archive (D-010).
+### A7. Balances under application-level encryption — Spec
 
-### A11. Decisions needed from the owner at Gate 2
+Amounts are encrypted per line (AES-256-GCM, S3). The posting engine keeps encrypted, versioned balance snapshots per
+entity × ledger account × fund (and per holder for custody), updated in the same database transaction as the journal
+under row locks; the Integrity Verifier recomputes them from lines, checks the hash chain, and never auto-fixes (AC7).
+No plaintext copy of any amount is stored. This is technical and changes no financial behaviour.
 
-Approve or change A1–A9. If anything is unclear, the safest choice above stands until you decide.
+### A8. Splits — Spec for one-way splits; **Open** for the Angadiya category split (F1)
+
+- **One-way splits** (one amount across entities, funds or people by percentage or ratio): the specification itself
+  requires the largest-remainder method with a documented tie-break (AC10). Tie-break: the part listed first. The
+  review sheet shows the final rupee amounts before saving.
+- **The Angadiya category split is Open.** See F1 below; nothing is implemented until the owner chooses. The research
+  prototype in `docs/research/` stays a prototype only.
+
+### A9. Advances held by persons — Spec
+
+An accountable-advance receivable in the giver's books ("Advance to <person>"), held in the person's custody location
+(A3). Not an expense when given; never part of the holder's personal net worth; settled by the expense report and any
+return or carry-forward (AC10 example 5).
+
+---
+
+### F1. The ₹45,000 Angadiya example — the exact issue and the options
+
+**The allocation stays exactly as intended:** total expense ₹45,000 = Mint ₹30,000 + JSK ₹5,000 + Personal ₹10,000.
+Both totals in the specification agree (the item lines also add to ₹45,000), so **there is no arithmetic
+inconsistency**. The gap is narrower: AC10 example 4 posts each entity's share to "Expenses (by category)", but the
+specification gives the categories only for the whole ₹45,000, never per entity. Mint's journal must say *which*
+expense accounts its ₹30,000 goes to, and the specification does not say. Three ways to close the gap:
+
+**Option 1 — The person assigns items to entities (item-level assignment).** Example with one possible assignment the
+person might choose:
+
+| Entity | Dr | Cr |
+|---|---|---|
+| Mint | Travel 10,000 · Hotel 12,000 · Firm charges 8,000 (= 30,000) | Reimbursement payable – Krish 30,000 |
+| JSK | Local 3,000 · Other 2,000 (= 5,000) | Reimbursement payable – Krish 5,000 |
+| Krish | Food 5,000 · Other 5,000 (personal) · Reimbursement receivable – Mint 30,000 · Reimbursement receivable – JSK 5,000 | Bank or Cash – Krish (the account actually used) 45,000 |
+
+Exact, no rounding, categories real. Costs one extra step when the person knows who each item was for.
+
+**Option 2 — Every category split in the same proportion (30 : 5 : 10).** Mint's Travel share would be ₹6,666.67 —
+not whole rupees, so a rounding rule is unavoidable, and the per-category figures are estimates rather than facts.
+This is the rule I prototyped in revision 1; per the owner's instruction it is **not** adopted.
+
+**Option 3 — Entity shares posted to one expense account for the event.** The category detail stays on the expense
+event (₹45,000 by item, visible to anyone who may see the event), and each entity's books carry its share once:
+
+| Entity | Dr | Cr |
+|---|---|---|
+| Mint | Business visits – Angadiya visit 30,000 | Reimbursement payable – Krish 30,000 |
+| JSK | Business visits – Angadiya visit 5,000 | Reimbursement payable – Krish 5,000 |
+| Krish | Personal – Angadiya visit 10,000 · Reimbursement receivable – Mint 30,000 · Reimbursement receivable – JSK 5,000 | Bank or Cash – Krish 45,000 |
+
+Exact, no invented numbers; Mint's expense report shows "Business visits" rather than Hotel vs Travel for this event.
+
+In every option the open items are identical — Mint owes Krish ₹30,000, JSK owes Krish ₹5,000 — and the settlement
+entries are identical (AC10 example 4). **Recommendation for the owner to confirm:** Option 1 whenever the person knows
+which items were for whom; Option 3 when only the entity totals are known. Expense events are built in M7; until the
+owner decides, that module is not started.
+
+### Flags waiting for the owner
+
+| Flag | Question | Applied meanwhile |
+|---|---|---|
+| F1 | Angadiya / multi-entity expense events: Option 1, 3, or both? | Nothing — expense events not built |
+| F2 | Handover confirmation: always required between people, or only above an amount? | Always required (safest) |
+| F3 | Personal expense paid by a business: ask every time, or an owner-set default? | Ask every time |
+| F4 | Accrual basis (bills create payables before payment) | Applied |
+| F5 | Every journal balances per fund | Applied |
+| F6 | Monthly close with closing journals | Applied |
+| F7 | Who is the custodian of each place today? | Asked in the setup wizard |
