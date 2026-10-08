@@ -26,6 +26,11 @@ document), `Proposed` (waiting for a gate) or `Superseded`. Gates: 1 stack, 2 ac
 | D-017 | Distribution by a release-signed APK installed directly on each phone | Decided (2026-10-08) | Gate response 01 |
 | D-018 | **Gate 2 not yet approved.** Custody is redesigned as full historical tracking; the Angadiya category split stays undecided until the owner chooses; every other accounting choice follows professional double-entry practice and is flagged where it changes financial behaviour — see "Accounting Model Record — revision 2" | Decided (2026-10-08) | Gate response 01 |
 | D-019 | Development continues without stopping at internal gates; Gate 3 (schema) and Gate 4 (design/UX/edge cases) are delivered as reviewable documents and flagged, and work stops only at a genuine external blocker (SDK licences, device, Docker, Supabase project, new accounts, GitHub) with exact steps for the owner | Decided (2026-10-08) | [Add-on 10](source/ADDON-10-continue-to-full-completion.md), Gate response 01 |
+| D-020 | Remote `origin` = github.com/thehummingbirdsrudios-lgtm/Finly (made public by the owner on 2026-10-08). `main` carries verified work; pushing needs the owner's GitHub sign-in on this PC | Decided (2026-10-08) | [Gate response 02](source/GATE-RESPONSE-02-f1-f7.md) |
+| D-021 | **Accounting Model Record revision 3** (below) replaces revision 2: the owner's F1–F7 answers and RULEBOOK-01..03 are applied; F8 and F9 are new interpretations, flagged | Decided (2026-10-08) | Gate response 02, rulebooks |
+| D-022 | Android application id `app.finly`, Flutter project in `app/` | Decided (2026-10-08) | Package names must avoid Kotlin keywords |
+| D-023 | **Finly runs its own identity service** inside the Finly API (Argon2id passwords, rotating refresh tokens bound to devices, TOTP MFA) instead of Supabase Auth. Supabase still hosts the database, the API and file storage | Decided (2026-10-08), owner informed | S12 portability (D-013); usernames, temporary passwords and Super Admin resets (add-ons 06/07) fit naturally; testable without Docker |
+| D-024 | Backend tests run against PGlite (PostgreSQL 17 compiled to WebAssembly, an npm dev dependency) when no Postgres server is available; CI also runs them against a real PostgreSQL 17 service | Decided (2026-10-08) | Docker is not installed; no system software installed |
 
 ---
 
@@ -203,7 +208,30 @@ Supabase is used for what it does well, behind seams that let Finly move to plai
 
 ---
 
-## Accounting Model Record — revision 2 (Gate 2, not yet approved)
+## Accounting Model Record — revision 3 (applied 2026-10-08)
+
+Supersedes revision 2. Sources: [gate response 02](source/GATE-RESPONSE-02-f1-f7.md) (owner's answers F1–F7) and
+RULEBOOK-01..03. The exact posting rules, intent by intent, are in [ACCOUNTING-ENGINE.md](ACCOUNTING-ENGINE.md).
+
+| Item | Decision | Status |
+|---|---|---|
+| Basis | Accrual: bills recorded when they arrive, before payment | Owner-approved (F4) |
+| Fund balancing | Every journal balances per entity and per fund | Owner-approved (F4) |
+| Period close | Monthly per entity with closing journals; closing balance = next opening | Owner-approved (F4) |
+| Expense ownership | Personal / one Firm / Common (several entities, exact manual amounts). Σ allocations must equal the total or posting is refused; never split automatically; category per expense line or share | Owner-approved (F1, RULEBOOK-01 §31, §107) |
+| Source ≠ owner | Payer and expense owner are separate fields; when they differ the owner records the expense and an inter-entity payable, the payer an inter-entity receivable, with an open item between them | Owner-approved (additional expense rule) |
+| Non-owner payments | Asked every time: Directly from firm / Through owner × Own-personal / Expense; Own is an immediate deduction settled later, Expense is final; Through owner posts two linked journals | Owner-approved (F3) |
+| Handovers | Recorded directly; receiver confirmation is an optional policy, OFF by default | Owner-approved (F2) |
+| Locations | Owner, authorised access (Add keeps existing, Replace swaps one person) and current key/control holder are three separate facts, each with history; locations may be unassigned | Owner-approved (F5) |
+| Account vs location | One Cash / Bank / Wallet account per entity; the place is the location dimension; a person carrying cash is the location *cash with <person>* | Rulebooks §98–§101 |
+| Personal books | Every individual is a person entity with private personal books; outside customers, suppliers and agents are parties without books | RULEBOOK-03 §2–§3 |
+| Money | INR whole rupees as exact integers; tax and foreign-currency differences go to explicit rounding or exchange lines | H14, RULEBOOK-01 §49–§50 |
+| **F8** (flag) | When firm money pays a personal expense **of that firm's owner**, the app asks every time: *withdrawal* (owner drawings, nothing owed back) or *owner owes the firm* (open item, settled later). No default | Interpretation, owner to confirm |
+| **F9** (flag) | *Through owner + Own*: the firm's claim is on the owner (owner owes firm) and the owner's claim is on the non-owner (non-owner owes owner) — two linked journals | Interpretation, owner to confirm |
+
+### Revision 2 (superseded)
+
+
 
 Revision 1 (session 1) is superseded. The owner's corrections ([gate response 01](source/GATE-RESPONSE-01-gates-1-2.md)):
 custody must be full historical tracking, not a tag; the Angadiya split must not be decided by a new rule; every other
