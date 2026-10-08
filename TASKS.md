@@ -8,7 +8,7 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · ⛔ gate
 ## M0 — Foundation (branch `chore/m0-foundation`)
 
 - [x] Repository, ignore rules, attributes
-- [x] Build specification and add-ons 01–08 recorded verbatim in `docs/source/`
+- [x] Build specification and add-ons 01–09 recorded verbatim in `docs/source/`
 - [x] Design system draft: tokens (light/dark, WCAG AA checked), brand book, 47 reference components, logo, splash, setup wizard — published for review
 - [~] Documentation skeleton: README, TASKS, PRD, SRS (glossary, traceability), RULES, SECURITY (threat-model outline), TEST_PLAN, ARCHITECTURE, DESIGN, DECISIONS, MEMORY, FLOWS, privacy data inventory
 - [ ] First-session restatement: Part A, the AC1 glossary, AC10 example 4 as journal lines
@@ -27,6 +27,7 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · ⛔ gate
 ## M2 — Design, UX blueprint, edge cases
 
 - [ ] Final design system (after review comments on the draft), revised for add-on 08: a distinct motion language per interaction (navigation, tabs, nav bar, cards, buttons, forms, search, filters, sheets, dialogs, success, error, loading, notifications, financial state changes, expand/collapse, gestures), decoration rules and tokens (depth, surfaces, gradients, highlights, backgrounds, dividers), and empty-state illustrations — all within reduced-motion, contrast and performance limits
+- [ ] Theme completed for add-on 09: a colour-blind-safe chart palette (categorical and sequential, distinct from money and state colours), chart styling rules, and the written rationale for the Finly theme (why ledger green, brass, paper surfaces and this type)
 - [ ] UX blueprint: navigation map per role, search model, tap and time budgets, key flows
 - [ ] Master Edge-Case Matrix (Part G-EC)
 - ⛔ **Gate 4 — design system + UX blueprint + edge-case matrix**
