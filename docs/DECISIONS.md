@@ -9,20 +9,27 @@ document), `Proposed` (waiting for a gate) or `Superseded`. Gates: 1 stack, 2 ac
 |---|---|---|---|
 | D-001 | The client is **Flutter + Dart**, Android first; iOS and web later on the same backend | Decided (2026-10-08) | Add-on 04 |
 | D-002 | The product is named **Finly** (the repository folder stays `Finely`) | Decided (2026-10-08) | Add-on 07 |
-| D-003 | Keep every approval gate of BUILD_PROMPT C6 | Decided (2026-10-08) | Product owner, first session |
+| D-003 | Keep every approval gate of BUILD_PROMPT C6 | Superseded by D-019 | Product owner, first session |
 | D-004 | Development and tests on a local Supabase stack in Docker; one hosted free project for production | Decided (2026-10-08), backend still under Gate 1 | Product owner, first session |
 | D-005 | Build and test on the owner's own Android phone (USB / Wi-Fi debugging) | Decided (2026-10-08) | Product owner, first session |
 | D-006 | A private GitHub repository; push only after the owner confirms | Decided (2026-10-08) | Product owner, first session |
 | D-007 | One commit per verified change on short-lived branches; M0 on `chore/m0-foundation` | Decided (2026-10-08) | Add-on 05, BUILD_PROMPT E |
 | D-008 | The design system is the single theme source: `palette.json` → `tokens.json` → generated Flutter theme; brand in `brand.json` | Decided (2026-10-08); content final at Gate 4 | BUILD_PROMPT K2, add-ons 07, 09 |
 | D-009 | Icons are Flutter's built-in Material icons (Rounded); fonts Mukta + Mukta Vaani bundled (OFL 1.1), no runtime font download | Proposed (Gate 4) | Add-on 04 (built-ins first); offline and privacy |
-| D-010 | Add-ons 06/07 reconciled with the spec: "Remove" a user archives anyone with history (H15); Super Admin gains no personal-finance visibility (A4); Krish's first temporary password comes from a one-time local bootstrap, only its hash is stored | Proposed (Gate 1) | Stricter reading wins (A6.2) |
-| D-011 | Seed users are bootstrap input, not code or migrations | Proposed (Gate 1) | Add-ons 06/07, F3 |
-| D-012 | No staging project on the free tier (the owner's second free project slot is used by another project); CI runs every test against a fresh local stack as the staging equivalent | Proposed (Gate 1) | Supabase free plan: 2 active projects |
+| D-010 | Add-ons 06/07 reconciled with the spec: "Remove" a user archives anyone with history (H15); Super Admin gains no personal-finance visibility (A4); Krish's first temporary password comes from a one-time local bootstrap, only its hash is stored | Decided (Gate 1, 2026-10-08) | Stricter reading wins (A6.2) |
+| D-011 | Seed users are bootstrap input, not code or migrations | Decided (Gate 1, 2026-10-08) | Add-ons 06/07, F3 |
+| D-012 | No staging project on the free tier (the owner's second free project slot is used by another project); CI runs every test against a fresh local stack as the staging equivalent | Decided (Gate 1, 2026-10-08) | Supabase free plan: 2 active projects |
+| D-013 | **Gate 1 approved** with conditions: Supabase free plan first, **designed for portability** (plain-Postgres schema in our own `finly` schema, API in portable TypeScript behind interfaces for identity, storage and secrets — see S12) | Decided (2026-10-08) | [Gate response 01](source/GATE-RESPONSE-01-gates-1-2.md) |
+| D-014 | Minimum Android 7.0 (API 24), target API 36; low-end devices kept practical (lazy lists, small APK, no heavy animation runtimes) | Decided (2026-10-08) | Gate response 01 |
+| D-015 | Encrypted backups go to the owner's **existing Cloudflare R2**, configured through the connected Cloudflare tools; the owner is not asked to create or connect Cloudflare again | Decided (2026-10-08) | Gate response 01 |
+| D-016 | Own secure error and diagnostic reporting first; never passwords, keys, tokens, financial values or decrypted private data in error logs; Sentry only after its advantage is explained and accepted | Decided (2026-10-08) | Gate response 01 |
+| D-017 | Distribution by a release-signed APK installed directly on each phone | Decided (2026-10-08) | Gate response 01 |
+| D-018 | **Gate 2 not yet approved.** Custody is redesigned as full historical tracking; the Angadiya category split stays undecided until the owner chooses; every other accounting choice follows professional double-entry practice and is flagged where it changes financial behaviour — see "Accounting Model Record — revision 2" | Decided (2026-10-08) | Gate response 01 |
+| D-019 | Development continues without stopping at internal gates; Gate 3 (schema) and Gate 4 (design/UX/edge cases) are delivered as reviewable documents and flagged, and work stops only at a genuine external blocker (SDK licences, device, Docker, Supabase project, new accounts, GitHub) with exact steps for the owner | Decided (2026-10-08) | [Add-on 10](source/ADDON-10-continue-to-full-completion.md), Gate response 01 |
 
 ---
 
-## Stack Decision Record (Gate 1) — Proposed
+## Stack Decision Record (Gate 1) — Approved 2026-10-08 with conditions (D-013 … D-017)
 
 Research done on 2026-10-08. Each layer: **one recommendation**, at most one alternative, and why. Sources at the end.
 
@@ -171,6 +178,20 @@ account also costs money.
 3. Backup storage: create a free Cloudflare R2 account (recommended), or name another place.
 4. Observability: our own error reports (recommended) or Sentry.
 5. Distribution: direct APK (recommended) or Firebase App Distribution.
+
+### S12. Staying portable (owner condition, D-013)
+
+Supabase is used for what it does well, behind seams that let Finly move to plain Postgres plus any Deno/Node host:
+
+| Concern | How it stays portable |
+|---|---|
+| Database | All Finly tables, functions and triggers live in our own `finly` schema in plain PostgreSQL (no Supabase-only types or extensions in the ledger). Migrations are ordinary SQL files run in order. Row-level security only denies client roles; the authority is the API. |
+| API | One versioned HTTP API in TypeScript. Request handling is a plain `(Request) → Response` function with its dependencies injected; the Supabase Edge Function entry point is a thin adapter. The same code runs on Deno, Deno Deploy or a container. |
+| Identity | Behind an `IdentityProvider` interface (sign-in, refresh, sign-out, admin create/reset/revoke, MFA). Supabase Auth is the first implementation; password hashes are bcrypt and exportable. Every Finly table refers to our own `finly.users.id`, never directly to `auth.users`. |
+| Secrets and keys | Behind a `KeyProvider` interface (current key-encryption key and versions). First implementation reads function secrets; a cloud KMS can replace it. |
+| Files | Behind a `BlobStore` interface (put, get, signed URL, delete). Supabase Storage first; R2 or S3 later. |
+| Backups | Plain `pg_dump` custom-format archives, encrypted, in R2 — restorable into any Postgres 17. |
+| Client | The Flutter app talks only to the Finly API and the identity endpoints, through one `ApiClient`; nothing in the app knows table names. |
 
 ### Sources
 
