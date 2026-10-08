@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "exports": "./src/http/app.ts",
   "tasks": {
-    "test": "deno test --allow-read --allow-env --allow-net=registry.npmjs.org,jsr.io tests/",
+    "test": "deno test --allow-read --allow-write --allow-env --allow-net=registry.npmjs.org,jsr.io tests/",
     "check": "deno check src/ tests/",
     "lint": "deno lint",
     "fmt-check": "deno fmt --check",
-    "verify": "deno fmt --check && deno lint && deno check src/ tests/ db/tools/ && deno test --allow-read --allow-env tests/",
+    "verify": "deno fmt --check && deno lint && deno check src/ tests/ db/tools/ && deno test --allow-read --allow-write --allow-env tests/",
     "db:dictionary": "deno run --allow-read --allow-write=../docs/database --allow-env db/tools/dictionary.ts",
     "db:coa-seed": "deno run --allow-read db/tools/coa_seed_sql.ts"
   },

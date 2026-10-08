@@ -29,12 +29,14 @@ export async function sha256Hex(text: string): Promise<string> {
 /** Reads `NNNN_name.sql` files from a directory, sorted by version. */
 export async function loadMigrations(dir: URL | string): Promise<Migration[]> {
   const found: Migration[] = [];
-  for await (const entry of Deno.readDir(dir)) {
+  // A plain path (Windows or Unix) becomes a directory URL so file names resolve inside it.
+  const base = dir instanceof URL ? dir : new URL(`file:///${dir.replaceAll('\\', '/').replace(/^\/+/, '')}/`);
+  for await (const entry of Deno.readDir(base)) {
     if (!entry.isFile) continue;
     const match = FILE_NAME.exec(entry.name);
     if (!match) throw new Error(`Unexpected file in migrations: ${entry.name}`);
-    const url = new URL(entry.name, dir instanceof URL ? dir : `file://${dir}/`);
-    const sql = await Deno.readTextFile(url);
+    // Line endings are normalised so a Windows checkout and a Unix checkout of the same file share one checksum.
+    const sql = (await Deno.readTextFile(new URL(entry.name, base))).replaceAll('\r\n', '\n');
     found.push({ version: match[1], name: entry.name, sql, checksum: await sha256Hex(sql) });
   }
   found.sort((a, b) => a.version.localeCompare(b.version));

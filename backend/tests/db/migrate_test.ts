@@ -36,3 +36,12 @@ Deno.test('a failing migration leaves nothing behind', async () => {
   assertEquals(rows, [{ t: null }]);
   await db.close();
 });
+
+Deno.test('a migration checked out with Windows line endings has the same checksum', async () => {
+  const [first] = await loadMigrations(MIGRATIONS_DIR);
+  const dir = await Deno.makeTempDir();
+  await Deno.writeTextFile(`${dir}/${first.name}`, first.sql.replaceAll('\n', '\r\n'));
+  const [crlf] = await loadMigrations(dir);
+  assertEquals(crlf.checksum, first.checksum);
+  await Deno.remove(dir, { recursive: true });
+});
