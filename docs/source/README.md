@@ -22,5 +22,6 @@ documents refine earlier ones, and **where two differ, the stricter security, pr
 | [RULEBOOK-01](RULEBOOK-01-accounting-core.md) | 2026-10-08 | Accounting core rulebook — 152 rules for the journal, ledger and double-entry engine |
 | [RULEBOOK-02](RULEBOOK-02-master-accounting-engine.md) | 2026-10-08 | Master accounting engine — loans, advances, inter-firm, settlements, the 100 non-negotiable rules |
 | [RULEBOOK-03](RULEBOOK-03-finance-engine-scenarios.md) | 2026-10-08 | Finance engine scenarios — entities, environments, access, masters, 42 acceptance tests |
+| [ADDON-11](ADDON-11-database-architecture-schema.md) | 2026-10-08 | Database architecture and schema master prompt: the 16 design outputs before any migration |
 
 Other documents cite "the source documents" and link here, so a new add-on is recorded in one place.
