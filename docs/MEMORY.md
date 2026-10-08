@@ -50,6 +50,18 @@ original expense. How each entity's share is broken down by category is an open 
 
 ## 3. Session log
 
+### 2026-10-08 — Session 2
+
+- Owner approved Gate 1 with conditions (D-013..D-017: portable Supabase use, Android 7.0+, backups on the owner's
+  existing Cloudflare R2 via the connected tools, own error reporting, direct signed APK). Add-on 10: continue to a
+  complete app, stopping only at external blockers (D-019).
+- Gate 2 not yet approved. Accounting Model Record rewritten (revision 2): custody as full history (person-custody
+  locations, custodian history for places, custody events with confirmation, Cash in transit); Angadiya split left
+  Open with three options as concrete entries (F1); flags F2–F7 waiting for the owner.
+- **Next:** create the R2 backup bucket via the Cloudflare tools; scaffold the Flutter app (`app/`) and the backend
+  (`supabase/`); try a debug APK build — Android SDK licences are not accepted yet, which is the first expected
+  external blocker; Docker and the Supabase project come next.
+
 ### 2026-10-08 — Session 1
 
 - Read the build specification (1,194 lines) and received add-ons 01–09 during the session; all recorded verbatim in
