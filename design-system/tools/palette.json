@@ -118,5 +118,17 @@
  "exception-soft": [
   "#f9e0eb",
   "#3d1226"
+ ],
+ "logo-tile": [
+  "#1d5c45",
+  "#1d5c45"
+ ],
+ "logo-glyph": [
+  "#ffffff",
+  "#ffffff"
+ ],
+ "logo-coin": [
+  "#d9b45f",
+  "#d9b45f"
  ]
 }

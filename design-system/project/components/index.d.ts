@@ -14,6 +14,7 @@ export interface Part { label: string; amount: number; visibility?: Visibility; 
 export interface Row { label: string; value: React.ReactNode }
 export interface Impact { area: string; before?: number | string; after: number | string }
 
+export interface LogoProps { variant?: 'mark' | 'wordmark' | 'lockup'; size?: number; className?: string }
 export interface IconProps { name: string; size?: number; label?: string; className?: string }
 export interface MoneyProps { amount?: number; direction?: Direction; size?: 'hero' | 'lg' | 'md' | 'sm'; visibility?: Visibility; display?: string; struck?: boolean; className?: string }
 export interface StatusBadgeProps { status: Status; label?: string }
@@ -79,7 +80,7 @@ export interface PdfPageProps { title: string; entity: string; period: string; s
 declare global {
   interface Window {
     Finly: {
-      Icon: React.FC<IconProps>; Money: React.FC<MoneyProps>; StatusBadge: React.FC<StatusBadgeProps>; PrivacyBadge: React.FC<PrivacyBadgeProps>;
+      Logo: React.FC<LogoProps>; Icon: React.FC<IconProps>; Money: React.FC<MoneyProps>; StatusBadge: React.FC<StatusBadgeProps>; PrivacyBadge: React.FC<PrivacyBadgeProps>;
       Button: React.FC<ButtonProps>; AddButton: React.FC<AddButtonProps>; TextField: React.FC<TextFieldProps>; AmountInput: React.FC<AmountInputProps>;
       SearchBar: React.FC<SearchBarProps>; Chip: React.FC<ChipProps>; Selector: React.FC<SelectorProps>; Tabs: React.FC<TabsProps>; TopBar: React.FC<TopBarProps>;
       BottomNav: React.FC<BottomNavProps>; AddSheet: React.FC<AddSheetProps>; ListRow: React.FC<ListRowProps>; TransactionCard: React.FC<TransactionCardProps>;
@@ -93,6 +94,7 @@ declare global {
       StatesBoard: React.FC;
       format: { inr(n: number): string; group(n: number): string; words(n: number): string; rounded(n: number): string; range(n: number): string };
       iconNames: string[];
+      brand: { name: string; tagline: string };
     };
   }
 }

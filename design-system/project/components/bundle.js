@@ -1,10 +1,13 @@
-/* @ds-bundle: {"format":4,"namespace":"Finly","components":[{"name":"Icon"},{"name":"Money"},{"name":"StatusBadge"},{"name":"PrivacyBadge"},{"name":"Button"},{"name":"AddButton"},{"name":"TextField"},{"name":"AmountInput"},{"name":"SearchBar"},{"name":"Chip"},{"name":"Selector"},{"name":"Tabs"},{"name":"TopBar"},{"name":"BottomNav"},{"name":"AddSheet"},{"name":"ListRow"},{"name":"TransactionCard"},{"name":"BalanceCard"},{"name":"FundCard"},{"name":"OutstandingCard"},{"name":"ExplainBalance"},{"name":"JournalLines"},{"name":"DataTable"},{"name":"FindingCard"},{"name":"BottomSheet"},{"name":"Dialog"},{"name":"ImpactPreview"},{"name":"ReviewSheet"},{"name":"ConflictMessage"},{"name":"Snackbar"},{"name":"Banner"},{"name":"Skeleton"},{"name":"EmptyState"},{"name":"AccessState"},{"name":"PinPad"},{"name":"OtpInput"},{"name":"UnlockScreen"},{"name":"StepUpSheet"},{"name":"SecurityBuilder"},{"name":"MessagePreview"},{"name":"ShareConfirm"},{"name":"ProofCard"},{"name":"PdfPage"}]} */
+/* @ds-bundle: {"format":4,"namespace":"Finly","components":[{"name":"Logo"},{"name":"Icon"},{"name":"Money"},{"name":"StatusBadge"},{"name":"PrivacyBadge"},{"name":"Button"},{"name":"AddButton"},{"name":"TextField"},{"name":"AmountInput"},{"name":"SearchBar"},{"name":"Chip"},{"name":"Selector"},{"name":"Tabs"},{"name":"TopBar"},{"name":"BottomNav"},{"name":"AddSheet"},{"name":"ListRow"},{"name":"TransactionCard"},{"name":"BalanceCard"},{"name":"FundCard"},{"name":"OutstandingCard"},{"name":"ExplainBalance"},{"name":"JournalLines"},{"name":"DataTable"},{"name":"FindingCard"},{"name":"BottomSheet"},{"name":"Dialog"},{"name":"ImpactPreview"},{"name":"ReviewSheet"},{"name":"ConflictMessage"},{"name":"Snackbar"},{"name":"Banner"},{"name":"Skeleton"},{"name":"EmptyState"},{"name":"AccessState"},{"name":"PinPad"},{"name":"OtpInput"},{"name":"UnlockScreen"},{"name":"StepUpSheet"},{"name":"SecurityBuilder"},{"name":"MessagePreview"},{"name":"ShareConfirm"},{"name":"ProofCard"},{"name":"PdfPage"}]} */
 (function () {
   'use strict';
   var React = window.React;
   var h = React.createElement;
   var Fragment = React.Fragment;
   var useState = React.useState;
+
+  // Brand: the one place the reference components read the product name from (mirrors project/brand.json).
+  var BRAND = { name: 'Finly', tagline: 'Every rupee, explained.' };
 
   /* ---------- money formatting (whole rupees only) ---------- */
   var RUPEE = '₹';
@@ -141,6 +144,28 @@
       stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round',
       role: p.label ? 'img' : undefined, 'aria-label': p.label || undefined, 'aria-hidden': p.label ? undefined : true, focusable: 'false'
     }, parts);
+  }
+
+  /* ---------- Logo (the mark: an F whose two bars echo the rupee sign, and a brass coin) ---------- */
+  var MARK_GLYPH = 'M16 13V35M16 13H32M16 23.5H27';
+  var WORDMARK = 'M6 10V40M6 10H28M6 24.3H21M38 24V40M49 40V24M49 31a7 7 0 0 1 14 0V40M74 8V40M85 24V33a7 7 0 0 0 14 0M99 24V45a6 6 0 0 1-6 6H88';
+
+  function Mark(size) {
+    return h('svg', { className: 'fy-logo-mark', viewBox: '0 0 48 48', width: size, height: size, 'aria-hidden': true, focusable: 'false' },
+      h('rect', { className: 'fy-logo-tile', width: 48, height: 48, rx: 12 }),
+      h('path', { className: 'fy-logo-glyph', d: MARK_GLYPH }),
+      h('circle', { className: 'fy-logo-coin', cx: 31, cy: 34, r: 3.75 }));
+  }
+  function Wordmark(height) {
+    return h('svg', { className: 'fy-logo-word', viewBox: '0 0 105 56', height: height, width: Math.round(height * 105 / 56), 'aria-hidden': true, focusable: 'false' },
+      h('path', { className: 'fy-logo-ink', d: WORDMARK }),
+      h('circle', { className: 'fy-logo-dot', cx: 38, cy: 13, r: 3.75 }));
+  }
+  function Logo(p) {
+    var variant = p.variant || 'mark';
+    var size = p.size || 48;
+    var art = variant === 'wordmark' ? Wordmark(size) : variant === 'lockup' ? h(Fragment, null, Mark(size), Wordmark(Math.round(size * 0.9))) : Mark(size);
+    return h('span', { className: cx('fy-logo', variant === 'lockup' && 'fy-lockup', p.className), role: 'img', 'aria-label': BRAND.name }, art);
   }
 
   /* ---------- Money ---------- */
@@ -692,7 +717,7 @@
   function UnlockScreen(p) {
     var mode = useState(p.method || 'biometric');
     return h('div', { className: cx('fy-unlock', p.className) },
-      h('p', { className: 'caption fy-muted' }, 'Finly is locked'),
+      h('p', { className: 'caption fy-muted' }, BRAND.name + ' is locked'),
       h('h1', { className: 'display' }, 'Welcome back, ' + (p.name || 'Krish')),
       mode[0] === 'biometric'
         ? h('div', { className: 'fy-unlock-bio' },
@@ -791,12 +816,12 @@
     var heading = { 'in': 'PAYMENT RECEIVED · CREDIT · AVAK', out: 'PAYMENT MADE · DEBIT · JAVAK', transfer: 'TRANSFER' }[tx.direction] || 'TRANSFER';
     return h('figure', { className: cx('fy-proof', p.className), 'data-theme': 'light', 'aria-label': 'Generated proof for ' + tx.id },
       p.watermark ? h('span', { className: 'fy-watermark', 'aria-hidden': true }, p.watermark) : null,
-      h('div', { className: 'fy-proof-head' }, h('span', { className: 'subhead' }, p.firm || 'Finly'), p.classification ? h(PrivacyBadge, { level: 'restricted', label: p.classification }) : null),
+      h('div', { className: 'fy-proof-head' }, h('span', { className: 'subhead' }, p.firm || BRAND.name), p.classification ? h(PrivacyBadge, { level: 'restricted', label: p.classification }) : null),
       h('p', { className: cx('label', 'fy-tone-text-' + dir.tone) }, heading),
       h(Money, { amount: tx.amount, direction: tx.direction, size: 'lg' }),
       h('dl', { className: 'fy-proof-rows' }, [ProofRow('From', tx.from), ProofRow('To', tx.to), ProofRow('Date', tx.date + (tx.day ? ' · ' + tx.day : '')), ProofRow('Time', tx.time),
         ProofRow('Reason', tx.reason), ProofRow('Handled by', tx.handler), tx.fund ? ProofRow('Fund', tx.fund) : null, ProofRow('Reference', tx.id)]),
-      h('figcaption', { className: 'caption fy-muted fy-proof-foot' }, 'Generated by Finly from the posted record, not a screenshot.', p.verifyCode ? h('span', { className: 'figure fy-block' }, 'Verify: ' + p.verifyCode) : null));
+      h('figcaption', { className: 'caption fy-muted fy-proof-foot' }, 'Generated by ' + BRAND.name + ' from the posted record, not a screenshot.', p.verifyCode ? h('span', { className: 'figure fy-block' }, 'Verify: ' + p.verifyCode) : null));
   }
 
   function PdfPage(p) {
@@ -805,7 +830,7 @@
       p.watermark ? h('span', { className: 'fy-watermark fy-watermark--pdf', 'aria-hidden': true }, p.watermark) : null,
       h('header', { className: 'fy-pdf-head' },
         h('div', null, h('p', { className: 'title' }, p.title), h('p', { className: 'body-sm fy-muted' }, p.entity + ' · ' + p.period)),
-        h('span', { className: 'label fy-muted' }, 'Finly')),
+        h('span', { className: 'label fy-muted' }, BRAND.name)),
       h('div', { className: 'fy-pdf-summary' }, [['Opening', s.opening, 'none'], ['Credits', s.credits, 'in'], ['Debits', s.debits, 'out'], ['Closing', s.closing, 'none']].map(function (x) {
         return h('div', { key: x[0], className: 'fy-pdf-fig' }, h('p', { className: 'label fy-muted' }, x[0]), h(Money, { amount: x[1], direction: x[2], size: 'sm' }));
       })),
@@ -849,7 +874,7 @@
   }
 
   window.Finly = Object.assign(window.Finly || {}, {
-    Icon: Icon, Money: Money, StatusBadge: StatusBadge, PrivacyBadge: PrivacyBadge, Button: Button, AddButton: AddButton, TextField: TextField,
+    Logo: Logo, Icon: Icon, Money: Money, StatusBadge: StatusBadge, PrivacyBadge: PrivacyBadge, Button: Button, AddButton: AddButton, TextField: TextField,
     AmountInput: AmountInput, SearchBar: SearchBar, Chip: Chip, Selector: Selector, Tabs: Tabs, TopBar: TopBar, BottomNav: BottomNav, AddSheet: AddSheet,
     ListRow: ListRow, TransactionCard: TransactionCard, BalanceCard: BalanceCard, FundCard: FundCard, OutstandingCard: OutstandingCard,
     ExplainBalance: ExplainBalance, JournalLines: JournalLines, DataTable: DataTable, FindingCard: FindingCard, BottomSheet: BottomSheet, Dialog: Dialog,
@@ -857,6 +882,7 @@
     EmptyState: EmptyState, AccessState: AccessState, PinPad: PinPad, OtpInput: OtpInput, UnlockScreen: UnlockScreen, StepUpSheet: StepUpSheet,
     SecurityBuilder: SecurityBuilder, MessagePreview: MessagePreview, ShareConfirm: ShareConfirm, ProofCard: ProofCard, PdfPage: PdfPage, StatesBoard: StatesBoard,
     format: { inr: formatINR, group: groupIndian, words: amountWords, rounded: roundedText, range: rangeText },
-    iconNames: ICON_NAMES
+    iconNames: ICON_NAMES,
+    brand: BRAND
   });
 })();

@@ -42,6 +42,15 @@ ul, ol { padding: 0; list-style: none; }
 .fy-tone-text-exception { color: var(--exception); }
 .fy-tone-text-blocked { color: var(--blocked); }
 
+/* logo */
+.fy-logo { display: inline-flex; align-items: center; }
+.fy-lockup { gap: var(--space-3); }
+.fy-logo-tile { fill: var(--logo-tile); }
+.fy-logo-glyph { fill: none; stroke: var(--logo-glyph); stroke-width: 5.5; stroke-linecap: round; stroke-linejoin: round; }
+.fy-logo-coin { fill: var(--logo-coin); }
+.fy-logo-ink { fill: none; stroke: var(--ink); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+.fy-logo-dot { fill: var(--accent); }
+
 /* money */
 .fy-money { display: inline-flex; align-items: center; gap: var(--space-1); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .fy-money--struck > span { text-decoration: line-through; text-decoration-thickness: 2px; }

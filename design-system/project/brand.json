@@ -1,0 +1,15 @@
+{
+  "name": "Finly",
+  "tagline": "Every rupee, explained.",
+  "applicationId": "to be fixed at Gate 1 (Android package name)",
+  "logo": {
+    "mark": "assets/Logos/finly-mark.svg",
+    "wordmark": "assets/Logos/finly-wordmark.svg",
+    "wordmarkDark": "assets/Logos/finly-wordmark-dark.svg",
+    "launcherForeground": "assets/Logos/finly-launcher-foreground.svg",
+    "launcherMonochrome": "assets/Logos/finly-launcher-monochrome.svg",
+    "launcherBackgroundToken": "logo-tile",
+    "notification": "assets/Logos/finly-notification.svg"
+  },
+  "splash": { "backgroundToken": "logo-tile", "icon": "assets/Logos/finly-launcher-foreground.svg" }
+}

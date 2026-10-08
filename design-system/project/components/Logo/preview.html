@@ -1,0 +1,12 @@
+<!-- @dsCard group="Brand" height=200 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Logo — preview</title></head>
+<body>
+<div id="root" class="fy-root"></div>
+<script>
+  var F = window.Finly, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div', { className: 'fy-demo' }, h(F.Logo, { size: 96 }), h(F.Logo, { size: 48 }), h(F.Logo, { size: 24 }), h(F.Logo, { variant: 'wordmark', size: 56 }), h(F.Logo, { variant: 'lockup', size: 40 })));
+</script>
+</body>
+</html>

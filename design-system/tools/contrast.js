@@ -14,6 +14,7 @@ for (const t of [0, 1]) {
   for (const s of status) check(s, s + '-soft', 4.5, t);
   check('ink', 'brand-soft', 4.5, t); check('brand', 'brand-soft', 4.5, t);
   check('on-brand', 'brand', 4.5, t); check('on-accent', 'accent', 4.5, t);
+  check('logo-glyph', 'logo-tile', 4.5, t); check('logo-coin', 'logo-tile', 3, t);
   for (const s of status) check('ink', s + '-soft', 4.5, t);
 }
 console.log(rows.filter(r => process.argv[3] === 'all' || r.startsWith('FAIL')).join('\n') || 'no failures');

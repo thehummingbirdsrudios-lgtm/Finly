@@ -8,6 +8,7 @@ const OUT = path.join(__dirname, '..', 'project', 'components');
 
 // The Flutter widget each reference component becomes, and what it builds on (Flutter built-ins first).
 const FLUTTER = {
+  Logo: ['FyLogo', 'a CustomPaint of the same paths, reading BrandConfig'],
   Icon: ['FyIcon', 'Icon with Icons.*_rounded'],
   Money: ['FyMoney', 'Text with the amount text styles + Semantics(label: words)'],
   StatusBadge: ['FyStatusBadge', 'a DecoratedBox + Icon + Text'],

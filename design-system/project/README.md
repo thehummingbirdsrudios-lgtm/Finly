@@ -70,4 +70,10 @@ Rounded, 24px, one stroke weight, always beside a word or a sign when it carries
 | receipt / calendar / user / edit / phone | `Icons.receipt_long_outlined` / `Icons.calendar_today_outlined` / `Icons.person_outline_rounded` / `Icons.edit_outlined` / `Icons.smartphone_rounded` | Bills, dates, people, drafts, devices |
 | vault | none built in — `Icons.inventory_2_outlined` until a custom Tijori glyph is drawn | Tijori, lockers, cash locations |
 
-There is no logo yet: the name is set in plain type.
+## Brand
+
+- **Name:** Finly. **Tagline:** "Every rupee, explained." Both live only in `brand.json`; the app, the launcher label, notifications, proof cards and PDFs read them from there, so a rename is one change.
+- **The mark** is an F whose two bars echo the twin strokes of the rupee sign, with a brass coin at its foot — every rupee, accounted for. It sits on a `logo-tile` square with `radius-md`-proportioned corners (12 on 48) and never recolours with the theme: `logo-tile`, `logo-glyph`, `logo-coin`.
+- **The wordmark** is drawn from the same monoline stroke, with the coin as the dot of the i. It is set in `ink` with an `accent` dot, so it follows the theme. Use the `Logo` component in screens and the files in the Logos asset group everywhere else (launcher, splash, notification, PDF, proof).
+- **Launcher and splash:** the adaptive icon is the white glyph and brass coin on a `logo-tile` background, with a monochrome layer for themed icons; the Android splash shows the same icon on `logo-tile`.
+- **Rules:** minimum mark 24px and wordmark 20px tall; clear space of one coin diameter; never stretch, outline, recolour, add shadows or effects, or set the wordmark on a coloured fill (use the mark instead).

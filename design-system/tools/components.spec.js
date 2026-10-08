@@ -6,6 +6,17 @@ const TX_IN = "{ id: 'TX-20261008-001245', from: 'Mint', to: 'Tijori', amount: 5
 
 module.exports = [
   {
+    name: 'Logo', group: 'Brand', height: 200,
+    readme: `The Finly mark, wordmark and lockup, drawn from the brand tokens so they sit right in both themes.
+
+- Provide: \`variant\` (\`mark\`, \`wordmark\`, \`lockup\`) and \`size\` (the mark's side, or the wordmark's height).
+- The mark — an F whose two bars echo the twin strokes of the rupee sign, and a brass coin at its foot: every rupee, accounted for — keeps \`logo-tile\`, \`logo-glyph\` and \`logo-coin\` in both themes. The wordmark uses \`ink\` with an \`accent\` dot, so it follows the theme.
+- Minimum sizes: mark 24px, wordmark 20px tall. Keep clear space of one coin diameter on every side.
+- Never recolour the tile, outline the mark, stretch it, add effects, or set the wordmark on a coloured fill — use the mark there instead.
+- The name comes from the brand configuration (\`brand.json\`); no screen types it.`,
+    code: "h('div', { className: 'fy-demo' }, h(F.Logo, { size: 96 }), h(F.Logo, { size: 48 }), h(F.Logo, { size: 24 }), h(F.Logo, { variant: 'wordmark', size: 56 }), h(F.Logo, { variant: 'lockup', size: 40 }))",
+  },
+  {
     name: 'Icon', group: 'Foundations', height: 380,
     readme: `Every glyph the system uses, drawn on a 24px grid with a 1.8px rounded stroke in \`currentColor\`.
 
