@@ -1,0 +1,86 @@
+{
+  "v": 3,
+  "layout": "files",
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-10-08T12:42:53Z"
+  },
+  "title": "Finly",
+  "namespace": "Finly",
+  "libraries": [
+    {
+      "name": "react",
+      "version": "18.3.1"
+    },
+    {
+      "name": "react-dom",
+      "version": "18.3.1"
+    }
+  ],
+  "sections": {},
+  "groups": [
+    "Logos"
+  ],
+  "assetGroups": {
+    "Logos": {
+      "name": "Logos",
+      "tile": "m",
+      "order": [
+        "finly-mark.svg",
+        "finly-wordmark.svg",
+        "finly-wordmark-dark.svg",
+        "finly-launcher-foreground.svg",
+        "finly-launcher-monochrome.svg",
+        "finly-notification.svg"
+      ],
+      "files": {
+        "finly-mark.svg": {
+          "name": "finly-mark.svg",
+          "blob": "b063f1f398c903d02cd05441e50a27b0",
+          "size": 394,
+          "type": "image/svg+xml"
+        },
+        "finly-wordmark.svg": {
+          "name": "finly-wordmark.svg",
+          "blob": "0944a4e48d09f824409fb5573a6e0f6b",
+          "size": 430,
+          "type": "image/svg+xml"
+        },
+        "finly-wordmark-dark.svg": {
+          "name": "finly-wordmark-dark.svg",
+          "blob": "d787bc207260e8a485cd2ad17b4fea7a",
+          "size": 430,
+          "type": "image/svg+xml"
+        },
+        "finly-launcher-foreground.svg": {
+          "name": "finly-launcher-foreground.svg",
+          "blob": "12f14d47ada28a8bb0b7013c10a0d1a3",
+          "size": 382,
+          "type": "image/svg+xml"
+        },
+        "finly-launcher-monochrome.svg": {
+          "name": "finly-launcher-monochrome.svg",
+          "blob": "cca1c5de1d4a0660c1e127a8faf1d777",
+          "size": 382,
+          "type": "image/svg+xml"
+        },
+        "finly-notification.svg": {
+          "name": "finly-notification.svg",
+          "blob": "ae1c3678c8fbc597008e9d509164c8db",
+          "size": 342,
+          "type": "image/svg+xml"
+        }
+      }
+    }
+  },
+  "blobs": {},
+  "docs": {
+    "sections": []
+  },
+  "lastChange": {
+    "by": "Krish Patel",
+    "at": "2026-10-08T13:18:04Z",
+    "via": "Claude Code",
+    "note": "First draft from the build specification Part K and add-on 07, for Gate 4 review"
+  }
+}

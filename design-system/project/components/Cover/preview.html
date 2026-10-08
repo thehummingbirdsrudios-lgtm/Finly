@@ -1,0 +1,49 @@
+<!-- @dsCard height=288 -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Finly</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--surface); color: var(--ink); font-family: var(--font-sans); overflow: hidden; }
+  .cover { position: relative; height: 288px; overflow: hidden; }
+  .art { position: absolute; top: 0; left: 480px; width: 480px; height: 288px; overflow: hidden; }
+  .art svg { display: block; width: 480px; height: 288px; }
+  .brand { fill: var(--brand); }
+  .accent { fill: var(--accent); }
+  .deep { fill: var(--ink); }
+  .in { fill: var(--money-in); }
+  .out { fill: var(--money-out); }
+  .glyph { fill: var(--surface); font-family: var(--font-sans); font-weight: 700; font-size: 232px; }
+  .words { position: absolute; left: var(--space-6); bottom: var(--space-6); max-width: 440px; }
+  .name { margin: 0; font-size: 112px; line-height: .92; font-weight: 700; letter-spacing: -.02em; color: var(--ink); }
+  .tag { margin: var(--space-2) 0 0 4px; font-size: 14px; line-height: 20px; color: var(--ink-muted); }
+</style>
+</head>
+<body>
+<div class="cover">
+<div class="art" aria-hidden="true">
+<svg viewBox="0 0 480 288" width="480" height="288">
+<!--
+  blocks      brand 176×264 bled off the top (identity, largest) · accent (brass) 112×152 · ink 152×200 bleeding off the right edge · money-in and money-out 48×32 each, side by side, the app's two directions — ≈34% of 960×288
+  arrangement one tall brand slab with satellites, all bottoms on one line space-10 above the edge, space-4 gutters
+  pattern     one oversized ₹ in the ground colour cut from the brand slab — "the amount is always the strongest element on the screen"
+  scales      sides in space-2 multiples; gutters space-4; slab, brass and ink corners radius-lg (16); direction chips radius-sm (8)
+-->
+<defs><clipPath id="slab"><rect x="24" y="-16" width="176" height="264" rx="16"/></clipPath></defs>
+<rect class="brand" x="24" y="-16" width="176" height="264" rx="16"/>
+<text class="glyph" x="58" y="226" clip-path="url(#slab)">₹</text>
+<rect class="in" x="216" y="48" width="48" height="32" rx="8"/>
+<rect class="out" x="280" y="48" width="48" height="32" rx="8"/>
+<rect class="accent" x="216" y="96" width="112" height="152" rx="16"/>
+<rect class="deep" x="344" y="48" width="152" height="200" rx="16"/>
+</svg>
+</div>
+<div class="words">
+<h1 class="name">Finly</h1>
+<p class="tag">Every rupee, explained.</p>
+</div>
+</div>
+</body>
+</html>
