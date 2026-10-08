@@ -121,7 +121,7 @@ ul, ol { padding: 0; list-style: none; }
 .fy-selector-sheet { margin-top: var(--space-2); padding: var(--space-3); border-radius: var(--radius-lg); background: var(--surface-raised); box-shadow: var(--elevation-2); display: flex; flex-direction: column; gap: var(--space-2); }
 .fy-sheet-sub { padding: 0 var(--space-2); }
 .fy-option-list { display: flex; flex-direction: column; }
-.fy-option, .fy-row, .fy-repeat, .fy-add-tile { width: 100%; display: flex; align-items: center; gap: var(--space-3); min-height: var(--touch-min); padding: var(--space-2) var(--space-3); border: 0; border-radius: var(--radius-md); background: transparent; color: var(--ink); font-family: inherit; text-align: left; cursor: pointer; }
+.fy-option, .fy-row, .fy-repeat, .fy-add-tile { width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: var(--space-3); min-height: var(--touch-min); padding: var(--space-2) var(--space-3); border: 0; border-radius: var(--radius-md); background: transparent; color: var(--ink); font-family: inherit; text-align: left; cursor: pointer; }
 .fy-option--off { opacity: var(--opacity-disabled); cursor: not-allowed; }
 .fy-option-icon { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: var(--radius-full); background: var(--surface-sunken); color: var(--ink); }
 .fy-option-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
