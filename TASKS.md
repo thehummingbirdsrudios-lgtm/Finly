@@ -14,7 +14,7 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · ⛔ gate
 - [x] First-session restatement: Part A, the AC1 glossary, AC10 example 4 as journal lines
 - [x] Stack Decision Record (Flutter fixed; packages vs built-ins; backend evaluation with current free-tier facts) — `docs/DECISIONS.md`
 - [x] Accounting Model Record (AC19, nine decisions) — `docs/DECISIONS.md`
-- ⛔ **Gate 1 — technology stack** · ⛔ **Gate 2 — accounting model** — waiting for the owner
+- [x] ⛔ **Gate 1 — technology stack** approved with conditions (D-013..D-017) · ⛔ **Gate 2 — accounting model** resolved by the owner's F1–F7 answers (revision 3, D-021); F8 and F9 await confirmation
 
 ## M1 — Architecture and schema
 
@@ -52,7 +52,9 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · ⛔ gate
 
 ## M6 — Accounting core and the first money movement
 
-- [ ] Accounting entities, chart-of-accounts templates, location ↔ ledger mappings, journal engine, posting-rule templates with preview
+- [~] Accounting entities, chart-of-accounts templates, location ↔ ledger mappings, journal engine, posting-rule templates with preview
+  - [x] Pure posting planner (`backend/src/domain/engine/`), journal invariants, in-memory reference ledger; 42 tests covering ACCOUNTING-ENGINE §5 and RULEBOOK-03 §72 tests 1–21 (engine level)
+  - [ ] Persisted to Postgres through the schema from M1
 - [ ] AC6 invariant checker, encrypted balance snapshots, hash chain, Integrity Verifier, Explain Balance
 - [ ] Precondition pipeline, available balance, concurrency, idempotency, state machine, Impact + Conflict Engine
 - [ ] First end-to-end Avak / Javak / transfer on the phone
