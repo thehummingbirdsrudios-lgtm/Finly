@@ -11,7 +11,7 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · 🔑 needs the o
 - [x] Specification, add-ons 01–22, gate responses 01–05 recorded verbatim (`docs/source/`)
 - [x] Design-system draft (tokens, components, logo); stack and accounting model records
 - [x] Database: migrations 0001–0017, RLS everywhere, guards, encryption map; data dictionary; catalog parity tests
-- [x] Supabase project `finly`; 0001–0014 deployed and fingerprint-verified
+- [x] Supabase project `finly`; 0001–0017 deployed and fingerprint-verified (`4b71e286…`, three channels)
 - [x] Accounting engine: 17 intents, F8/F9 with purpose (D-039), invariants
 - [x] Posting service: idempotent, locked, encrypted, acknowledgement flow (D-029), outbox, monthly periods
 - [x] D-038: platform roles open no books; explicit scoped owner/admin roles
@@ -22,12 +22,14 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · 🔑 needs the o
 
 ## R1 — First usable app
 
-- [ ] Branding: launcher icon (adaptive + monochrome), Android 12 splash, app name, from `design-system` assets
-- [ ] Splash/startup flow polish; error states for an unreachable server
-- [ ] Least-privilege API login role (`finly_app`): member of finly_api/finly_auth/finly_ledger only, script + docs
-- [ ] Release signing setup (key outside Git) and a release APK build against a configured `FINLY_API_URL`
-- [ ] 🔑 Deploy migrations 0015–0017 to Supabase (fingerprint-verified)
-- [ ] 🔑 Host the API (Supabase Edge Function) with the KEK and DB secrets set by the owner
+- [x] Branding: launcher icon (adaptive + monochrome), Android 12 splash, app name, from `design-system` assets (ee1a0d9)
+- [x] Splash/startup flow polish; error states for an unreachable server (`startup_test.dart`)
+- [x] Least-privilege API login role (`finly_app`): member of finly_api/finly_auth/finly_ledger only, script + docs;
+  live on Supabase, checked through the pooler (`db/tools/app_login_check.ts`)
+- [x] Release signing setup (key outside Git) and a release APK build against a configured `FINLY_API_URL` (32587be)
+- [x] Deploy migrations 0015–0017 to Supabase (fingerprint-verified; advisors INFO only; migrator login off)
+- [~] 🔑 Host the API (Supabase Edge Function): `deno task edge:deploy` ready and run up to sign-in; waiting for the
+  owner's one-time `supabase login` and the three function secrets
 - [ ] 🔑 Seed the initial users through the bootstrap (temporary passwords delivered only to the owner)
 - [ ] Device check: install, sign in, set password, create firm, add place, record entries
 

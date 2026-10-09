@@ -1,0 +1,10 @@
+# Supabase CLI settings for `deno task edge:deploy`, which copies this file and the tested bundle
+# (build/edge/index.js) into build/edge-deploy/supabase/ and deploys from there. Runbook: docs/operations/deploy-api.md.
+# No secrets here: the function's secrets are set in the Supabase dashboard by the owner.
+project_id = "finly"
+
+[functions.api]
+# Finly authenticates every request itself (short-lived token checked against a live session); the app carries no
+# Supabase key, so the platform's JWT check stays off.
+verify_jwt = false
+entrypoint = "./functions/api/index.js"

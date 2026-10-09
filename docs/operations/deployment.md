@@ -66,6 +66,8 @@ deno task test:pg17              # real PostgreSQL 17.11, incl. concurrency and 
 | 2026-10-09 | 0011 (0.3 s) | `16afa4016ae83becdc2b6d92515e0af8` | security: only the intentional INFO; performance: unindexed foreign keys (INFO, deliberate — docs/database/04 §4.2 rule 7) and unused indexes (empty database) |
 | 2026-10-09 | 0012, 0013 (1.0 s) | `6b396daa4c3cbb1a7d362a90faff04c5` | security: only the intentional INFO |
 | 2026-10-09 | 0014 (0.4 s) | `144c7145fa9cfee2bb205d3b55c52e1c` | security: only the intentional INFO |
+| 2026-10-09 | 0015–0017 (1.1 s) | `4b71e286792db817623b1f0062c922e5` (3195 items: 101 tables, 56 functions, 306 policies) | security: only the intentional INFO; performance: INFO only (217 unindexed audit/actor foreign keys, 77 unused indexes on an empty database) |
+| 2026-10-09 | `bootstrap/api_login.sql` + `finly_app` login (transaction pooler, 6543) | unchanged | `deno task db:app-check` through the pooler: connects as `finly_app`, reads nothing alone, enters `finly_api` (0 rows without an actor), cannot enter `finly_owner`. Migrator login off afterwards |
 
 ## 5. Open items
 
@@ -74,7 +76,8 @@ deno task test:pg17              # real PostgreSQL 17.11, incl. concurrency and 
   crosses the wire — but the server certificate is not verified). The second-channel fingerprint check (§3.3) detects
   any tampering. To close it: the owner downloads `prod-ca-2021.crt` from Dashboard → Project Settings → Database →
   SSL Configuration and saves it as `backend/certs/supabase-prod-ca-2021.crt` (a public certificate, safe to commit);
-  the tools then switch to `verify-full`.
+  the tools then switch to `verify-full`. The API's own `finly_app` connection (from the Edge Function to the pooler)
+  has the same limit and switches with it.
 - **SSL enforcement** (Dashboard → Database → SSL Configuration → "Enforce SSL") — a brief database restart; the owner
   enables it.
 - **CI deployment** with the migrator URL as a GitHub Actions secret, after the repository is pushed.

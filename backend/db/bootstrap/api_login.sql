@@ -14,7 +14,9 @@ begin
 end
 $$;
 
-alter role finly_app noinherit nosuperuser nocreatedb nocreaterole noreplication;
+-- Only NOINHERIT is stated: a new role has no superuser, createdb, createrole or replication attribute, and naming
+-- NOSUPERUSER at all needs a superuser, which Supabase's `postgres` is not. The tests check every attribute.
+alter role finly_app noinherit;
 grant finly_api, finly_auth, finly_ledger to finly_app;
 alter role finly_app set statement_timeout = '15s';
 alter role finly_app set lock_timeout = '5s';

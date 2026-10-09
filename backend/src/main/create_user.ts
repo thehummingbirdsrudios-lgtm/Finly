@@ -5,7 +5,8 @@
  *
  *   deno task user:create <ENV_KEY> <username> "<Display name>" [role ...]
  *
- * ENV_KEY names the database URL in backend/.env.local (a login that may act as finly_auth).
+ * ENV_KEY names the database URL in backend/.env.local (a login that may act as finly_auth — in production the API's
+ * own `FINLY_SUPABASE_APP_URL`, so the migrator login stays off).
  */
 import { IdentityService } from '../app/identity/service.ts';
 import { BlindIndex } from '../crypto/blind.ts';
@@ -49,7 +50,8 @@ function temporaryPassword(): string {
   return out;
 }
 
-const { client, sql } = openPostgres(url, { max: 1, applicationName: 'finly-create-user' });
+// No prepared statements: in production this runs as `finly_app` through the transaction pooler (port 6543).
+const { client, sql } = openPostgres(url, { max: 1, prepare: false, applicationName: 'finly-create-user' });
 try {
   const ring = new KeyRing(noKeys);
   const identity = new IdentityService(sql, new TokenSigner(ring), new BlindIndex(ring));

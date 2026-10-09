@@ -10,10 +10,11 @@ Scope is frozen at ADDON-22 (D-041). The goal is the complete, deployable mobile
 
 | Area | State | Evidence |
 |---|---|---|
-| Database | Migrations 0001–0017 local; 0001–0014 deployed to Supabase | Deployment log; 0015–0017 tested locally |
-| Backend | Engine, posting, identity, books, activity, HTTP API v1 | `deno task verify` 182 passed / 7 ignored; `test:pg17` 103/103; `test:pg18` 103/103 |
-| App | Core screens wired to the API | `flutter analyze` clean; `flutter test` 11/11 |
-| Plans | PLAN.md, IMPLEMENTATION-PLAN.md, TASKS.md rewritten after reading every source | Commit "docs: consolidated plan…" |
+| Database | Migrations 0001–0017 deployed to Supabase; `finly_app` login live; migrator login off | [deployment.md](operations/deployment.md) §4: fingerprint `4b71e286…` on three channels; `app_login_check.ts` |
+| Backend | Engine, posting, identity, books, activity, HTTP API v1; Edge Function bundle | `deno task verify` 185 passed / 7 ignored; `test:pg17` 106/106; `test:pg18` 106/106; local smoke of the bundle as `finly_app` |
+| API hosting | `deno task edge:deploy` (pinned Supabase CLI 2.118.0) runs up to the sign-in check | Waiting for the owner's `supabase login` and function secrets |
+| App | Core screens wired to the API; branding; signed release APK (52.4 MB, CN=Finly) | `flutter analyze` clean; `flutter test` 13/13; `apksigner verify` |
+| Plans | PLAN.md, IMPLEMENTATION-PLAN.md, TASKS.md | Commit "docs: consolidated plan…" |
 
 ## Git
 
@@ -21,12 +22,15 @@ Branch `feat/database`; nothing pushed (the owner pushes: `git push -u origin fe
 
 ## Waiting for the owner
 
-- Push to GitHub (starts CI).
-- Production KEK: generate, keep two offline copies, set as function secrets (key-recovery.md).
-- Go-ahead to deploy migrations 0015–0017 and the API (Supabase Edge Function).
-- Supabase CA certificate download and "Enforce SSL".
-- A phone with USB debugging for on-device testing.
+1. `npx --yes supabase@2.118.0 login` once in a terminal; then `deno task edge:deploy` (deploy-api.md §3).
+2. Production KEK: generate, keep two offline copies, then set the function secrets `FINLY_DATABASE_URL`,
+   `FINLY_KEK_ACTIVE`, `FINLY_KEK_V1` (deploy-api.md §2, key-recovery.md §1).
+3. Back up `%USERPROFILE%\.finly\finly-release.jks` and `app/android/key.properties` (release-signing.md).
+4. Go-ahead to create the initial accounts (deploy-api.md §4) once the function answers `{"status":"ok"}`.
+5. Install the release APK on the phones; push to GitHub (starts CI).
+6. Supabase CA certificate download and "Enforce SSL".
 
 ## Next action
 
-WP1.1 Branding and startup (IMPLEMENTATION-PLAN.md), then WP1.2.
+WP2.5 Reversal and correction (IMPLEMENTATION-PLAN.md, execution order step 4). The deployment steps above resume as
+soon as the owner has done their part.

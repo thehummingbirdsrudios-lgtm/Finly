@@ -32,14 +32,26 @@ Supabase dashboard → Project `finly` → Edge Functions → Secrets → add:
 Until these exist, the function answers every request with 503 "not configured" and `/v1/health` lists what is missing
 (names only).
 
-## 3. Function code — [C]
+Steps 1–3 were done on 2026-10-09 ([deployment.md](deployment.md) §4).
+
+## 3. Function code — [O] sign in once, then [C]
+
+The bundle (230 KB) is uploaded with the official Supabase CLI, pinned in `backend/deno.json`. It needs the owner's
+Supabase sign-in once per computer — in a terminal, not in chat:
 
 ```bash
-cd backend && deno task edge:bundle   # → build/edge/index.js (one file, minified)
+npx --yes supabase@2.118.0 login
 ```
 
-Deploy it as function `api`, entrypoint `index.js`, **JWT verification off**: Finly authenticates every request
-itself, and the app carries no Supabase key. Then check:
+Then, every deploy:
+
+```bash
+cd backend && deno task edge:deploy
+```
+
+This bundles `src/main/edge.ts` into `build/edge/index.js` (one minified file, no secrets), stages it with
+`deploy/supabase/config.toml` under `build/edge-deploy/`, and deploys it as function `api` with **JWT verification
+off**: Finly authenticates every request itself, and the app carries no Supabase key. Then check:
 
 - `GET https://joidjmwfajbeivyffymb.supabase.co/functions/v1/api/v1/health` → `{"status":"ok"}` (or `not_configured`
   with the missing secret names before step 2);
@@ -50,10 +62,11 @@ Before every deploy, the same bundle is proven locally: `deno task dev:setup`, `
 
 ## 4. First accounts — [C] with the owner's go-ahead
 
-With the migrator login enabled for the session ([deployment.md](deployment.md) §3), for each initial person:
+Account creation runs entirely as `finly_auth`, so it uses the API's own login; the migrator stays off. For each
+initial person:
 
 ```bash
-deno task user:create FINLY_SUPABASE_MIGRATOR_URL <username> "<Display name>" <role>
+deno task user:create FINLY_SUPABASE_APP_URL <username> "<Display name>" <role>
 ```
 
 Roles: `super_admin` for the owner; `family_admin` for administrators; `worker` for workers. The tool needs no
@@ -72,7 +85,7 @@ The release build refuses to start without an `https://` API address. Signing: s
 
 ## Rollback
 
-- **Function:** redeploy the previous bundle (`git checkout <tag> -- backend && deno task edge:bundle`).
+- **Function:** redeploy the previous bundle (`git checkout <tag> -- backend && deno task edge:deploy`).
 - **Database:** forward fixes only ([deployment.md](deployment.md)).
 - **Access:** remove the function secret `FINLY_DATABASE_URL` to stop all API access at once, or run
   `alter role finly_app nologin` to cut the login.
