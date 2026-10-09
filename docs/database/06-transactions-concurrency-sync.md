@@ -26,6 +26,14 @@ refused request has a durable, visible result and its key is not silently reusab
 
 ## 6.2 The posting pipeline in the database (J2 steps 12–30)
 
+Implemented by `backend/src/app/posting/` in two transactions. **Prepare** (short): claim the idempotency key, validate
+and authorise against the current books, create the draft with its request encrypted (`txn.intent_enc`), its
+participants and legs — it holds the day's reference counter only for its own milliseconds. **Post**: the steps below,
+re-planning from the stored request under lock. Creating the draft inside the posting transaction would take the
+reference counter first, the reverse of a period close (period → slices → reference) — a deadlock; the split keeps one
+global order. A refusal is recorded in a third short transaction (idempotency `failed`, draft `failed`, audited); a
+lock timeout, deadlock or serialisation failure is not recorded, and the same key resumes from the draft.
+
 ```text
 BEGIN (READ COMMITTED)
  1. set actor (transaction-local)                         -- RLS and audit attribution

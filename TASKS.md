@@ -46,6 +46,7 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · ⛔ gate
 - [x] Hosted Supabase project `finly` created (D-034)
 - [x] Migrations 0001–0011 applied to Supabase `finly` (D-036, [deployment.md](docs/operations/deployment.md)); fingerprint identical to a fresh PostgreSQL 17 build over three channels; security advisor clean (0011 fixed 18 mutable search paths and one duplicate policy)
 - [ ] Full TLS verification for the migrator (owner downloads Supabase's CA certificate) and SSL enforcement (owner)
+- [x] Posting service (`backend/src/app/posting/`): idempotent two-transaction posting, global lock order, encrypted journals/lines/balances, legs with blind indexes, open items and settlements, custody, holds, acknowledgement flow (D-029), audit chain, transactional outbox; 10 integration tests on PGlite, PostgreSQL 17.11 and 18.6 (incl. racing spends)
 - [ ] Backend foundation: config, structured logging, error model, audit engine, encryption service, idempotency
 - [ ] Flutter app skeleton: theme generated from `tokens.json`, branding from `brand.json`, navigation shell, runs on the owner's phone
 

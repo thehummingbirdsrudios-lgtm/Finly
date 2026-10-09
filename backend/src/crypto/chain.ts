@@ -29,6 +29,11 @@ export function canonical(value: unknown): string {
 export class HashChain {
   constructor(private readonly keys: KeyRing) {}
 
+  /** The key version new links are made with (stored beside each link as `hash_key_version`). */
+  activeVersion(): number {
+    return this.keys.activeVersion();
+  }
+
   async link(previous: Uint8Array, content: unknown, version = this.keys.activeVersion()): Promise<Uint8Array> {
     const key = await this.keys.hmacKey('hash_chain', version);
     const body = encoder.encode(canonical(content));

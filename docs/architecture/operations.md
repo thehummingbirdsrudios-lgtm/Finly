@@ -27,7 +27,7 @@ written except the failure outcome (06 §6.1).
 
 | | |
 |---|---|
-| Depends on (direct) | Actor's session; `transactions.create` (and approve, if self-approving is allowed) in each affected environment; source and destination locations active and accessible (`location_access`); fund of each leg; open period for each entity; idempotency key |
+| Depends on (direct) | Actor's session; for each firm or pool whose books change: write access to its environment and either `txn.create` or ownership of it (a Super Admin role alone is not bookkeeping); the actor's own personal books always; another person's books → 2.4; source and destination locations active and accessible (`location_access`); fund of each leg; open period for each entity; idempotency key |
 | Depends on (indirect) | Ownership of the money (ledger, not the location); emergency write freeze off; key ring available |
 | Conditional | Approval rule match → `pending_approval` + hold; another person's personal books → acknowledgement (2.4); custody confirmation (F2) |
 | Forbidden | Client-supplied balances or journal lines; posting into a closed period; a leg without a fund on a non-party entity |
@@ -59,9 +59,9 @@ written except the failure outcome (06 §6.1).
 
 | | |
 |---|---|
-| Depends on | The person's `personal_book_setting` (no row = `acknowledge`) |
+| Depends on | The person's `personal_book_setting` (no row = `acknowledge`). If the person has given the giver write access to their books (`env_access`), the entry posts directly: that is the person's own delegation, not the giver deciding for them |
 | Atomic (submit) | Event `pending_acknowledgement` + `txn_acknowledgement` per person + hold on the giver's side + notification + outbox |
-| Atomic (acknowledge) | Acknowledgement row → full re-validation under lock (2.1) → every journal posts → hold released → audit → notify giver |
+| Atomic (acknowledge) | Acknowledgement row → the **giver's** rights checked again (revoked meanwhile → refused, nothing changes) → full re-validation under lock (2.1) → every journal posts → hold consumed → audit → outbox |
 | Reject / withdraw | Final answer recorded; event `rejected`/`cancelled`; hold released; history kept |
 | Database guards | Only the person answers (`F1008`); answers final (`F1007`); no posting while pending (`txn_ack_posting_check`) |
 

@@ -77,4 +77,4 @@ jobs:
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install -y -q postgresql-client-${{ matrix.pg }}
       - name: Database suite on PostgreSQL ${{ matrix.pg }}
-        run: deno test --allow-read --allow-write --allow-env --allow-net --allow-run tests/db/
+        run: deno test --allow-read --allow-write --allow-env --allow-net --allow-run tests/db/ tests/app/

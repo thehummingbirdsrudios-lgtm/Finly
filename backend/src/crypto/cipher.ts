@@ -40,6 +40,11 @@ export function keyVersionOf(ciphertext: Uint8Array): number {
 export class Cipher {
   constructor(private readonly keys: KeyRing) {}
 
+  /** The key version new ciphertext is written with (stored beside it as `key_version`). */
+  activeVersion(): number {
+    return this.keys.activeVersion();
+  }
+
   async encryptBytes(plain: Uint8Array, context: string, version = this.keys.activeVersion()): Promise<Uint8Array> {
     if (version < 1 || version > 0xffff) fail('INTERNAL', 'Invalid key version.');
     const header = Uint8Array.of(FORMAT, version >> 8, version & 0xff);
