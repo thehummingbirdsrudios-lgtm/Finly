@@ -47,7 +47,12 @@ export class Cipher {
     const key = await this.keys.aesKey('data', version);
     const sealed = new Uint8Array(
       await crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv: nonce as BufferSource, additionalData: aad(header, context) as BufferSource, tagLength: 128 },
+        {
+          name: 'AES-GCM',
+          iv: nonce as BufferSource,
+          additionalData: aad(header, context) as BufferSource,
+          tagLength: 128,
+        },
         key,
         plain as BufferSource,
       ),
@@ -67,7 +72,12 @@ export class Cipher {
     try {
       return new Uint8Array(
         await crypto.subtle.decrypt(
-          { name: 'AES-GCM', iv: nonce as BufferSource, additionalData: aad(header, context) as BufferSource, tagLength: 128 },
+          {
+            name: 'AES-GCM',
+            iv: nonce as BufferSource,
+            additionalData: aad(header, context) as BufferSource,
+            tagLength: 128,
+          },
           key,
           ciphertext.subarray(HEADER + NONCE) as BufferSource,
         ),
