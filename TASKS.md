@@ -28,7 +28,8 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · ⛔ gate
 - [x] Database tests: ledger structure, privacy and RLS, lifecycles, catalog parity (design ↔ schema ↔ engine ↔
   dictionary) — 40 tests; generated [data dictionary](docs/database/DATA-DICTIONARY.md)
 - [x] Database suite on real PostgreSQL 17.11 and 18.6 (D-032): 52/52 each, including 5 two-connection concurrency tests and the dump/restore recovery drill
-- [ ] Query benchmark (`db:bench`) on PostgreSQL 17; CI workflow with a PostgreSQL 17 service
+- [ ] Query benchmark (`db:bench`) on PostgreSQL 17
+- [x] CI workflow `.github/workflows/backend.yml` (PGlite gate + database suite on PostgreSQL 17.11 and 18.6 services, actions pinned to SHAs) — **not yet run**: needs the repository pushed
 - ⛔ **Gate 3 — database schema** delivered as documents (D-019, D-025); Q1–Q3 decided by the owner (D-029, D-030, D-033); F8, F9 await the owner
 
 ## M2 — Design, UX blueprint, edge cases
@@ -45,7 +46,6 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · ⛔ gate
 - [x] Hosted Supabase project `finly` created (D-034)
 - [x] Migrations 0001–0011 applied to Supabase `finly` (D-036, [deployment.md](docs/operations/deployment.md)); fingerprint identical to a fresh PostgreSQL 17 build over three channels; security advisor clean (0011 fixed 18 mutable search paths and one duplicate policy)
 - [ ] Full TLS verification for the migrator (owner downloads Supabase's CA certificate) and SSL enforcement (owner)
-- [ ] CI on GitHub Actions (PostgreSQL 17 service)
 - [ ] Backend foundation: config, structured logging, error model, audit engine, encryption service, idempotency
 - [ ] Flutter app skeleton: theme generated from `tokens.json`, branding from `brand.json`, navigation shell, runs on the owner's phone
 

@@ -1,0 +1,80 @@
+# Backend quality gate (D-032): format, lint, types and all tests on PGlite, then the database suite — including the
+# two-connection concurrency tests and the dump/restore recovery drill — on real PostgreSQL 17 (production) and 18.
+# The database containers exist only for the job, listen on localhost and use trust authentication, so no
+# credential is needed or stored. Actions are pinned to commit SHAs.
+name: backend
+
+on:
+  push:
+    branches: [main, 'feat/**']
+    paths: ['backend/**', '.github/workflows/backend.yml']
+  pull_request:
+    paths: ['backend/**', '.github/workflows/backend.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.9.7
+      - run: deno task verify
+
+  postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - pg: 17
+            image: postgres:17.11
+            target: pg17
+          - pg: 18
+            image: postgres:18.6
+            target: pg18
+    services:
+      postgres:
+        image: ${{ matrix.image }}
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['127.0.0.1:5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      FINLY_TEST_TARGET: ${{ matrix.target }}
+      FINLY_PG17_ADMIN_URL: postgres://postgres@127.0.0.1:5432/postgres
+      FINLY_PG18_ADMIN_URL: postgres://postgres@127.0.0.1:5432/postgres
+      FINLY_PG17_BIN: /usr/lib/postgresql/17/bin
+      FINLY_PG18_BIN: /usr/lib/postgresql/18/bin
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.9.7
+      - name: PostgreSQL ${{ matrix.pg }} client tools (pg_dump, pg_restore) from the PostgreSQL apt repository
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -q postgresql-client-${{ matrix.pg }}
+      - name: Database suite on PostgreSQL ${{ matrix.pg }}
+        run: deno test --allow-read --allow-write --allow-env --allow-net --allow-run tests/db/

@@ -12,8 +12,11 @@ import { testTarget } from './harness.ts';
 import { dbWorld } from './world.ts';
 
 const target = testTarget();
+const version = target === 'pg18' ? 18 : 17;
+const windows = Deno.build.os === 'windows';
 const binDir = Deno.env.get(target === 'pg18' ? 'FINLY_PG18_BIN' : 'FINLY_PG17_BIN') ??
-  `C:\\Program Files\\PostgreSQL\\${target === 'pg18' ? 18 : 17}\\bin`;
+  (windows ? `C:\\Program Files\\PostgreSQL\\${version}\\bin` : `/usr/lib/postgresql/${version}/bin`);
+const tool = (name: string) => (windows ? `${binDir}\\${name}.exe` : `${binDir}/${name}`);
 
 function connection(url: string) {
   const u = new URL(url);
@@ -26,10 +29,9 @@ function connection(url: string) {
   };
 }
 
-async function run(tool: string, args: string[], password: string): Promise<void> {
-  const out = await new Deno.Command(`${binDir}\\${tool}`, { args, env: { PGPASSWORD: password }, stderr: 'piped' })
-    .output();
-  if (!out.success) throw new Error(`${tool} failed: ${new TextDecoder().decode(out.stderr).slice(0, 400)}`);
+async function run(name: string, args: string[], password: string): Promise<void> {
+  const out = await new Deno.Command(tool(name), { args, env: { PGPASSWORD: password }, stderr: 'piped' }).output();
+  if (!out.success) throw new Error(`${name} failed: ${new TextDecoder().decode(out.stderr).slice(0, 400)}`);
 }
 
 Deno.test({
@@ -69,7 +71,7 @@ Deno.test({
     // 3. Back up, then lose the database entirely.
     const dump = `${work}/finly.dump`;
     await run(
-      'pg_dump.exe',
+      'pg_dump',
       ['-h', admin.host, '-p', admin.port, '-U', admin.user, '-Fc', '-f', dump, sourceDb],
       admin.password,
     );
@@ -80,7 +82,7 @@ Deno.test({
     const restored = `finly_t_${crypto.randomUUID().replaceAll('-', '').slice(0, 16)}`;
     await adminConn.sql.exec(`create database ${restored}`);
     await adminConn.client.end();
-    await run('pg_restore.exe', [
+    await run('pg_restore', [
       '-h',
       admin.host,
       '-p',
