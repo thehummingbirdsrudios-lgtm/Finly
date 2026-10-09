@@ -23,5 +23,7 @@ documents refine earlier ones, and **where two differ, the stricter security, pr
 | [RULEBOOK-02](RULEBOOK-02-master-accounting-engine.md) | 2026-10-08 | Master accounting engine — loans, advances, inter-firm, settlements, the 100 non-negotiable rules |
 | [RULEBOOK-03](RULEBOOK-03-finance-engine-scenarios.md) | 2026-10-08 | Finance engine scenarios — entities, environments, access, masters, 42 acceptance tests |
 | [ADDON-11](ADDON-11-database-architecture-schema.md) | 2026-10-08 | Database architecture and schema master prompt: the 16 design outputs before any migration |
+| [GATE-RESPONSE-03](GATE-RESPONSE-03-decisions-q1-q3-postgres.md) | 2026-10-09 | Q1 acknowledgement default, Q2 encryption investigation and authorised fallback, Q3 account activation without impersonation, F8/F9 explanation request, use the local PostgreSQL (one credential redacted) |
+| [ADDON-12](ADDON-12-complete-the-app-online-only.md) | 2026-10-09 | Complete the whole app to production readiness; **online-only: no local database, no offline mode, no offline queue** |
 
 Other documents cite "the source documents" and link here, so a new add-on is recorded in one place.

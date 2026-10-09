@@ -1,26 +1,38 @@
-# 8. Open questions and decisions required
+# 8. Open questions and decisions
 
-Add-on 11 §30 item 16. Where the sources do not decide something, it is listed here with a recommendation and what
-the implementation does until the owner answers (A6.3: the safest architecture that preserves integrity, security and
-privacy). Nothing here changes an approved accounting rule.
+Add-on 11 §30 item 16. Where the sources did not decide something, it was listed here with a recommendation and what
+the implementation does meanwhile (A6.3: the safest architecture that preserves integrity, security and privacy).
+Nothing here changes an approved accounting rule.
 
-| # | Question | Options | Recommendation | Applied meanwhile |
-|---|---|---|---|---|
-| Q1 | **Entries that land in someone else's personal books.** Mint gives Sujal ₹20,000 as his own money (F3): Sujal's books get "cash with Sujal +₹20,000 / owes Mint". A worker records income received into Krish's personal account: Krish's books change. Must the other person acknowledge first? | (a) post immediately, notify that person, allow a dispute; (b) hold the whole event until they acknowledge; (c) refuse unless the actor may write in both environments | (a) — money has physically moved; holding the firm's side would make the books lie. A dispute raises an exception and leads to a correction. A per-environment policy can require acknowledgement (like F2) | (a); `txn_entity.ack_status = 'not_required'` by default, `pending` when a policy turns acknowledgement on. Nobody gains read access to the other person's books |
-| Q2 | **Reason text in plaintext?** Reasons ("Angadiya visit") must be searchable (UX4, P6). | (a) plaintext, protected by RLS and field-level rules; internal notes encrypted; (b) encrypted, searchable only through keyed word tokens | (a) — the reason is a description, not a financial value; amounts, balances, bank numbers and notes stay encrypted | (a) |
-| Q3 | **KEK escrow.** If the key-encryption key is lost, every encrypted amount is lost for good — backups included. | owner keeps an offline copy (password manager or printed and sealed), tested yearly | Required before production goes live | Development uses a throwaway local key; production setup will stop and ask the owner to store the escrow copy |
-| Q4 | **Keep amounts encrypted in the database** (AC7)? It costs database-level `SUM` and `CHECK` on amounts; the engine and the Integrity Verifier enforce them instead. | (a) keep encryption (spec); (b) plaintext `bigint` amounts, encrypting only bank numbers and notes — needs a formal security review and the owner's approval (AC7, I1) | (a) | (a) |
-| Q5 | **Amount-band search** reveals, to someone holding a dump, which amounts fall in the same band (never the amounts). | (a) accept, for range filters; (b) no range filter over encrypted amounts | (a) | (a) |
-| Q6 | **M-PIN verification.** | (a) server-side verifier per device: Argon2id over a peppered PIN, real attempt limits and remote reset; offline unlock checks a Keystore-protected local verifier; (b) device only | (a) — attempt counters on a rooted phone can be reset; the server's cannot | (a) |
-| Q7 | **One global journal hash chain** (total order, serialises postings for milliseconds) or one chain per entity? | global / per entity | Global at this scale (≤ 100 postings a day) | Global |
-| Q8 | **Retention periods.** Indian law requires books of account for 8 years (Companies Act 2013 s.128(5)); other regimes differ. | proposed: financial records, audit and attachments 8 years after the financial year; security events 2 years; sessions and refresh tokens 90 days after expiry; idempotency records 30 days; notifications 1 year; secure-link access logs 2 years; backups 30 daily + 12 monthly + 7 yearly | Confirm with the firms' chartered accountant | Proposed values seeded in `retention_policy`; no deletion job runs on financial data |
-| Q9 | **Financial year.** | April–March (India) for every firm, or per firm | April–March, stored per firm (`firm_profile.fy_start_month`) | April |
-| Q10 | **Reversing into an account that was deactivated after the original posting.** | (a) refuse until reactivated; (b) allow reversal postings only | (a) — strict AC6.12 | (a) |
-| Q11 | **Persons without a user** (e.g. a family member who never opens the app) still have personal books when money moves through them. Under A4 nobody else may read those books, and nobody can grant access without the person. | (a) give every person who owns or holds money a user (they may rarely sign in); (b) allow the owner of a firm to act as steward of a member's personal books | (a) — keeps A4 absolute | Books are written by the posting service; readable only by that person's own user |
-| Q12 | **Partial reversal** (RULEBOOK-03 §53). | (a) an adjustment or refund event linked `partially_reverses`; (b) a partial mirror journal | (a) — the original stays whole and the change is explicit | (a) |
-| Q13 | **Pools and new logins for people who already have books.** (a) Should full admin reach pools such as a family fund, or only firms? (b) When a login is created for a person whose books already hold postings (Q11), the admin who sets the temporary password could sign in as that person first. | (a) firms only; pools by explicit grant · (b) the new user's first sign-in must happen on their own phone with their own M-PIN or biometric set up there, the temporary password expires in 24 hours, and the person is notified of every sign-in | (a) and (b) as recommended | (a) applied in RLS; (b) built with the identity service |
-| Q14 | **Test database version.** PGlite 0.3 (PostgreSQL 17) crashed on any error raised inside PL/pgSQL, which every guard uses. Tests now run on PGlite 0.5.8, which is PostgreSQL 18.3; production is PostgreSQL 17. | (a) PGlite 0.5.8 locally + PostgreSQL 17 in CI; (b) install PostgreSQL 17 locally (system software, needs the owner) | (a) — migrations use nothing PostgreSQL 18-only, and CI is the final word | (a) |
-| F8 | Firm money pays its owner's personal expense: withdrawal or owner-owes-firm, asked every time | — | (from revision 3) | Asked every time |
-| F9 | Through owner + Own: owner owes firm, non-owner owes owner | — | (from revision 3) | Applied as described |
+## Decided by the owner
 
-Sentry: not needed for the database. Error reports stay in our own tables (D-016).
+| # | Decision | Source | Where implemented |
+|---|---|---|---|
+| Q1 | **Entries that land in someone else's personal books need that person's acknowledgement by default** (Option B). The receiving person — and only they — may switch their own personal books to immediate posting with notification (Option A). The giver can never override it. Pending entries are visibly distinct from posted ones; on acknowledgement every financial effect of the event posts atomically; rejection, correction or cancellation keeps the original event and its history | [Gate response 03](../source/GATE-RESPONSE-03-decisions-q1-q3-postgres.md) | `personal_book_setting`, `txn_acknowledgement`, status `pending_acknowledgement` (migration 0010); posting service; [ACCOUNTING-ENGINE.md §5.10](../ACCOUNTING-ENGINE.md) |
+| Q11 / Q13(b) | **Accounts are created or invited by the Super Admin and activated by the person themself.** Existing books are linked, never duplicated. A one-time activation credential expires (24 h) and dies on use; the person sets their own password and M-PIN on their own phone. **No impersonation:** no path lets an administrator sign in as someone else or act in their name; administrative setup is done with separate tools and recorded under the administrator's identity. Help is a separate, consented, time-limited support grant, fully audited. Nobody can retrieve another person's password, PIN or biometric data | Gate response 03 | `account_activation`, `support_access` (migration 0010); identity service; [SECURITY.md §7](../SECURITY.md) |
+| Q4 + Q3 | **Encryption of amounts:** keep application-level encryption if it proves secure and performant (investigate, benchmark, prove key recovery); a different architecture is authorised only if investigation shows it is impractical, and then without pretending storage encryption is equivalent | Gate response 03 | Investigation and decision: [docs/security/encryption-architecture.md](../security/encryption-architecture.md) |
+| Q14 | **Test against the real PostgreSQL 17.** The owner's machine runs PostgreSQL 17.11 (port 5435) and 18.6 (port 5432); every database test runs on 17.11, the production version, and also on 18.6 and in-process PGlite | Gate response 03 | `deno task test:pg17`, `test:pg18` |
+| — | **Online only:** no local database, no offline mode, no offline transaction queue. Every change is saved to the central database; other users see it in real time or through reliable updates. Network failures are handled by retrying the same request with the same idempotency key | [Add-on 12](../source/ADDON-12-complete-the-app-online-only.md) | D-031; `sync_review` and `txn.client_ref` removed (migration 0010); [06 §6.6](06-transactions-concurrency-sync.md) |
+
+## Waiting for the owner
+
+| # | Question | Explained in | Applied meanwhile |
+|---|---|---|---|
+| F8 | Firm money pays a personal expense of that firm's owner: withdrawal, or the owner owes the firm? | [F8-F9-explained.md](../F8-F9-explained.md) — recommendation: ask every time, with an optional per-owner pre-selected default | Asked every time |
+| F9 | Through owner + Own: two linked debts (owner owes firm, non-owner owes owner) or one (non-owner owes firm)? | [F8-F9-explained.md](../F8-F9-explained.md) — recommendation: two linked debts | Two linked debts |
+
+## Recommendations applied (the owner may change any of them later through a normal migration)
+
+| # | Question | Applied |
+|---|---|---|
+| Q2 | Reason text stays plaintext (searchable), protected by RLS and field rules; private remarks are encrypted `txn_note` rows | Applied |
+| Q5 | Amount-band blind indexes for range filters (they reveal only that two amounts share a band) | Applied |
+| Q6 | Server-side M-PIN verifier per device (Argon2id over a peppered PIN) for real attempt limits and remote reset | Applied |
+| Q7 | One global journal hash chain | Applied |
+| Q8 | Retention: books and audit 8 years after the financial year; security events 2 years; sessions 90 days after expiry; idempotency 30 days — to confirm with the firms' chartered accountant | Seeded; nothing deletes financial data |
+| Q9 | Financial year April–March, stored per firm | Applied |
+| Q10 | Reversing into an account deactivated since the original: refused until reactivated | Applied |
+| Q12 | Partial reversal = a linked adjustment or refund event, never a partial mirror | Applied |
+| Q13(a) | Full admin reaches firms only; pools such as a family fund by explicit grant | Applied in RLS |
+
+Sentry: not needed. Error reports stay in our own tables (D-016).
