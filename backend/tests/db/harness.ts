@@ -1,17 +1,90 @@
-/** A migrated PGlite database for database tests, plus helpers to act as one of Finly's roles. */
-import type { PGlite } from '@electric-sql/pglite';
-import { loadMigrations, migrate } from '../../src/db/migrate.ts';
+/**
+ * A migrated database for database tests. By default an in-process PGlite; with `FINLY_TEST_TARGET=pg17` (or `pg18`)
+ * a fresh `finly_t_*` database on the real server named by `FINLY_PG17_ADMIN_URL` (`FINLY_PG18_ADMIN_URL`) — see
+ * `deno task test:pg17`. The same tests run on both, through the small interface below.
+ */
+import { loadMigrations, migrate, type Sql } from '../../src/db/migrate.ts';
 import { openPglite } from '../../src/db/pglite.ts';
+import { openPostgres, type PgClient } from '../../src/db/postgres.ts';
+import { Buffer } from 'node:buffer';
 
 export const MIGRATIONS_DIR = new URL('../../db/migrations/', import.meta.url);
 
-export async function migratedDb(): Promise<PGlite> {
-  const { db, sql } = await openPglite();
+/** One connection's query surface (a whole database, or one transaction). */
+export interface TestTx {
+  query<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<{ rows: T[] }>;
+  exec(text: string): Promise<unknown>;
+}
+
+export interface TestDb extends TestTx {
+  transaction<T>(fn: (tx: TestTx) => Promise<T>): Promise<T>;
+  close(): Promise<void>;
+  /** Which engine this is, for tests that only make sense on a real server (several connections). */
+  readonly target: 'pglite' | 'pg17' | 'pg18';
+  /** Opens another connection to the same database (real servers only). */
+  connect?: () => TestDb;
+}
+
+export function testTarget(): TestDb['target'] {
+  const t = Deno.env.get('FINLY_TEST_TARGET');
+  return t === 'pg17' || t === 'pg18' ? t : 'pglite';
+}
+
+function adminUrl(target: 'pg17' | 'pg18'): string {
+  const name = target === 'pg17' ? 'FINLY_PG17_ADMIN_URL' : 'FINLY_PG18_ADMIN_URL';
+  const url = Deno.env.get(name);
+  if (!url) throw new Error(`${name} is not set (see backend/.env.example)`);
+  return url;
+}
+
+function wrapPg(client: PgClient, target: 'pg17' | 'pg18', url: string): TestDb {
+  const tx = (runner: { unsafe: PgClient['unsafe'] }): TestTx => ({
+    async query<T>(text: string, params: unknown[] = []) {
+      // Same conversion as the production adapter (Uint8Array → Buffer for bytea).
+      const values = params.map((v) => (v instanceof Uint8Array && !Buffer.isBuffer(v) ? Buffer.from(v) : v));
+      // A plain array: postgres.js results carry extra properties (count, columns…).
+      return { rows: [...(await runner.unsafe(text, values as never[]))] as unknown as T[] };
+    },
+    async exec(text: string) {
+      return await runner.unsafe(text);
+    },
+  });
+  return {
+    ...tx(client),
+    target,
+    transaction: <T>(fn: (t: TestTx) => Promise<T>) =>
+      client.begin((t) => fn(tx(t as unknown as { unsafe: PgClient['unsafe'] }))) as Promise<T>,
+    close: () => client.end(),
+    connect: () => wrapPg(openPostgres(url, { max: 1, applicationName: 'finly-test' }).client, target, url),
+  };
+}
+
+/** A fresh, empty database (no migrations) as the runner's `Sql` interface, on the configured target. */
+export async function emptyDb(): Promise<{ sql: Sql; close: () => Promise<void>; db: TestDb }> {
+  const target = testTarget();
+  if (target === 'pglite') {
+    const { db, sql } = await openPglite();
+    // PGlite already has query/exec/transaction/close; it only needs its target label.
+    const handle = Object.assign(db, { target: 'pglite' as const }) as unknown as TestDb;
+    return { sql, close: () => db.close(), db: handle };
+  }
+  const admin = openPostgres(adminUrl(target), { max: 1, applicationName: 'finly-test-admin' });
+  const name = `finly_t_${crypto.randomUUID().replaceAll('-', '').slice(0, 16)}`;
+  await admin.sql.exec(`create database ${name}`);
+  await admin.client.end();
+  const url = adminUrl(target).replace(/\/[^/?]*(\?|$)/, `/${name}$1`);
+  const { client, sql } = openPostgres(url, { max: 4, applicationName: 'finly-test' });
+  return { sql, close: () => client.end(), db: wrapPg(client, target, url) };
+}
+
+/** A fresh database with every migration applied. */
+export async function migratedDb(): Promise<TestDb> {
+  const { sql, db } = await emptyDb();
   await migrate(sql, await loadMigrations(MIGRATIONS_DIR));
   return db;
 }
 
-/** The SQLSTATE of a PGlite error, or undefined. */
+/** The SQLSTATE of a database error, or undefined. */
 export function sqlState(e: unknown): string | undefined {
   return (e as { code?: string }).code;
 }

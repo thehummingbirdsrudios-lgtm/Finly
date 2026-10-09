@@ -5,11 +5,10 @@
  * People: Krish (Super Admin, owner of Mint and JSK), Father (owner of Mint, Family Admin), Sujal (worker with write
  * access to Mint), Savan (Super Admin who owns nothing). Firms: Mint, JSK. Party: Hotel Shreeji.
  */
-import type { PGlite, Transaction } from '@electric-sql/pglite';
-import { migratedDb } from './harness.ts';
+import { migratedDb, type TestDb, type TestTx } from './harness.ts';
 
 export interface DbWorld {
-  db: PGlite;
+  db: TestDb;
   u: { krish: string; father: string; sujal: string; savan: string };
   e: { mint: string; jsk: string; krish: string; father: string; sujal: string; savan: string; hotel: string };
   f: { mint: string; mintPrivate: string; jsk: string; krish: string; father: string; sujal: string };
@@ -19,7 +18,7 @@ export interface DbWorld {
   account: (entityId: string, code: string) => string;
 }
 
-type Q = PGlite | Transaction;
+type Q = TestTx;
 
 async function one<T>(db: Q, sql: string, params: unknown[] = []): Promise<T> {
   const rows = (await db.query<T>(sql, params)).rows;
@@ -195,10 +194,10 @@ function fail(message: string): never {
 
 /** Runs `fn` in a transaction as `role` with `actor` set (null = no actor), then rolls back unless `commit`. */
 export async function as<T>(
-  db: PGlite,
+  db: TestDb,
   role: 'finly_api' | 'finly_ledger' | 'finly_system' | 'finly_auth' | null,
   actor: string | null,
-  fn: (tx: Transaction) => Promise<T>,
+  fn: (tx: TestTx) => Promise<T>,
   opts: { commit?: boolean } = {},
 ): Promise<T> {
   let result: T;

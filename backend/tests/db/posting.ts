@@ -3,7 +3,7 @@
  * lines and the audit row — so database tests can exercise the guards exactly as production postings meet them.
  * Amounts are placeholder ciphertext: the database never sees plaintext money (AC7).
  */
-import type { Transaction } from '@electric-sql/pglite';
+import type { TestTx } from './harness.ts';
 import { fakeCipher, fakeHash } from './world.ts';
 
 export interface LineSpec {
@@ -35,7 +35,7 @@ export interface PostSpec {
   txnId?: string;
 }
 
-async function nextSeq(tx: Transaction): Promise<number> {
+async function nextSeq(tx: TestTx): Promise<number> {
   const r = await tx.query<{ last_seq: number }>(
     `update finly.journal_chain_head set last_seq = last_seq + 1, updated_at = now() where id = 1 returning last_seq`,
   );
@@ -43,7 +43,7 @@ async function nextSeq(tx: Transaction): Promise<number> {
 }
 
 /** Posts an event; returns the txn id and journal ids. */
-export async function postEvent(tx: Transaction, spec: PostSpec): Promise<{ txnId: string; journalIds: string[] }> {
+export async function postEvent(tx: TestTx, spec: PostSpec): Promise<{ txnId: string; journalIds: string[] }> {
   let txnId = spec.txnId;
   if (!txnId) {
     // Created as a draft; participants and legs are added; then it moves draft -> posted (06 §6.2).
@@ -125,7 +125,7 @@ export async function postEvent(tx: Transaction, spec: PostSpec): Promise<{ txnI
 
 /** Appends an audit row the way the API does (the HMAC itself is computed outside the database). */
 export async function audit(
-  tx: Transaction,
+  tx: TestTx,
   actor: string,
   action: string,
   objectType: string,
@@ -143,6 +143,6 @@ export async function audit(
 }
 
 /** Forces deferred commit-time checks to run now (so a test can observe them inside a rolled-back transaction). */
-export async function commitChecks(tx: Transaction): Promise<void> {
+export async function commitChecks(tx: TestTx): Promise<void> {
   await tx.exec('set constraints all immediate');
 }
