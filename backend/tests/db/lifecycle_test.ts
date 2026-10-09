@@ -248,7 +248,7 @@ Deno.test('kinds are enforced: an entity keeps its kind; a firm cannot be a memb
     () =>
       su((tx) =>
         tx.query(
-          `insert into finly.entity_membership (org_entity_id, member_entity_id, engine_role) values ($1, $2, 'owner')`,
+          `insert into finly.entity_affiliation (org_entity_id, member_entity_id, engine_role) values ($1, $2, 'staff')`,
           [
             e.mint,
             e.jsk,

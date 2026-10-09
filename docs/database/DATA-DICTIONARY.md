@@ -5,7 +5,7 @@ relationships and reasons are in [03-schema.md](03-schema.md); this file is the 
 
 Sensitivity: **C** encrypted · **H** keyed or integrity hash · **S** one-way secret hash · **R** plaintext,
 row-level-security restricted / personal data · blank = non-sensitive structure. Every table has row-level security
-enabled. Tables: 97.
+enabled. Tables: 100.
 
 ## `access_rule`
 
@@ -1646,9 +1646,9 @@ Firms, people, pools (own books) and outside parties (no books). The id is the i
 - entity_ledger: ALL for finly_ledger
 - entity_system_read: SELECT for finly_system
 
-## `entity_membership`
+## `entity_affiliation`
 
-Owner / partner / staff relationships over time. The engine's "owner of the firm" = engine_role owner or partner.
+Other relations of a person to a firm or pool (staff, other), over time. Ownership and partnership have their own tables (0014).
 
 **Lifecycle:** never deleted.
 
@@ -1657,7 +1657,7 @@ Owner / partner / staff relationships over time. The engine's "owner of the firm
 | id | uuid | no | finly.uuid_v7() | Stable identifier (UUIDv7); never a name |  |  |
 | org_entity_id | uuid | no |  | The firm or pool |  |  |
 | member_entity_id | uuid | no |  | The person (or a firm inside a pool) |  |  |
-| engine_role | text | no |  | owner, partner, staff, other — owner or partner counts as an owner for the engine (F3, F8) |  |  |
+| engine_role | text | no |  | staff or other (owner and partner rows before 0014 are history: they were moved and end-dated) |  |  |
 | relation_label_id | uuid | yes |  | Displayed relation (Owner, Partner, Worker, Family…) |  |  |
 | relation_list | text | no | generated: 'relation_label'::text | → lookup_value |  |  |
 | valid_from | date | no | CURRENT_DATE |  |  |  |
@@ -1670,6 +1670,7 @@ Owner / partner / staff relationships over time. The engine's "owner of the firm
 
 **Keys and constraints**
 
+- Check: `CHECK (((engine_role = ANY (ARRAY['staff'::text, 'other'::text])) OR (valid_to IS NOT NULL))) NOT VALID`
 - Check: `CHECK ((org_entity_id <> member_entity_id))`
 - Check: `CHECK (((valid_to IS NULL) OR (valid_to >= valid_from)))`
 - Check: `CHECK ((engine_role = ANY (ARRAY['owner'::text, 'partner'::text, 'staff'::text, 'other'::text])))`
@@ -1690,18 +1691,201 @@ Owner / partner / staff relationships over time. The engine's "owner of the firm
 
 **Indexes**
 
-- `entity_membership_member_idx btree (member_entity_id) WHERE (valid_to IS NULL)`
-- `entity_membership_org_idx btree (org_entity_id) WHERE (valid_to IS NULL)`
-- `UNIQUE entity_membership_active_key btree (org_entity_id, member_entity_id, engine_role) WHERE (valid_to IS NULL)`
+- `entity_affiliation_member_idx btree (member_entity_id) WHERE (valid_to IS NULL)`
+- `entity_affiliation_org_idx btree (org_entity_id) WHERE (valid_to IS NULL)`
+- `UNIQUE entity_affiliation_active_key btree (org_entity_id, member_entity_id, engine_role) WHERE (valid_to IS NULL)`
 
 **Row-level security policies**
 
-- entity_membership_api_delete: DELETE for finly_api
-- entity_membership_api_insert: INSERT for finly_api
-- entity_membership_api_read: SELECT for finly_api
-- entity_membership_api_update: UPDATE for finly_api
-- entity_membership_ledger: SELECT for finly_ledger
+- entity_affiliation_api_delete: DELETE for finly_api
+- entity_affiliation_api_insert: INSERT for finly_api
+- entity_affiliation_api_read: SELECT for finly_api
+- entity_affiliation_api_update: UPDATE for finly_api
+- entity_affiliation_ledger: SELECT for finly_ledger
 - entity_membership_system_read: SELECT for finly_system
+
+## `entity_ownership`
+
+Who owns a firm or pool, and how much: one row per owner and period. Ownership is a business fact, never an access right by itself (ADDON-18 §1.1, §4).
+
+**Lifecycle:** never deleted.
+
+| Column | Type | Null | Default | Meaning | Sensitivity | Source of truth |
+|---|---|---|---|---|---|---|
+| id | uuid | no | finly.uuid_v7() | Stable identifier (UUIDv7); never a name |  |  |
+| entity_id | uuid | no |  | → entity |  |  |
+| owner_entity_id | uuid | no |  | → entity |  |  |
+| share_basis | text | no | 'unspecified'::text |  |  |  |
+| share_bp | integer | yes |  | Share in basis points (1/100 of a percent; 10000 = 100 %) when share_basis = percent |  |  |
+| share_units | numeric(20,4) | yes |  | Number of units or shares when share_basis = units |  |  |
+| ownership_type_id | uuid | no |  |  |  |  |
+| ownership_type_list | text | no | generated: 'ownership_type'::text | → lookup_value |  |  |
+| verification | text | no | 'unverified'::text | unverified (e.g. migrated, needs review), pending, verified, disputed — a disputed record does not count as ownership |  |  |
+| valid_from | date | no | CURRENT_DATE |  |  |  |
+| valid_to | date | yes |  |  |  |  |
+| recorded_by | uuid | yes |  | → app_user |  |  |
+| approved_by | uuid | yes |  | → app_user |  |  |
+| reason | text | yes |  | Why, in plain words | R |  |
+| created_at | timestamp with time zone | no | now() | When the row was created |  |  |
+| version | integer | no | 1 | Optimistic-concurrency version, incremented on every update |  |  |
+| change_xid | xid8 | no | pg_current_xact_id() | Transaction that last wrote the row; mobile delta-sync cursor (06 §6.6) |  |  |
+
+**Keys and constraints**
+
+- Check: `CHECK ((entity_id <> owner_entity_id))`
+- Check: `CHECK (((share_basis = 'percent'::text) = (share_bp IS NOT NULL)))`
+- Check: `CHECK (((share_basis = 'units'::text) = (share_units IS NOT NULL)))`
+- Check: `CHECK (((valid_to IS NULL) OR (valid_to >= valid_from)))`
+- Check: `CHECK ((length(reason) <= 500))`
+- Check: `CHECK ((share_basis = ANY (ARRAY['percent'::text, 'units'::text, 'unspecified'::text])))`
+- Check: `CHECK (((share_bp >= 1) AND (share_bp <= 10000)))`
+- Check: `CHECK ((share_units > (0)::numeric))`
+- Check: `CHECK ((verification = ANY (ARRAY['unverified'::text, 'pending'::text, 'verified'::text, 'disputed'::text])))`
+- Foreign key: `FOREIGN KEY (approved_by) REFERENCES finly.app_user(id)`
+- Foreign key: `FOREIGN KEY (entity_id) REFERENCES finly.entity(id)`
+- Foreign key: `FOREIGN KEY (owner_entity_id) REFERENCES finly.entity(id)`
+- Foreign key: `FOREIGN KEY (ownership_type_list, ownership_type_id) REFERENCES finly.lookup_value(list_key, id)`
+- Foreign key: `FOREIGN KEY (recorded_by) REFERENCES finly.app_user(id)`
+- n: `NOT NULL change_xid`
+- n: `NOT NULL created_at`
+- n: `NOT NULL entity_id`
+- n: `NOT NULL id`
+- n: `NOT NULL owner_entity_id`
+- n: `NOT NULL ownership_type_id`
+- n: `NOT NULL ownership_type_list`
+- n: `NOT NULL share_basis`
+- n: `NOT NULL valid_from`
+- n: `NOT NULL verification`
+- n: `NOT NULL version`
+- Primary key: `PRIMARY KEY (id)`
+- t: `TRIGGER DEFERRABLE INITIALLY DEFERRED`
+
+**Indexes**
+
+- `entity_ownership_entity_idx btree (entity_id) WHERE (valid_to IS NULL)`
+- `entity_ownership_owner_idx btree (owner_entity_id) WHERE (valid_to IS NULL)`
+
+**Row-level security policies**
+
+- entity_ownership_api_insert: INSERT for finly_api
+- entity_ownership_api_read: SELECT for finly_api
+- entity_ownership_api_update: UPDATE for finly_api
+- entity_ownership_svc: SELECT for finly_ledger, finly_system
+
+## `entity_partnership`
+
+In what capacity someone is a partner of a firm or pool, over time. Independent of ownership: a partner need not own, an owner need not be a partner (ADDON-18 §1.2).
+
+**Lifecycle:** never deleted.
+
+| Column | Type | Null | Default | Meaning | Sensitivity | Source of truth |
+|---|---|---|---|---|---|---|
+| id | uuid | no | finly.uuid_v7() | Stable identifier (UUIDv7); never a name |  |  |
+| entity_id | uuid | no |  | → entity |  |  |
+| partner_entity_id | uuid | no |  | → entity |  |  |
+| partnership_type_id | uuid | no |  |  |  |  |
+| partnership_type_list | text | no | generated: 'partnership_type'::text | → lookup_value |  |  |
+| responsibilities | text | yes |  |  |  |  |
+| profit_share_bp | integer | yes |  |  |  |  |
+| valid_from | date | no | CURRENT_DATE |  |  |  |
+| valid_to | date | yes |  |  |  |  |
+| recorded_by | uuid | yes |  | → app_user |  |  |
+| approved_by | uuid | yes |  | → app_user |  |  |
+| reason | text | yes |  | Why, in plain words | R |  |
+| created_at | timestamp with time zone | no | now() | When the row was created |  |  |
+| version | integer | no | 1 | Optimistic-concurrency version, incremented on every update |  |  |
+| change_xid | xid8 | no | pg_current_xact_id() | Transaction that last wrote the row; mobile delta-sync cursor (06 §6.6) |  |  |
+
+**Keys and constraints**
+
+- Check: `CHECK ((entity_id <> partner_entity_id))`
+- Check: `CHECK (((valid_to IS NULL) OR (valid_to >= valid_from)))`
+- Check: `CHECK (((profit_share_bp >= 0) AND (profit_share_bp <= 10000)))`
+- Check: `CHECK ((length(reason) <= 500))`
+- Check: `CHECK ((length(responsibilities) <= 500))`
+- Foreign key: `FOREIGN KEY (approved_by) REFERENCES finly.app_user(id)`
+- Foreign key: `FOREIGN KEY (entity_id) REFERENCES finly.entity(id)`
+- Foreign key: `FOREIGN KEY (partner_entity_id) REFERENCES finly.entity(id)`
+- Foreign key: `FOREIGN KEY (partnership_type_list, partnership_type_id) REFERENCES finly.lookup_value(list_key, id)`
+- Foreign key: `FOREIGN KEY (recorded_by) REFERENCES finly.app_user(id)`
+- n: `NOT NULL change_xid`
+- n: `NOT NULL created_at`
+- n: `NOT NULL entity_id`
+- n: `NOT NULL id`
+- n: `NOT NULL partner_entity_id`
+- n: `NOT NULL partnership_type_id`
+- n: `NOT NULL partnership_type_list`
+- n: `NOT NULL valid_from`
+- n: `NOT NULL version`
+- Primary key: `PRIMARY KEY (id)`
+
+**Indexes**
+
+- `entity_partnership_entity_idx btree (entity_id) WHERE (valid_to IS NULL)`
+- `entity_partnership_partner_idx btree (partner_entity_id) WHERE (valid_to IS NULL)`
+
+**Row-level security policies**
+
+- entity_partnership_api_insert: INSERT for finly_api
+- entity_partnership_api_read: SELECT for finly_api
+- entity_partnership_api_update: UPDATE for finly_api
+- entity_partnership_svc: SELECT for finly_ledger, finly_system
+
+## `entity_relationship`
+
+Parent–child structure (branch, subsidiary, business unit, joint venture) and non-structural links (reporting, management). A link gives no access by itself: hierarchy grants do (ADDON-17 §3.4).
+
+**Lifecycle:** never deleted.
+
+| Column | Type | Null | Default | Meaning | Sensitivity | Source of truth |
+|---|---|---|---|---|---|---|
+| id | uuid | no | finly.uuid_v7() | Stable identifier (UUIDv7); never a name |  |  |
+| parent_entity_id | uuid | no |  | → entity |  |  |
+| child_entity_id | uuid | no |  | → entity |  |  |
+| kind | text | no |  |  |  |  |
+| structural | boolean | no | generated: (kind = ANY (ARRAY['branch'::text, 'subsidiary'::text, 'business_unit'::text, 'joint_venture'::text])) |  |  |  |
+| valid_from | date | no | CURRENT_DATE |  |  |  |
+| valid_to | date | yes |  |  |  |  |
+| created_by | uuid | yes |  | User who created the row |  |  |
+| approved_by | uuid | yes |  | → app_user |  |  |
+| reason | text | yes |  | Why, in plain words | R |  |
+| created_at | timestamp with time zone | no | now() | When the row was created |  |  |
+| version | integer | no | 1 | Optimistic-concurrency version, incremented on every update |  |  |
+| change_xid | xid8 | no | pg_current_xact_id() | Transaction that last wrote the row; mobile delta-sync cursor (06 §6.6) |  |  |
+
+**Keys and constraints**
+
+- Check: `CHECK ((parent_entity_id <> child_entity_id))`
+- Check: `CHECK (((valid_to IS NULL) OR (valid_to >= valid_from)))`
+- Check: `CHECK ((kind = ANY (ARRAY['branch'::text, 'subsidiary'::text, 'business_unit'::text, 'joint_venture'::text, 'reporting'::text, 'management'::text])))`
+- Check: `CHECK ((length(reason) <= 500))`
+- Foreign key: `FOREIGN KEY (approved_by) REFERENCES finly.app_user(id)`
+- Foreign key: `FOREIGN KEY (child_entity_id) REFERENCES finly.entity(id)`
+- Foreign key: `FOREIGN KEY (created_by) REFERENCES finly.app_user(id)`
+- Foreign key: `FOREIGN KEY (parent_entity_id) REFERENCES finly.entity(id)`
+- n: `NOT NULL change_xid`
+- n: `NOT NULL child_entity_id`
+- n: `NOT NULL created_at`
+- n: `NOT NULL id`
+- n: `NOT NULL kind`
+- n: `NOT NULL parent_entity_id`
+- n: `NOT NULL structural`
+- n: `NOT NULL valid_from`
+- n: `NOT NULL version`
+- Primary key: `PRIMARY KEY (id)`
+
+**Indexes**
+
+- `entity_relationship_parent_idx btree (parent_entity_id) WHERE (valid_to IS NULL)`
+- `UNIQUE entity_relationship_active_key btree (parent_entity_id, child_entity_id, kind) WHERE (valid_to IS NULL)`
+- `UNIQUE entity_relationship_one_parent btree (child_entity_id) WHERE (structural AND (valid_to IS NULL))`
+
+**Row-level security policies**
+
+- entity_relationship_api_insert: INSERT for finly_api
+- entity_relationship_api_read: SELECT for finly_api
+- entity_relationship_api_update: UPDATE for finly_api
+- entity_relationship_svc: SELECT for finly_ledger, finly_system
 
 ## `entity_type`
 
@@ -2726,7 +2910,7 @@ Simple configurable lists. Referencing tables use a generated constant list colu
 
 - Check: `CHECK ((key ~ '^[a-z][a-z0-9_]{0,62}$'::text))`
 - Check: `CHECK (((length(label) >= 1) AND (length(label) <= 80)))`
-- Check: `CHECK ((list_key = ANY (ARRAY['location_type'::text, 'payment_method'::text, 'fund_kind'::text, 'event_kind'::text, 'document_kind'::text, 'worker_type'::text, 'relation_label'::text])))`
+- Check: `CHECK ((list_key = ANY (ARRAY['location_type'::text, 'payment_method'::text, 'fund_kind'::text, 'event_kind'::text, 'document_kind'::text, 'worker_type'::text, 'relation_label'::text, 'ownership_type'::text, 'partnership_type'::text])))`
 - Foreign key: `FOREIGN KEY (created_by) REFERENCES finly.app_user(id)`
 - n: `NOT NULL change_xid`
 - n: `NOT NULL created_at`

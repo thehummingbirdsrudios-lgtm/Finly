@@ -60,70 +60,73 @@ migrations disagree.
 | 31 | `person_profile` | Masters | Person details (encrypted phone) | ENV |
 | 32 | `personal_book_setting` | Masters | A person's own setting for entries others make in their books | OWN |
 | 33 | `firm_profile` | Masters | Firm details (encrypted tax IDs) | ENV |
-| 34 | `entity_membership` | Masters | Owner / partner / worker relationships over time | ENV |
-| 35 | `contact` | Masters | Share recipients | ENV |
-| 36 | `category` | Masters | Expense and income categories (mapped to account codes) | CFG |
-| 37 | `txn_type` | Masters | Configurable transaction types over engine intents | CFG |
-| 38 | `tag` | Masters | Tags | CFG / ENV |
-| 39 | `place` | Masters | Places | CFG / ENV |
-| 40 | `expense_event` | Masters | Trips, visits, projects that group expenses | ENV |
-| 41 | `custom_field_def` | Masters | Custom field definitions | CFG |
-| 42 | `custom_field_value` | Masters | Custom field values (encrypted when sensitive) | ENV |
-| 43 | `form_definition` | Masters | Configurable forms and conditional rules | CFG |
-| 44 | `approval_rule` | Masters | Who must approve what | approval managers; posting service |
-| 45 | `notification_rule` | Masters | Which events notify whom, in which content mode | CFG |
-| 46 | `message_template` | Masters | Message / photo / PDF templates | CFG |
-| 47 | `report_definition` | Masters | System and custom report definitions | OWN / CFG |
-| 48 | `dashboard_config` | Masters | Dashboard layouts per user or role | OWN |
-| 49 | `coa_template_account` | Money | Chart-of-accounts templates per entity kind | CFG |
-| 50 | `ledger_account` | Money | Each entity's chart of accounts | ENV |
-| 51 | `fund` | Money | Funds of an entity (one default) | ENV |
-| 52 | `location` | Money | Money locations (Tijori, bank, wallet, cash with a person) | ENV |
-| 53 | `bank_account_detail` | Money | Bank details of a bank location (encrypted number) | ENV |
-| 54 | `location_ownership` | Money | Who owns a location, over time | ENV |
-| 55 | `location_access` | Money | Who may access a location, over time (Add / Replace / Revoke) | ENV |
-| 56 | `location_holder` | Money | Who holds the key or control, over time (or nobody) | ENV |
-| 57 | `balance_hold` | Money | Reservations, locks, pending outgoing amounts | ENV |
-| 58 | `txn_status_transition` | Ledger | Allowed master-transaction state changes | CFG |
-| 59 | `txn` | Ledger | Master transaction: one real-world event | ENV |
-| 60 | `txn_entity` | Ledger | Entities involved in a transaction and their role | ENV |
-| 61 | `txn_leg` | Ledger | Business legs: sources, destinations, allocations | ENV |
-| 62 | `txn_note` | Ledger | Private notes on an event, one environment at a time | ENV |
-| 63 | `txn_acknowledgement` | Ledger | Acknowledgement by each person whose books an event would change | ENV / LEDGER |
-| 64 | `txn_link` | Ledger | Reversal / correction / refund relationships | ENV |
-| 65 | `txn_tag` | Ledger | Transaction ↔ tag | ENV |
-| 66 | `posting_rule_version` | Ledger | Versioned posting rules (engine version + definition) | CFG |
-| 67 | `accounting_period` | Ledger | Monthly periods per entity | ENV |
-| 68 | `journal_chain_head` | Ledger | Head of the journal hash chain (one row) | LEDGER |
-| 69 | `journal` | Ledger | One balanced journal per entity per step | ENV / LEDGER |
-| 70 | `journal_line` | Ledger | Debit or credit lines with every dimension | ENV / LEDGER |
-| 71 | `balance_slice` | Ledger | The dimension tuple a balance is kept for | ENV / LEDGER |
-| 72 | `balance_current` | Ledger | Encrypted running balance per slice | ENV / LEDGER |
-| 73 | `balance_period` | Ledger | Encrypted movement and closing per slice per period | ENV / LEDGER |
-| 74 | `open_item` | Ledger | Receivables, payables, advances, loans, inter-entity dues | ENV / LEDGER |
-| 75 | `open_item_origin` | Ledger | The journal lines an open item came from, per side | ENV / LEDGER |
-| 76 | `settlement_allocation` | Ledger | Which settlement closed how much of which item | ENV / LEDGER |
-| 77 | `custody_event` | Ledger | Handover steps and confirmation | ENV |
-| 78 | `approval_request` | Ledger | Approval steps for transactions and sensitive changes | ENV |
-| 79 | `period_close_run` | Ledger | Close and reopen runs with their checklist | ENV |
-| 80 | `reconciliation` | Control | Expected vs actual, investigation, resolution | ENV |
-| 81 | `bank_statement_import` | Control | Imported statement files | ENV |
-| 82 | `bank_statement_line` | Control | Statement lines and their matching | ENV |
-| 83 | `exception_finding` | Control | Deterministic exception and integrity findings | ENV / SYS |
-| 84 | `integrity_run` | Control | Integrity Verifier runs | SYS |
-| 85 | `attachment` | Files | Evidence files (metadata only) | ENV |
-| 86 | `attachment_link` | Files | Attachment ↔ what it evidences | ENV |
-| 87 | `document` | Files | Generated proof (message, photo, PDF, secure PDF) | ENV |
-| 88 | `share_profile` | Sharing | Per-recipient share defaults and limits | OWN |
-| 89 | `share_request` | Sharing | One share from preview to hand-off | OWN |
-| 90 | `share_event` | Sharing | Every state change of a share | OWN |
-| 91 | `secure_link` | Sharing | Secure Viewer links (token hash only) | OWN |
-| 92 | `secure_link_access` | Sharing | Every Secure Viewer access attempt | OWN |
-| 93 | `idempotency_record` | Operations | Exactly-once mutations: a retried request after a network failure posts once | OWN |
-| 94 | `outbox_event` | Operations | After-commit effects written in the same transaction (transactional outbox); ids only | SYSTEM |
-| 95 | `notification` | Operations | In-app and push notifications (no amounts stored) | OWN |
-| 96 | `audit_log` | Operations | Tamper-evident audit trail | ENV / OWN |
-| 97 | `audit_chain_head` | Operations | Head of the audit hash chain (one row) | SYS |
+| 34 | `entity_affiliation` | Masters | Staff and other relations to a firm over time (was entity_membership, 0014) | ENV |
+| 35 | `entity_ownership` | Masters | Who owns a firm or pool and how much, over time (0014) | ENV |
+| 36 | `entity_partnership` | Masters | Partnership capacity in a firm or pool, over time (0014) | ENV |
+| 37 | `entity_relationship` | Masters | Entity hierarchy (branch, subsidiary …) and reporting/management links (0014) | ENV |
+| 38 | `contact` | Masters | Share recipients | ENV |
+| 39 | `category` | Masters | Expense and income categories (mapped to account codes) | CFG |
+| 40 | `txn_type` | Masters | Configurable transaction types over engine intents | CFG |
+| 41 | `tag` | Masters | Tags | CFG / ENV |
+| 42 | `place` | Masters | Places | CFG / ENV |
+| 43 | `expense_event` | Masters | Trips, visits, projects that group expenses | ENV |
+| 44 | `custom_field_def` | Masters | Custom field definitions | CFG |
+| 45 | `custom_field_value` | Masters | Custom field values (encrypted when sensitive) | ENV |
+| 46 | `form_definition` | Masters | Configurable forms and conditional rules | CFG |
+| 47 | `approval_rule` | Masters | Who must approve what | approval managers; posting service |
+| 48 | `notification_rule` | Masters | Which events notify whom, in which content mode | CFG |
+| 49 | `message_template` | Masters | Message / photo / PDF templates | CFG |
+| 50 | `report_definition` | Masters | System and custom report definitions | OWN / CFG |
+| 51 | `dashboard_config` | Masters | Dashboard layouts per user or role | OWN |
+| 52 | `coa_template_account` | Money | Chart-of-accounts templates per entity kind | CFG |
+| 53 | `ledger_account` | Money | Each entity's chart of accounts | ENV |
+| 54 | `fund` | Money | Funds of an entity (one default) | ENV |
+| 55 | `location` | Money | Money locations (Tijori, bank, wallet, cash with a person) | ENV |
+| 56 | `bank_account_detail` | Money | Bank details of a bank location (encrypted number) | ENV |
+| 57 | `location_ownership` | Money | Who owns a location, over time | ENV |
+| 58 | `location_access` | Money | Who may access a location, over time (Add / Replace / Revoke) | ENV |
+| 59 | `location_holder` | Money | Who holds the key or control, over time (or nobody) | ENV |
+| 60 | `balance_hold` | Money | Reservations, locks, pending outgoing amounts | ENV |
+| 61 | `txn_status_transition` | Ledger | Allowed master-transaction state changes | CFG |
+| 62 | `txn` | Ledger | Master transaction: one real-world event | ENV |
+| 63 | `txn_entity` | Ledger | Entities involved in a transaction and their role | ENV |
+| 64 | `txn_leg` | Ledger | Business legs: sources, destinations, allocations | ENV |
+| 65 | `txn_note` | Ledger | Private notes on an event, one environment at a time | ENV |
+| 66 | `txn_acknowledgement` | Ledger | Acknowledgement by each person whose books an event would change | ENV / LEDGER |
+| 67 | `txn_link` | Ledger | Reversal / correction / refund relationships | ENV |
+| 68 | `txn_tag` | Ledger | Transaction ↔ tag | ENV |
+| 69 | `posting_rule_version` | Ledger | Versioned posting rules (engine version + definition) | CFG |
+| 70 | `accounting_period` | Ledger | Monthly periods per entity | ENV |
+| 71 | `journal_chain_head` | Ledger | Head of the journal hash chain (one row) | LEDGER |
+| 72 | `journal` | Ledger | One balanced journal per entity per step | ENV / LEDGER |
+| 73 | `journal_line` | Ledger | Debit or credit lines with every dimension | ENV / LEDGER |
+| 74 | `balance_slice` | Ledger | The dimension tuple a balance is kept for | ENV / LEDGER |
+| 75 | `balance_current` | Ledger | Encrypted running balance per slice | ENV / LEDGER |
+| 76 | `balance_period` | Ledger | Encrypted movement and closing per slice per period | ENV / LEDGER |
+| 77 | `open_item` | Ledger | Receivables, payables, advances, loans, inter-entity dues | ENV / LEDGER |
+| 78 | `open_item_origin` | Ledger | The journal lines an open item came from, per side | ENV / LEDGER |
+| 79 | `settlement_allocation` | Ledger | Which settlement closed how much of which item | ENV / LEDGER |
+| 80 | `custody_event` | Ledger | Handover steps and confirmation | ENV |
+| 81 | `approval_request` | Ledger | Approval steps for transactions and sensitive changes | ENV |
+| 82 | `period_close_run` | Ledger | Close and reopen runs with their checklist | ENV |
+| 83 | `reconciliation` | Control | Expected vs actual, investigation, resolution | ENV |
+| 84 | `bank_statement_import` | Control | Imported statement files | ENV |
+| 85 | `bank_statement_line` | Control | Statement lines and their matching | ENV |
+| 86 | `exception_finding` | Control | Deterministic exception and integrity findings | ENV / SYS |
+| 87 | `integrity_run` | Control | Integrity Verifier runs | SYS |
+| 88 | `attachment` | Files | Evidence files (metadata only) | ENV |
+| 89 | `attachment_link` | Files | Attachment ↔ what it evidences | ENV |
+| 90 | `document` | Files | Generated proof (message, photo, PDF, secure PDF) | ENV |
+| 91 | `share_profile` | Sharing | Per-recipient share defaults and limits | OWN |
+| 92 | `share_request` | Sharing | One share from preview to hand-off | OWN |
+| 93 | `share_event` | Sharing | Every state change of a share | OWN |
+| 94 | `secure_link` | Sharing | Secure Viewer links (token hash only) | OWN |
+| 95 | `secure_link_access` | Sharing | Every Secure Viewer access attempt | OWN |
+| 96 | `idempotency_record` | Operations | Exactly-once mutations: a retried request after a network failure posts once | OWN |
+| 97 | `outbox_event` | Operations | After-commit effects written in the same transaction (transactional outbox); ids only | SYSTEM |
+| 98 | `notification` | Operations | In-app and push notifications (no amounts stored) | OWN |
+| 99 | `audit_log` | Operations | Tamper-evident audit trail | ENV / OWN |
+| 100 | `audit_chain_head` | Operations | Head of the audit hash chain (one row) | SYS |
 
 ### Coverage of BUILD_PROMPT I2
 
@@ -132,7 +135,7 @@ Every entity the specification lists maps to a table (or, where marked, to a col
 | I2 item | Where |
 |---|---|
 | Users · Roles · Permissions · Policy rules · Temporary access · Break-glass · Personal-finance owner grants | `app_user` · `role`, `user_role` · `permission`, `role_permission` · `access_rule` · `env_access.valid_until`, `access_rule.valid_until` · `break_glass` · `env_access` / `access_rule` with `source = 'owner_grant'` |
-| Companies · Company memberships · People · Person/worker types · Customers · Vendors | `entity` (kind firm/person/party) · `entity_membership` · `entity`, `person_profile` · `lookup_value` (worker_type), `entity_type` · `entity` (party, types customer/supplier) |
+| Companies · Company memberships · People · Person/worker types · Customers · Vendors | `entity` (kind firm/person/party) · `entity_ownership`, `entity_partnership`, `entity_affiliation`, `env_access` · `entity`, `person_profile` · `lookup_value` (worker_type), `entity_type` · `entity` (party, types customer/supplier) |
 | Funds · Fund ownership · Fund reservations/locks | `fund` (entity = owner; pools for joint ownership) · `balance_hold` |
 | Accounts · Account ownership · Account types · Banks · Locations · Places | `ledger_account` and `location` (user-facing "Account" = location) · `location_ownership` · `lookup_value` (location_type) · `bank_account_detail` · `location` · `place` |
 | Projects · Trips / Expense Events · Categories · Expense/Income types · Transaction types · Tags · Statuses · Confidentiality levels | `expense_event` (kinds include project) · `category` (kind) · `txn_type` · `tag`, `txn_tag` · CHECK constraints + `label_override` · `confidentiality_level` |
@@ -383,12 +386,31 @@ actor) can insert or change it; a giver can never override it.
 `entity_id PK` → `entity (id, kind='firm')`, `legal_form text`, `gstin_enc`, `pan_enc`, `address text`,
 `fy_start_month smallint default 4 check 1–12` (April, Q9), `key_version`, `version`.
 
-### `entity_membership` (R, ENV)
+### `entity_affiliation` (R, ENV) — renamed from `entity_membership` in 0014
 `id`, `org_entity_id` → entity (firm or pool — trigger), `member_entity_id` → entity (person, or a firm inside a pool),
-`engine_role text check in ('owner','partner','staff','other')` — the engine's "owner of the firm" means owner or
-partner (F3, F8), `relation_label_id` → `lookup_value (relation_label)` (Owner, Partner, Worker, Employee, Family…),
-`valid_from date not null`, `valid_to date check ≥ valid_from`, `created_by`, `created_at`, `ended_by`, `end_reason`.
-Unique `(org_entity_id, member_entity_id, engine_role) WHERE valid_to IS NULL`; check `org_entity_id <> member_entity_id`.
+`engine_role text` — `staff` or `other` for current rows (owner/partner rows before 0014 were moved to the two tables
+below and end-dated), `relation_label_id` → `lookup_value (relation_label)`, `valid_from`, `valid_to`, `created_by`,
+`created_at`, `ended_by`, `end_reason`. Gives no access by itself.
+
+### `entity_ownership` (R, ENV) — 0014
+`id`, `entity_id` → entity (firm or pool — trigger), `owner_entity_id` → any entity (person, firm, pool or party),
+`share_basis` (`percent` · `units` · `unspecified`), `share_bp int 1–10000` (basis points, percent basis),
+`share_units numeric(20,4)` (units basis), `ownership_type_id` → `lookup_value (ownership_type)`, `verification`
+(`unverified` · `pending` · `verified` · `disputed`), `valid_from date`, `valid_to date`, `recorded_by`, `approved_by`,
+`reason`, `version`. Current percentage shares ≤ 100 % (checked at commit); no overlapping period for the same pair;
+history end-dated, never edited or deleted. `finly.is_owner_of(person, entity, date)` is the single definition of
+"owner" (current, undisputed). Ownership is a business fact, never an access right by itself (ADDON-18 §4).
+
+### `entity_partnership` (R, ENV) — 0014
+`id`, `entity_id` → entity (firm or pool), `partner_entity_id` → any entity, `partnership_type_id` →
+`lookup_value (partnership_type)`, `responsibilities`, `profit_share_bp`, `valid_from`, `valid_to`, `recorded_by`,
+`approved_by`, `reason`, `version`. Independent of ownership: a partner is not an owner unless also recorded as one.
+
+### `entity_relationship` (R, ENV) — 0014
+`id`, `parent_entity_id`, `child_entity_id` (both firms or pools), `kind` (`branch`, `subsidiary`, `business_unit`,
+`joint_venture` = structural; `reporting`, `management` = links), `structural` (generated), `valid_from`, `valid_to`,
+`created_by`, `approved_by`, `reason`, `version`. One active structural parent per child; cycles refused; history
+end-dated. A link gives no access by itself.
 
 ### `contact` (C/R, ENV)
 `id`, `managed_in_env_id`, `display_name`, `phone_enc`, `phone_bidx`, `linked_entity_id` → entity, `verified_at`,

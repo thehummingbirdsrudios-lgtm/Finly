@@ -118,18 +118,20 @@ export async function dbWorld(): Promise<DbWorld> {
   };
   await fund(db, savan, 'personal', true);
 
-  for (
-    const [org, member, role] of [[mint, krish, 'owner'], [mint, father, 'owner'], [jsk, krish, 'owner'], [
-      mint,
-      sujal,
-      'staff',
-    ]]
-  ) {
+  // Ownership with shares (Mint 50/50, JSK 100 % Krish), recorded separately from the staff relation (0014).
+  for (const [org, owner, bp] of [[mint, krish, 5000], [mint, father, 5000], [jsk, krish, 10000]] as const) {
     await db.query(
-      `insert into finly.entity_membership (org_entity_id, member_entity_id, engine_role) values ($1, $2, $3)`,
-      [org, member, role],
+      `insert into finly.entity_ownership (entity_id, owner_entity_id, share_basis, share_bp, ownership_type_id,
+         verification)
+       values ($1, $2, 'percent', $3, (select id from finly.lookup_value where list_key = 'ownership_type'
+                                       and key = 'individual'), 'verified')`,
+      [org, owner, bp],
     );
   }
+  await db.query(
+    `insert into finly.entity_affiliation (org_entity_id, member_entity_id, engine_role) values ($1, $2, 'staff')`,
+    [mint, sujal],
+  );
 
   const u = {
     krish: await user(db, krish, 'krish', 'super_admin'),

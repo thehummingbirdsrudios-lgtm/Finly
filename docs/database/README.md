@@ -91,7 +91,7 @@ this design.
 | S reconciliation | `reconciliation`, `bank_statement_*` |
 | T configuration | 01 §1.12 |
 | U1–U3 files, audit, backup | 01 §1.10, §1.14; 05 §5.8 |
-| RULEBOOK-03 §2–§9 environments and access | `entity.managed_in_env_id`, `env_access`, `entity_membership` |
+| RULEBOOK-03 §2–§9 environments and access | `entity.managed_in_env_id`, `env_access`, `entity_ownership`, `entity_partnership`, `entity_affiliation`, `entity_relationship` ([access model](../security/access-model.md)) |
 | RULEBOOK-03 §13–§15 owner / access / holder, Add / Replace, unassigned | `location_ownership`, `location_access`, `location_holder` |
 | RULEBOOK-03 §60 offline cases — the same cases online (stale form, master deactivated, period closed) | 06 §6.6 |
 | RULEBOOK-03 §64 core transaction data model | `txn`, `txn_leg`, `txn_entity`, `txn_link`, `open_item` |

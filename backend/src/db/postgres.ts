@@ -1,4 +1,10 @@
-/** The `Sql` interface over a real PostgreSQL server (postgres.js), used in production and in server-backed tests. */
+/**
+ * The `Sql` interface over a real PostgreSQL server (postgres.js), used in production and in server-backed tests.
+ *
+ * Convention for JSON parameters: pass the JSON as text and cast in SQL (`$1::text::jsonb`). postgres.js
+ * JSON-encodes any value bound to a json/jsonb parameter, so a JSON string bound to `$1::jsonb` arrives double-encoded
+ * (a jsonb string, not an object). PGlite does not do this, so only the real-server tests catch it.
+ */
 import postgres from 'postgres';
 import { Buffer } from 'node:buffer';
 import type { Sql } from './sql.ts';

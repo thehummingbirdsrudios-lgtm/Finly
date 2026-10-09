@@ -234,14 +234,15 @@ export async function loadContext(
 
   const firms = [...c.entities.values()].filter((e) => e.kind === 'firm' || e.kind === 'pool').map((e) => e.id);
   for (
-    const m of await tx.query<{ org_entity_id: string; member_entity_id: string }>(
-      `select org_entity_id, member_entity_id from finly.entity_membership
-       where org_entity_id = any($1::uuid[]) and engine_role in ('owner', 'partner')
+    // Owners on the posting date: current, undisputed ownership records (partners are not owners, 0014).
+    const o of await tx.query<{ entity_id: string; owner_entity_id: string }>(
+      `select entity_id, owner_entity_id from finly.entity_ownership
+       where entity_id = any($1::uuid[]) and verification <> 'disputed'
          and valid_from <= $2::date and (valid_to is null or valid_to >= $2::date)`,
       [firms, valueDate],
     )
   ) {
-    c.owners.add(`${m.org_entity_id}:${m.member_entity_id}`);
+    c.owners.add(`${o.entity_id}:${o.owner_entity_id}`);
   }
   return c;
 }

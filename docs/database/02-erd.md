@@ -75,7 +75,7 @@ erDiagram
 ```
 
 - A person may be an owner of one firm, a partner of another and a worker of a third (RULEBOOK-03 §2): several
-  `entity_membership` rows, one person entity, one user at most.
+  `entity_ownership` / `entity_partnership` / `entity_affiliation` rows, one person entity, one user at most.
 - Two people are never merged: each is its own `entity` with its own books (RULEBOOK-03 §5).
 - A worker created by Partner 1 lives in Partner 1's environment (`managed_in_env_id`); Partner 2 sees it only with access
   to that environment (RULEBOOK-03 §6).
@@ -303,7 +303,7 @@ flowchart LR
     role; permission; role_permission; user_role; env_access; access_rule; break_glass
   end
   subgraph masters[Entities and masters]
-    entity_type; entity; person_profile; firm_profile; entity_membership; contact; category; txn_type; tag; place
+    entity_type; entity; person_profile; firm_profile; entity_ownership; entity_partnership; entity_affiliation; entity_relationship; contact; category; txn_type; tag; place
     expense_event; custom_field_def; custom_field_value; form_definition; approval_rule; notification_rule
     message_template; report_definition; dashboard_config
   end
@@ -352,7 +352,10 @@ flowchart LR
   person_profile --> entity
   person_profile --> lookup_value
   firm_profile --> entity
-  entity_membership --> entity
+  entity_ownership --> entity
+  entity_partnership --> entity
+  entity_affiliation --> entity
+  entity_relationship --> entity
   contact --> entity
   category --> category
   expense_event --> entity
@@ -468,7 +471,8 @@ flowchart LR
 |---|---|---|---|---|
 | user → person entity | 1 : 1 | yes (every user is a person) | `app_user.person_entity_id` unique, composite FK to `entity (id, kind='person')` | restrict |
 | entity → environment it was created in | n : 0..1 | no (top-level firms and users' own person entities have none) | `entity.managed_in_env_id` | restrict |
-| organisation ↔ member | m : n over time | — | `entity_membership` (junction with history) | restrict |
+| organisation ↔ owner / partner / affiliate | m : n over time each | — | `entity_ownership`, `entity_partnership`, `entity_affiliation` (junctions with history, 0014) | restrict |
+| parent ↔ child entity | 1 : n structural, m : n links | — | `entity_relationship` (one structural parent, no cycles) | restrict |
 | entity → funds | 1 : n, exactly one default | yes (≥ 1) | `fund.entity_id`; partial unique index on default | restrict |
 | entity → ledger accounts | 1 : n | yes (from template) | `ledger_account.entity_id`; unique `(entity_id, code)` | restrict |
 | location → owner (over time) | n : 1 per period | optional (unowned allowed) | `location_ownership` with one open row | restrict |

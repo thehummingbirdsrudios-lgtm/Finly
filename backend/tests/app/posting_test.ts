@@ -335,6 +335,32 @@ Deno.test('a classification that is missing or incoherent is refused before anyt
   assertEquals(await count(w, `finly.txn where intent_type = 'give'`), 0);
 });
 
+Deno.test('drawings follow ownership records: a partner who does not own is refused, an owner is not', async () => {
+  const s = await setup();
+  const { w, svc } = s;
+  await s.open(10_000n);
+  await w.db.query(
+    `insert into finly.entity_partnership (entity_id, partner_entity_id, partnership_type_id)
+     values ($1, $2, (select id from finly.lookup_value where list_key = 'partnership_type' and key = 'working'))`,
+    [w.e.mint, w.e.sujal],
+  );
+  const drawing = (receiverId: string) =>
+    s.cmd(w.u.krish, 'give', {
+      type: 'give',
+      giverId: w.e.mint,
+      giverLocationId: w.l.tijori,
+      giverSide: 'own',
+      receiverId,
+      receiverSide: 'own',
+      receiverLocationId: w.l.cashSujal,
+      arrangement: 'drawings',
+      amount: 1_000n,
+    }, w.e.mint);
+  assertEquals((await refusal(() => svc.submit(drawing(w.e.sujal)))).code, 'NOT_AN_OWNER');
+  // Father owns half of Mint: the drawing is valid (it waits for Father, whose personal books it changes).
+  assertEquals((await svc.submit(drawing(w.e.father))).status, 'pending_acknowledgement');
+});
+
 Deno.test('two spends racing for the same money: exactly one posts', async () => {
   const { w, keys, svc, open, transfer } = await setup();
   await open(100_000n);
