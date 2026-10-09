@@ -7,9 +7,9 @@ of date, when any import cycle appears, or when a layer imports what its rule do
 | Layer | Path | Files | Purpose | May import | Packages |
 |---|---|---|---|---|---|
 | domain | `src/domain/` | 12 | Accounting model and posting engine — pure and deterministic: no I/O, no keys; clock and randomness only in ids.ts (new ids) | — | — |
-| crypto | `src/crypto/` | 4 | Encryption, blind indexes, hash chains, key ring (D-026, D-033) | `src/domain/errors.ts` | — |
+| crypto | `src/crypto/` | 6 | Encryption, blind indexes, hash chains, key ring, password hashing, session tokens (D-026, D-033, D-042) | `src/domain/errors.ts` | `hash-wasm` |
 | db | `src/db/` | 5 | PostgreSQL adapters, migration runner, SCRAM verifiers | — | `postgres`, `node:buffer`, `@electric-sql/pglite` |
-| app | `src/app/` | 8 | Application services (posting, identity, policy): one use case per transaction, through ports | `src/domain/`, `src/crypto/`, `src/db/sql.ts` | — |
+| app | `src/app/` | 11 | Application services (posting, identity, policy): one use case per transaction, through ports | `src/domain/`, `src/crypto/`, `src/db/sql.ts` | — |
 | http | `src/http/` | 0 | Versioned HTTP API: authentication, validation, error mapping; calls app services only | `src/app/`, `src/domain/errors.ts`, `src/domain/ids.ts`, `src/domain/money.ts` | `zod`, `jose` |
 
 ## Dependencies in use

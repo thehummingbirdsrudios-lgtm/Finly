@@ -5,6 +5,7 @@
     "jsr:@std/internal@^1.0.6": "1.0.14",
     "npm:@electric-sql/pglite@0.5.8": "0.5.8",
     "npm:@noble/hashes@1.8.0": "1.8.0",
+    "npm:hash-wasm@4.12.0": "4.12.0",
     "npm:jose@5.10.0": "5.10.0",
     "npm:postgres@3.4.5": "3.4.5",
     "npm:zod@3.24.2": "3.24.2"
@@ -27,6 +28,9 @@
     "@noble/hashes@1.8.0": {
       "integrity": "sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A=="
     },
+    "hash-wasm@4.12.0": {
+      "integrity": "sha512-+/2B2rYLb48I/evdOIhP+K/DD2ca2fgBjp6O+GBEnCDk2e4rpeXIK8GvIyRPjTezgmWn9gmKwkQjjx6BtqDHVQ=="
+    },
     "jose@5.10.0": {
       "integrity": "sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg=="
     },
@@ -42,6 +46,7 @@
       "jsr:@std/assert@1.0.13",
       "npm:@electric-sql/pglite@0.5.8",
       "npm:@noble/hashes@1.8.0",
+      "npm:hash-wasm@4.12.0",
       "npm:jose@5.10.0",
       "npm:postgres@3.4.5",
       "npm:zod@3.24.2"

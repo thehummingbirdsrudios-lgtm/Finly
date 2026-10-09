@@ -30,9 +30,9 @@ export const LAYERS: Layer[] = [
   {
     name: 'crypto',
     path: 'src/crypto/',
-    purpose: 'Encryption, blind indexes, hash chains, key ring (D-026, D-033)',
+    purpose: 'Encryption, blind indexes, hash chains, key ring, password hashing, session tokens (D-026, D-033, D-042)',
     may: ['src/domain/errors.ts'],
-    external: [],
+    external: ['hash-wasm'],
   },
   {
     name: 'db',

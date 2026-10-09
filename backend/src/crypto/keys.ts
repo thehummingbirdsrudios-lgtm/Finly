@@ -5,7 +5,7 @@
  */
 import { fail } from '../domain/errors.ts';
 
-export type KeyPurpose = 'data' | 'blind_index' | 'hash_chain' | 'file' | 'mpin_pepper';
+export type KeyPurpose = 'data' | 'blind_index' | 'hash_chain' | 'file' | 'mpin_pepper' | 'session';
 
 /** Supplies KEK bytes by version. Implementations: environment/secret store now, a cloud KMS later. */
 export interface KekSource {
@@ -79,8 +79,8 @@ export class KeyRing {
     return this.derive(purpose, version, { name: 'AES-GCM', length: 256 }, ['encrypt', 'decrypt']);
   }
 
-  /** HMAC-SHA-256 key for blind indexes, hash chains and the M-PIN pepper. */
-  hmacKey(purpose: 'blind_index' | 'hash_chain' | 'mpin_pepper', version: number): Promise<CryptoKey> {
+  /** HMAC-SHA-256 key for blind indexes, hash chains, the M-PIN pepper and session tokens. */
+  hmacKey(purpose: 'blind_index' | 'hash_chain' | 'mpin_pepper' | 'session', version: number): Promise<CryptoKey> {
     return this.derive(purpose, version, { name: 'HMAC', hash: 'SHA-256', length: 256 }, ['sign', 'verify']);
   }
 
