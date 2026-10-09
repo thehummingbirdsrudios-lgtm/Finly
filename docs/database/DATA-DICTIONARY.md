@@ -1949,7 +1949,7 @@ Which environments (firm, pool, personal books) a user may enter. Personal books
 | user_id | uuid | no |  | → app_user |  |  |
 | env_entity_id | uuid | no |  | → entity |  |  |
 | level | text | no |  | read, write, manage |  |  |
-| source | text | no |  | self, admin, owner_grant, temporary, break_glass |  |  |
+| source | text | no |  | self (own personal books) · admin · owner_grant (personal books, by their owner) · temporary · break_glass · ownership (a recorded owner of a firm or pool, D-038) |  |  |
 | granted_by | uuid | yes |  | The actor who granted it (null only for self access) |  |  |
 | granted_at | timestamp with time zone | no | now() |  |  |  |
 | valid_from | timestamp with time zone | no | now() |  |  |  |
@@ -1963,11 +1963,11 @@ Which environments (firm, pool, personal books) a user may enter. Personal books
 **Keys and constraints**
 
 - Check: `CHECK (((valid_until IS NULL) OR (valid_until > valid_from)))`
-- Check: `CHECK (((source = 'self'::text) = (granted_by IS NULL)))`
 - Check: `CHECK (((source = 'temporary'::text) <= (valid_until IS NOT NULL)))`
 - Check: `CHECK (((source = 'break_glass'::text) = (break_glass_id IS NOT NULL)))`
+- Check: `CHECK ((((source = 'self'::text) AND (granted_by IS NULL)) OR (source = 'ownership'::text) OR ((source <> ALL (ARRAY['self'::text, 'ownership'::text])) AND (granted_by IS NOT NULL))))`
 - Check: `CHECK ((level = ANY (ARRAY['read'::text, 'write'::text, 'manage'::text])))`
-- Check: `CHECK ((source = ANY (ARRAY['self'::text, 'admin'::text, 'owner_grant'::text, 'temporary'::text, 'break_glass'::text])))`
+- Check: `CHECK ((source = ANY (ARRAY['self'::text, 'admin'::text, 'owner_grant'::text, 'temporary'::text, 'break_glass'::text, 'ownership'::text])))`
 - Foreign key: `FOREIGN KEY (break_glass_id) REFERENCES finly.break_glass(id)`
 - Foreign key: `FOREIGN KEY (env_entity_id) REFERENCES finly.entity(id)`
 - Foreign key: `FOREIGN KEY (granted_by) REFERENCES finly.app_user(id)`

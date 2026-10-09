@@ -92,8 +92,8 @@ Deno.test('no actor, no data: every query returns nothing', async () => {
 Deno.test('a mixed event is split by environment: each viewer sees only their own side', async () => {
   assertEquals(await journalEntities(u.krish), [e.jsk, e.krish, e.mint].sort());
   assertEquals(await journalEntities(u.father), [e.mint]);
-  // Savan is a Super Admin with full admin: every firm, never Krish's personal books.
-  assertEquals(await journalEntities(u.savan), [e.jsk, e.mint].sort());
+  // Savan is a Super Admin who owns nothing and holds no grant: platform administration opens no firm (D-038).
+  assertEquals(await journalEntities(u.savan), []);
   const legs = await visible(u.father, `select entity_id from finly.txn_leg where txn_id = $1`, [angadiya]);
   assertEquals(legs, [{ entity_id: e.mint }]);
   const parts = await visible(u.father, `select entity_id from finly.txn_entity where txn_id = $1`, [angadiya]);

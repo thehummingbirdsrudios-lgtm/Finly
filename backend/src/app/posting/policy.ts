@@ -3,9 +3,9 @@
  * again, with the current rights, when it posts — a screen that was opened earlier never carries old rights forward.
  *
  * - The actor's own personal books: always.
- * - A firm or pool: write access to its environment, and either the `txn.create` permission (global or scoped to it)
- *   or being one of its owners (a Super Admin role alone grants no posting rights: system administration is not
- *   bookkeeping).
+ * - A firm or pool: write access to its environment and the `txn.create` permission (global or scoped to it). Owners
+ *   post through their explicit `entity_owner` role; ownership itself is a business fact, not a permission, and a
+ *   platform role opens no firm at all (D-038).
  * - Another person's personal books: if that person gave the actor write access to them, as for a firm; otherwise
  *   the person's own setting decides (D-029): `acknowledge` (the default) → the entry waits for them;
  *   `immediate` → it posts and they are told. A giver can never choose for them.
@@ -43,8 +43,7 @@ export async function authorize(tx: Sql, c: DbContext, entities: Id[]): Promise<
       continue;
     }
     const [p] = await tx.query<{ ok: boolean }>(
-      `select finly.actor_has_permission('txn.create', $1) or finly.actor_has_permission('txn.create')
-              or finly.actor_owns_entity($1) as ok`,
+      `select finly.actor_has_permission('txn.create', $1) or finly.actor_has_permission('txn.create') as ok`,
       [id],
     );
     if (!writable.has(id) || !p?.ok) {

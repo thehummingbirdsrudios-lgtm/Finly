@@ -215,7 +215,7 @@ Deno.test('if the giver loses access while the entry waits, the acknowledgement 
   const s = await setup();
   const { w, svc } = s;
   await s.open(100_000n);
-  // Father's right to post in Mint comes only from his environment grant (Krish's would survive through admin.full).
+  // Father's right to post in Mint needs his environment grant as well as his owner role (D-038).
   const r = await svc.submit(giftToSujal(s, 20_000n, w.u.father));
   await w.db.query(
     `update finly.env_access set revoked_at = now(), revoked_by = $2 where user_id = $1 and env_entity_id = $3`,

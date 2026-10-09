@@ -139,6 +139,14 @@ export async function dbWorld(): Promise<DbWorld> {
     sujal: await user(db, sujal, 'sujal', 'worker'),
     savan: await user(db, savan, 'savan', 'super_admin'),
   };
+  // Owners use their firms through an explicit, scoped owner role (D-038), not through ownership itself.
+  for (const [userId, env] of [[u.krish, mint], [u.krish, jsk], [u.father, mint]]) {
+    await db.query(
+      `insert into finly.user_role (user_id, role_id, scope_entity_id, granted_by)
+       values ($1, (select id from finly.role where key = 'entity_owner'), $2, $3)`,
+      [userId, env, u.krish],
+    );
+  }
   // Firm access: owners manage their firms; the worker may write entries in Mint.
   for (
     const [userId, env, level] of [[u.krish, mint, 'manage'], [u.krish, jsk, 'manage'], [u.father, mint, 'manage'], [

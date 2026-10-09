@@ -27,6 +27,7 @@ import type { PostingPlan } from '../../domain/ledger/types.ts';
 import { appendAudit, type AuditEntry } from '../audit.ts';
 import { toFinlyError } from '../db_errors.ts';
 import { emit, type OutboxEvent } from '../outbox.ts';
+import { httpStatus } from '../status.ts';
 import { checkAvailable, endHolds, holdOutflows, lockSlices, writeBalances } from './balances.ts';
 import { type DbContext, loadContext } from './context.ts';
 import { authorize } from './policy.ts';
@@ -205,6 +206,8 @@ export class PostingService {
         `insert into finly.txn_entity (txn_id, entity_id, role, value_date) values ($1, $2, 'owner', $3::date)`,
         [txnId, entity, cmd.valueDate],
       );
+      // A new month opens when its first entry arrives; closed months and dates before the books start stay shut.
+      await tx.query(`select finly.ensure_periods($1, $2::date)`, [entity, cmd.valueDate]);
     }
     await this.writeLegs(tx, txnId, plan);
     if (cmd.followsTxnId) {
@@ -524,42 +527,5 @@ export class PostingService {
       [actor, txnId, answer, note ?? null],
     );
     if (updated.length === 0) fail('NOT_FOUND', 'There is nothing waiting for your answer on this entry.');
-  }
-}
-
-export function httpStatus(code: ErrorCode): number {
-  switch (code) {
-    case 'VALIDATION':
-    case 'AMOUNT_INVALID':
-    case 'ALLOCATION_MISMATCH':
-    case 'FUNDING_MISMATCH':
-    case 'FUND_MISMATCH':
-    case 'DIMENSION_MISSING':
-    case 'SAME_SOURCE_DESTINATION':
-    case 'CLASSIFICATION_REQUIRED':
-    case 'CLASSIFICATION_CONFLICT':
-    case 'NOT_AN_OWNER':
-    case 'OWNER_REQUIRED':
-    case 'SETTLEMENT_PARTY_MISMATCH':
-      return 422;
-    case 'UNAUTHENTICATED':
-      return 401;
-    case 'FORBIDDEN':
-      return 403;
-    case 'NOT_FOUND':
-    case 'ENTITY_NOT_FOUND':
-    case 'LOCATION_NOT_FOUND':
-    case 'ACCOUNT_NOT_FOUND':
-    case 'OPEN_ITEM_NOT_FOUND':
-      return 404;
-    case 'RATE_LIMITED':
-      return 429;
-    case 'LOCKED':
-      return 423;
-    case 'INTERNAL':
-    case 'INTEGRITY':
-      return 500;
-    default:
-      return 409;
   }
 }
