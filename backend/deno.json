@@ -7,11 +7,12 @@
     "check": "deno check src/ tests/",
     "lint": "deno lint",
     "fmt-check": "deno fmt --check",
-    "verify": "deno fmt --check && deno lint && deno check src/ tests/ db/tools/ && deno test --allow-read --allow-write --allow-env tests/",
+    "verify": "deno fmt --check && deno lint && deno check src/ tests/ db/tools/ arch/ && deno test --allow-read --allow-write --allow-env tests/",
     "db:dictionary": "deno run --allow-read --allow-write=../docs/database --allow-env db/tools/dictionary.ts",
     "db:coa-seed": "deno run --allow-read db/tools/coa_seed_sql.ts",
     "bench:crypto": "deno bench --allow-read --allow-env bench/crypto_bench.ts",
     "db:login": "deno run --allow-read=.env.local --allow-write=.env.local db/tools/db_login.ts",
+    "arch:map": "deno run --allow-read=src,arch --allow-write=../docs/architecture arch/render.ts",
     "db:fingerprint": "deno run --env-file=.env.local --allow-env --allow-net --allow-read=db db/tools/fingerprint.ts",
     "db:migrate": "deno run --env-file=.env.local --allow-env --allow-net --allow-read=db/migrations db/tools/migrate.ts",
     "test:pg17": "FINLY_TEST_TARGET=pg17 deno test --env-file=.env.local --allow-read --allow-write --allow-env --allow-net --allow-run tests/db/; deno run --env-file=.env.local --allow-env --allow-net db/tools/drop_test_databases.ts pg17",
@@ -29,10 +30,10 @@
     "lineWidth": 120,
     "indentWidth": 2,
     "singleQuote": true,
-    "include": ["src/", "tests/", "db/tools/", "bench/"]
+    "include": ["src/", "tests/", "db/tools/", "bench/", "arch/"]
   },
   "lint": {
-    "include": ["src/", "tests/", "db/tools/", "bench/"],
+    "include": ["src/", "tests/", "db/tools/", "bench/", "arch/"],
     "rules": { "tags": ["recommended"] }
   },
   "compilerOptions": {

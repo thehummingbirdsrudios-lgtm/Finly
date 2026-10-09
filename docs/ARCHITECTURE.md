@@ -14,9 +14,11 @@ and key design, and data-flow diagrams are completed at M1 (Gate 3).
 4. **Ledger first.** Every balance is a derivation of posted, balanced, hash-chained journal lines (AC0, AC7).
 5. **Permission before data.** Authorization filters the dataset before aggregation, ranking, counting or rendering
    anything — totals, search, PDFs, messages, notifications (L12, Q2).
-6. **Offline never bypasses truth.** The phone prepares; the server decides (P7).
+6. **Online only (D-031).** The central database is the only copy of financial data; the phone keeps none, queues
+   nothing offline, and shows a result only after the server confirms it.
 7. **Configuration over code.** Firms, people, funds, accounts, types, rules, labels, roles, templates and policies are data (T1).
-8. **Clean, one-way layering** on both sides, with no circular dependencies (add-on 02).
+8. **Clean, one-way layering** on both sides, with no circular dependencies (add-ons 02, 15) — enforced by tests,
+   not by convention ([module map](architecture/module-map.md)).
 
 ## 2. System context (C4 level 1)
 
@@ -66,25 +68,31 @@ app/lib/
     presentation/  screens and widgets — render state, send intents; no business rules
     application/   state and use-case orchestration (one place per feature)
     domain/        entities, value objects (Rupees, TransactionId…), pure rules shared with tests
-    data/          API clients, DTOs, the encrypted offline cache and sync queue, repositories
+    data/          API clients, DTOs, repositories (network only; results held in memory, never in a local database)
 ```
 
 - Presentation depends on application; application on domain; data implements domain interfaces. Domain depends on nothing.
 - The money formatter, the split-remainder preview and other pure rules live in `domain` and are unit-tested; the
   backend recomputes every financial result anyway.
-- Heavy work (crypto for the offline cache, image compression, PDF preview decoding) runs off the UI isolate.
+- Heavy work (image compression, PDF preview decoding) runs off the UI isolate.
 
-## 4. The backend's layers (detailed at M1)
+## 4. The backend's layers
 
 API surface (versioned, validated, rate-limited) → authentication and session/device checks → authorization and
 discovery → use cases (posting pipeline, impact and conflict engine, share pipeline, reports) → accounting core
 (posting-rule templates, journal builder, invariant checker, snapshots, hash chain, Integrity Verifier) →
 persistence (one transaction per operation) → audit. Encryption and decryption are a service inside this boundary.
 
-## 5. To be completed at M1
+The layers and what each may import are a rule table ([backend/arch/rules.ts](../backend/arch/rules.ts)); the
+[generated module map](architecture/module-map.md) shows the dependencies in use, and
+`backend/tests/architecture/boundaries_test.ts` fails on any import cycle, forbidden import, impure domain code or a
+stale map. Which operation depends on what, and what commits together, is in
+[architecture/operations.md](architecture/operations.md).
 
-- C4 container and component diagrams with the approved technologies
-- Data-flow diagrams for sensitive data; sequence diagrams for posting, sharing, sync and first login
-- Database schema (ERD, tables, constraints, encryption map, index plan, invariants) — Gate 3
-- API contracts and versioning; error model (stable codes, safe messages, correlation IDs)
-- Encryption and key-management design; backup and restore design; observability plan
+## 5. Status
+
+- Done: database schema (ERD, tables, constraints, encryption map, index plan, invariants — [database/](database/README.md));
+  encryption and key management ([security/encryption-architecture.md](security/encryption-architecture.md));
+  deployment ([operations/deployment.md](operations/deployment.md)); module boundaries (§4).
+- Next: API contracts and versioning, error model (stable codes, safe messages, correlation IDs); sequence diagrams
+  for posting, sharing and first login; observability plan.
