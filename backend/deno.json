@@ -11,6 +11,9 @@
     "db:dictionary": "deno run --allow-read --allow-write=../docs/database --allow-env db/tools/dictionary.ts",
     "db:coa-seed": "deno run --allow-read db/tools/coa_seed_sql.ts",
     "bench:crypto": "deno bench --allow-read --allow-env bench/crypto_bench.ts",
+    "db:login": "deno run --allow-read=.env.local --allow-write=.env.local db/tools/db_login.ts",
+    "db:fingerprint": "deno run --env-file=.env.local --allow-env --allow-net --allow-read=db db/tools/fingerprint.ts",
+    "db:migrate": "deno run --env-file=.env.local --allow-env --allow-net --allow-read=db/migrations db/tools/migrate.ts",
     "test:pg17": "FINLY_TEST_TARGET=pg17 deno test --env-file=.env.local --allow-read --allow-write --allow-env --allow-net --allow-run tests/db/; deno run --env-file=.env.local --allow-env --allow-net db/tools/drop_test_databases.ts pg17",
     "test:pg18": "FINLY_TEST_TARGET=pg18 deno test --env-file=.env.local --allow-read --allow-write --allow-env --allow-net --allow-run tests/db/; deno run --env-file=.env.local --allow-env --allow-net db/tools/drop_test_databases.ts pg18"
   },
