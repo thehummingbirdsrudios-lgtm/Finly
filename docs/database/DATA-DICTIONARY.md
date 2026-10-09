@@ -2646,7 +2646,7 @@ Each entity's chart of accounts. Renames are labels over stable ids; never delet
 - Check: `CHECK ((class = ANY (ARRAY['asset'::text, 'contra_asset'::text, 'liability'::text, 'equity'::text, 'drawings'::text, 'revenue'::text, 'expense'::text, 'cogs'::text])))`
 - Check: `CHECK ((code ~ '^[0-9]{4}$'::text))`
 - Check: `CHECK (((length(name) >= 1) AND (length(name) <= 80)))`
-- Check: `CHECK ((role = ANY (ARRAY['cash'::text, 'bank'::text, 'wallet'::text, 'interentity_receivable'::text, 'advances_given'::text, 'loans_given'::text, 'customer_receivable'::text, 'investment_in_firms'::text, 'cash_in_transit'::text, 'suspense'::text, 'interentity_payable'::text, 'supplier_payable'::text, 'loans_taken'::text, 'advances_received'::text, 'owner_capital'::text, 'owner_drawings'::text, 'opening_balance_equity'::text, 'retained_earnings'::text, 'revenue'::text, 'expense'::text])))`
+- Check: `CHECK ((role = ANY (ARRAY['cash'::text, 'bank'::text, 'wallet'::text, 'interentity_receivable'::text, 'advances_given'::text, 'loans_given'::text, 'customer_receivable'::text, 'investment_in_firms'::text, 'cash_in_transit'::text, 'suspense'::text, 'interentity_payable'::text, 'supplier_payable'::text, 'loans_taken'::text, 'advances_received'::text, 'owner_capital'::text, 'owner_drawings'::text, 'owner_distributions'::text, 'opening_balance_equity'::text, 'retained_earnings'::text, 'revenue'::text, 'expense'::text])))`
 - Foreign key: `FOREIGN KEY (created_by) REFERENCES finly.app_user(id)`
 - Foreign key: `FOREIGN KEY (entity_id) REFERENCES finly.entity(id)`
 - Foreign key: `FOREIGN KEY (parent_id, entity_id) REFERENCES finly.ledger_account(id, entity_id)`

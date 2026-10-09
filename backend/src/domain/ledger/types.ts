@@ -51,6 +51,7 @@ export type AccountRole =
   | 'advances_received'
   | 'owner_capital'
   | 'owner_drawings'
+  | 'owner_distributions'
   | 'opening_balance_equity'
   | 'retained_earnings'
   | 'revenue'
@@ -75,6 +76,7 @@ export const ROLE_REQUIRES: Record<AccountRole, readonly Dimension[]> = {
   advances_received: ['counterparty'],
   owner_capital: ['counterparty'],
   owner_drawings: ['counterparty'],
+  owner_distributions: ['counterparty'],
   opening_balance_equity: [],
   retained_earnings: [],
   revenue: ['category'],

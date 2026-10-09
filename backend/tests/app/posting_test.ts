@@ -185,7 +185,8 @@ function giftToSujal(s: Awaited<ReturnType<typeof setup>>, amount: bigint, giver
     receiverId: s.w.e.sujal,
     receiverSide: 'own',
     receiverLocationId: s.w.l.cashSujal,
-    arrangement: 'repayable',
+    purpose: 'loan',
+    repayable: true,
     amount,
   }, s.w.e.mint);
 }
@@ -274,7 +275,8 @@ Deno.test('F8 then F9 as two events: the second follows the first, posts only it
     receiverId: w.e.krish,
     receiverSide: 'own',
     receiverLocationId: w.l.krishBank,
-    arrangement: 'repayable',
+    purpose: 'loan',
+    repayable: true,
     amount: 20_000n,
   }, w.e.mint));
   assertEquals(t1.status, 'posted');
@@ -289,7 +291,8 @@ Deno.test('F8 then F9 as two events: the second follows the first, posts only it
       receiverId: w.e.sujal,
       receiverSide: 'own',
       receiverLocationId: w.l.cashSujal,
-      arrangement: 'repayable',
+      purpose: 'loan',
+      repayable: true,
       amount: 8_000n,
     }, w.e.krish),
     followsTxnId: t1.txnId,
@@ -353,7 +356,8 @@ Deno.test('drawings follow ownership records: a partner who does not own is refu
       receiverId,
       receiverSide: 'own',
       receiverLocationId: w.l.cashSujal,
-      arrangement: 'drawings',
+      purpose: 'drawings',
+      repayable: false,
       amount: 1_000n,
     }, w.e.mint);
   assertEquals((await refusal(() => svc.submit(drawing(w.e.sujal)))).code, 'NOT_AN_OWNER');

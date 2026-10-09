@@ -1,7 +1,8 @@
 /**
- * F8/F9 — money given between entities (GATE-RESPONSE-04; docs/accounting/F8-F9-model.md): the eight Own/Expense
- * scenarios, repayment Options A and B across two separate transactions, outside parties, and every refusal when a
- * choice is missing or incoherent. Nothing here creates a debt unless the arrangement says `repayable`.
+ * F8/F9 — money given between entities (GATE-RESPONSE-04, GATE-RESPONSE-05, D-039; docs/accounting/F8-F9-model.md):
+ * the eight Own/Expense scenarios, each with an explicit purpose and repayment answer; repayment Options A and B across
+ * two separate transactions; outside parties; and every refusal when a choice is missing or does not fit the real
+ * event. Nothing here creates a debt unless the money is repayable, and no income appears that the user did not choose.
  */
 import { assertEquals, assertThrows } from '@std/assert';
 import type { GiveIntent } from '../../src/domain/engine/intents.ts';
@@ -9,8 +10,10 @@ import { planPosting } from '../../src/domain/engine/plan.ts';
 import { FinlyError } from '../../src/domain/errors.ts';
 import { assertLedgerSound, exampleWorld, fund, post } from '../support/world.ts';
 
+type World = ReturnType<typeof exampleWorld>;
+
 /** Transaction 1 (F8): Mint gives its owner Krish ₹20,000 from the Tijori. */
-function firmToOwner(x: ReturnType<typeof exampleWorld>, choice: Partial<GiveIntent>): GiveIntent {
+function firmToOwner(x: World, choice: Partial<GiveIntent>): GiveIntent {
   return {
     type: 'give',
     giverId: x.e.mint,
@@ -22,7 +25,7 @@ function firmToOwner(x: ReturnType<typeof exampleWorld>, choice: Partial<GiveInt
 }
 
 /** Transaction 2 (F9): Krish gives Sujal ₹8,000 from his cash in hand. */
-function ownerToSujal(x: ReturnType<typeof exampleWorld>, choice: Partial<GiveIntent>): GiveIntent {
+function ownerToSujal(x: World, choice: Partial<GiveIntent>): GiveIntent {
   return {
     type: 'give',
     giverId: x.e.krish,
@@ -37,13 +40,33 @@ function refused(fn: () => unknown): FinlyError {
   return assertThrows(fn, FinlyError);
 }
 
-Deno.test('F8 scenario 1A — firm Own, owner Own, drawings: nothing owed, investment reduced', () => {
+function mintFunded(): World {
   const x = exampleWorld();
+  fund(x.w, x.e.mint, x.l.tijori, 50000n);
+  return x;
+}
+
+/** A world where Krish holds ₹20,000 of his own cash, ready for Transaction 2. */
+function krishWithCash(): World {
+  const x = exampleWorld();
+  fund(x.w, x.e.krish, x.l.cashKrish, 20000n);
+  return x;
+}
+
+// ---- F8: firm → owner, the four side combinations ---------------------------------------------------------------
+
+Deno.test('F8 1 — firm Own, owner Own: drawings reduce the investment, nothing owed, no income', () => {
+  const x = mintFunded();
   const { w, e, l } = x;
-  fund(w, e.mint, l.tijori, 50000n);
   const ids = post(
     w,
-    firmToOwner(x, { giverSide: 'own', receiverSide: 'own', receiverLocationId: l.cashKrish, arrangement: 'drawings' }),
+    firmToOwner(x, {
+      purpose: 'drawings',
+      repayable: false,
+      giverSide: 'own',
+      receiverSide: 'own',
+      receiverLocationId: l.cashKrish,
+    }),
   );
   assertEquals(ids, []);
   assertEquals(w.balance(e.mint, 'owner_drawings', { counterpartyId: e.krish }), 20000n);
@@ -51,20 +74,21 @@ Deno.test('F8 scenario 1A — firm Own, owner Own, drawings: nothing owed, inves
   assertEquals(w.moneyAt(l.cashKrish, e.krish), 20000n);
   assertEquals(w.balance(e.krish, 'investment_in_firms', { counterpartyId: e.mint }), -20000n);
   assertEquals(w.balance(e.mint, 'expense'), 0n);
+  assertEquals(w.balance(e.krish, 'revenue'), 0n, 'a drawing is not income');
   assertLedgerSound(w);
 });
 
-Deno.test('F8 scenario 1B — firm Own, owner Own, repayable: the owner owes the firm', () => {
-  const x = exampleWorld();
+Deno.test('F8 1 — firm Own, owner Own, loan: the owner owes the firm', () => {
+  const x = mintFunded();
   const { w, e, l } = x;
-  fund(w, e.mint, l.tijori, 50000n);
   const [item] = post(
     w,
     firmToOwner(x, {
+      purpose: 'loan',
+      repayable: true,
       giverSide: 'own',
       receiverSide: 'own',
       receiverLocationId: l.cashKrish,
-      arrangement: 'repayable',
     }),
   );
   assertEquals(w.openItem(item).remaining, 20000n);
@@ -73,55 +97,76 @@ Deno.test('F8 scenario 1B — firm Own, owner Own, repayable: the owner owes the
   assertLedgerSound(w);
 });
 
-Deno.test('F8 scenario 2 — firm Own, owner Expense: the owner records a personal expense; the firm none', () => {
-  const x = exampleWorld();
+Deno.test('F8 1 — firm Own, owner Own, distribution: equity in the firm, chosen income for the owner', () => {
+  const x = mintFunded();
   const { w, e, l } = x;
-  fund(w, e.mint, l.tijori, 50000n);
   post(
     w,
     firmToOwner(x, {
+      purpose: 'distribution',
+      repayable: false,
+      giverSide: 'own',
+      receiverSide: 'own',
+      receiverLocationId: l.cashKrish,
+      receiverIncomeCategoryId: w.cat('distribution_received'),
+    }),
+  );
+  assertEquals(w.balance(e.mint, 'owner_distributions', { counterpartyId: e.krish }), 20000n);
+  assertEquals(w.balance(e.mint, 'expense'), 0n, 'a distribution is not an expense of the firm');
+  assertEquals(w.balance(e.krish, 'revenue', { categoryId: w.cat('distribution_received') }), 20000n);
+  assertLedgerSound(w);
+});
+
+Deno.test('F8 2 — firm Own, owner Expense: the owner records a personal expense; the firm none', () => {
+  const x = mintFunded();
+  const { w, e, l } = x;
+  post(
+    w,
+    firmToOwner(x, {
+      purpose: 'drawings',
+      repayable: false,
       giverSide: 'own',
       receiverSide: 'expense',
       receiverExpenseCategoryId: w.cat('hotel'),
-      arrangement: 'drawings',
     }),
   );
   assertEquals(w.balance(e.krish, 'expense', { categoryId: w.cat('hotel') }), 20000n);
   assertEquals(w.moneyAt(l.cashKrish, e.krish), 0n, 'spent, never held');
   assertEquals(w.balance(e.mint, 'expense'), 0n, "the owner's expense is not the firm's");
-  // 2B: the same with repayment — the owner owes the firm for his expense.
-  const y = exampleWorld();
-  fund(y.w, y.e.mint, y.l.tijori, 50000n);
+  // The same as a personal benefit that must be paid back: the owner owes the firm for his expense.
+  const y = mintFunded();
   post(
     y.w,
     firmToOwner(y, {
+      purpose: 'personal_benefit',
+      repayable: true,
       giverSide: 'own',
       receiverSide: 'expense',
       receiverExpenseCategoryId: y.w.cat('hotel'),
-      arrangement: 'repayable',
     }),
   );
   assertEquals(y.w.owed(y.e.krish, y.e.mint), 20000n);
+  assertEquals(y.w.balance(y.e.mint, 'expense'), 0n);
   assertLedgerSound(w);
   assertLedgerSound(y.w);
 });
 
-Deno.test('F8 scenario 3 — firm Expense (C), owner Own: firm cost, owner income, no debt', () => {
-  const x = exampleWorld();
+Deno.test('F8 3 — firm Expense, owner Own: remuneration is a firm cost and income the owner chose, no debt', () => {
+  const x = mintFunded();
   const { w, e, l } = x;
-  fund(w, e.mint, l.tijori, 50000n);
   const plan = planPosting(
     firmToOwner(x, {
+      purpose: 'remuneration',
+      repayable: false,
       giverSide: 'expense',
       giverCategoryId: w.cat('salary'),
       receiverSide: 'own',
       receiverLocationId: l.cashKrish,
       receiverIncomeCategoryId: w.cat('salary_received'),
-      arrangement: 'none',
     }),
     w,
   );
-  assertEquals(plan.openItems, [], 'an expense is never a debt');
+  assertEquals(plan.openItems, [], 'remuneration is never a debt');
   w.apply(plan);
   assertEquals(w.balance(e.mint, 'expense', { categoryId: w.cat('salary') }), 20000n);
   assertEquals(w.balance(e.krish, 'revenue', { categoryId: w.cat('salary_received') }), 20000n);
@@ -129,19 +174,19 @@ Deno.test('F8 scenario 3 — firm Expense (C), owner Own: firm cost, owner incom
   assertLedgerSound(w);
 });
 
-Deno.test('F8 scenario 4 — firm Expense, owner Expense: each book once; the owner nets to zero', () => {
-  const x = exampleWorld();
+Deno.test('F8 4 — firm Expense, owner Expense: a personal benefit paid straight to the owner’s bill, each book once', () => {
+  const x = mintFunded();
   const { w, e, l } = x;
-  fund(w, e.mint, l.tijori, 50000n);
   post(
     w,
     firmToOwner(x, {
+      purpose: 'personal_benefit',
+      repayable: false,
       giverSide: 'expense',
-      giverCategoryId: w.cat('travel'),
+      giverCategoryId: w.cat('electricity'),
       receiverSide: 'expense',
-      receiverExpenseCategoryId: w.cat('travel'),
+      receiverExpenseCategoryId: w.cat('electricity'),
       receiverIncomeCategoryId: w.cat('other_income'),
-      arrangement: 'none',
     }),
   );
   assertEquals(w.balance(e.mint, 'expense'), 20000n);
@@ -152,62 +197,71 @@ Deno.test('F8 scenario 4 — firm Expense, owner Expense: each book once; the ow
   assertLedgerSound(w);
 });
 
-/** A world where Krish holds ₹20,000 of his own cash, ready for Transaction 2. */
-function krishWithCash() {
-  const x = exampleWorld();
-  fund(x.w, x.e.krish, x.l.cashKrish, 20000n);
-  return x;
-}
+// ---- F9: owner → anyone, the four side combinations -------------------------------------------------------------
 
-Deno.test('F9 scenario 5 — owner Own, recipient Own, repayable (C2): Sujal owes Krish; the rest stays with Krish', () => {
+Deno.test('F9 5 — owner Own, recipient Own, loan: Sujal owes Krish; the rest stays with Krish', () => {
   const x = krishWithCash();
   const { w, e, l } = x;
   const [item] = post(
     w,
     ownerToSujal(x, {
+      purpose: 'loan',
+      repayable: true,
       giverSide: 'own',
       receiverSide: 'own',
       receiverLocationId: l.cashSujal,
-      arrangement: 'repayable',
     }),
   );
   assertEquals(w.openItem(item).debtorId, e.sujal);
   assertEquals(w.owed(e.sujal, e.krish), 8000n);
   assertEquals(w.moneyAt(l.cashKrish, e.krish), 12000n);
   assertEquals(w.moneyAt(l.cashSujal, e.sujal), 8000n);
+  assertEquals(w.balance(e.krish, 'expense'), 0n, 'money lent is not spent');
   assertLedgerSound(w);
 });
 
-Deno.test('F9 scenario 5 with capital — owner Own into his own firm: capital, not a debt', () => {
+Deno.test('F9 5 — owner Own into his own firm: capital, not a debt and not a gift', () => {
   const x = krishWithCash();
   const { w, e, l } = x;
-  const ids = post(w, {
+  const capital: GiveIntent = {
     type: 'give',
     giverId: e.krish,
     giverLocationId: l.cashKrish,
+    purpose: 'capital',
+    repayable: false,
     giverSide: 'own',
     receiverId: e.mint,
     receiverSide: 'own',
     receiverLocationId: l.tijori,
-    arrangement: 'capital',
     amount: 8000n,
-  });
-  assertEquals(ids, []);
+  };
+  assertEquals(post(w, capital), []);
   assertEquals(w.balance(e.mint, 'owner_capital', { counterpartyId: e.krish }), 8000n);
   assertEquals(w.balance(e.krish, 'investment_in_firms', { counterpartyId: e.mint }), 8000n);
+  const asGift = refused(() =>
+    planPosting({
+      ...capital,
+      purpose: 'gift',
+      giverSide: 'expense',
+      giverCategoryId: w.cat('gifts_given'),
+      receiverIncomeCategoryId: w.cat('gift_received'),
+    }, w)
+  );
+  assertEquals(asGift.code, 'CLASSIFICATION_CONFLICT');
   assertLedgerSound(w);
 });
 
-Deno.test('F9 scenario 6 — owner Own, recipient Expense, repayable: Sujal records the expense and owes Krish', () => {
+Deno.test('F9 6 — owner Own, recipient Expense, loan: Sujal records the expense and owes Krish', () => {
   const x = krishWithCash();
   const { w, e } = x;
   post(
     w,
     ownerToSujal(x, {
+      purpose: 'loan',
+      repayable: true,
       giverSide: 'own',
       receiverSide: 'expense',
       receiverExpenseCategoryId: w.cat('food'),
-      arrangement: 'repayable',
     }),
   );
   assertEquals(w.balance(e.sujal, 'expense', { categoryId: w.cat('food') }), 8000n);
@@ -216,40 +270,42 @@ Deno.test('F9 scenario 6 — owner Own, recipient Expense, repayable: Sujal reco
   assertLedgerSound(w);
 });
 
-Deno.test('F9 scenario 7 — owner Expense, recipient Own (C1): final expense for Krish, income for Sujal', () => {
+Deno.test('F9 7 — owner Expense, recipient Own, gift: Krish’s gift expense, Sujal’s chosen gift income', () => {
   const x = krishWithCash();
   const { w, e, l } = x;
   const plan = planPosting(
     ownerToSujal(x, {
+      purpose: 'gift',
+      repayable: false,
       giverSide: 'expense',
-      giverCategoryId: w.cat('other_expense'),
+      giverCategoryId: w.cat('gifts_given'),
       receiverSide: 'own',
       receiverLocationId: l.cashSujal,
-      receiverIncomeCategoryId: w.cat('other_income'),
-      arrangement: 'none',
+      receiverIncomeCategoryId: w.cat('gift_received'),
     }),
     w,
   );
   assertEquals(plan.openItems, []);
   w.apply(plan);
-  assertEquals(w.balance(e.krish, 'expense'), 8000n);
-  assertEquals(w.balance(e.sujal, 'revenue'), 8000n);
+  assertEquals(w.balance(e.krish, 'expense', { categoryId: w.cat('gifts_given') }), 8000n);
+  assertEquals(w.balance(e.sujal, 'revenue', { categoryId: w.cat('gift_received') }), 8000n);
   assertEquals(w.moneyAt(l.cashSujal, e.sujal), 8000n);
   assertLedgerSound(w);
 });
 
-Deno.test('F9 scenario 8 — owner Expense, recipient Expense: each records its side once, nothing owed', () => {
+Deno.test('F9 8 — owner Expense, recipient Expense: a gift that pays Sujal’s bill, each side once, nothing owed', () => {
   const x = krishWithCash();
   const { w, e } = x;
   post(
     w,
     ownerToSujal(x, {
+      purpose: 'gift',
+      repayable: false,
       giverSide: 'expense',
-      giverCategoryId: w.cat('other_expense'),
+      giverCategoryId: w.cat('gifts_given'),
       receiverSide: 'expense',
       receiverExpenseCategoryId: w.cat('food'),
-      receiverIncomeCategoryId: w.cat('other_income'),
-      arrangement: 'none',
+      receiverIncomeCategoryId: w.cat('gift_received'),
     }),
   );
   assertEquals(w.balance(e.krish, 'expense'), 8000n);
@@ -259,52 +315,126 @@ Deno.test('F9 scenario 8 — owner Expense, recipient Expense: each records its 
   assertLedgerSound(w);
 });
 
-Deno.test('Option A — two separate transactions, two linked debts; the first amount is never posted twice', () => {
-  const x = exampleWorld();
+// ---- Purposes beyond the eight combinations ---------------------------------------------------------------------
+
+Deno.test('a reimbursement recovers the receiver’s own expense: no income, no debt', () => {
+  const x = mintFunded();
   const { w, e, l } = x;
-  fund(w, e.mint, l.tijori, 50000n);
+  // Sujal paid ₹2,000 of courier from his pocket for Mint and recorded it as his expense; Mint pays him back.
+  fund(w, e.sujal, l.cashSujal, 2000n);
+  post(w, {
+    type: 'expense',
+    sources: [{ entityId: e.sujal, locationId: l.cashSujal, amount: 2000n }],
+    allocations: [{ ownerId: e.sujal, categoryId: w.cat('courier'), amount: 2000n }],
+  });
+  post(w, {
+    type: 'give',
+    giverId: e.mint,
+    giverLocationId: l.tijori,
+    purpose: 'reimbursement',
+    repayable: false,
+    giverSide: 'expense',
+    giverCategoryId: w.cat('courier'),
+    receiverId: e.sujal,
+    receiverSide: 'own',
+    receiverLocationId: l.cashSujal,
+    receiverRecoveryCategoryId: w.cat('courier'),
+    amount: 2000n,
+  });
+  assertEquals(w.balance(e.mint, 'expense', { categoryId: w.cat('courier') }), 2000n, 'the firm bears the cost');
+  assertEquals(w.balance(e.sujal, 'expense'), 0n, 'his expense is recovered');
+  assertEquals(w.balance(e.sujal, 'revenue'), 0n, 'a reimbursement is not income');
+  assertEquals(w.moneyAt(l.cashSujal, e.sujal), 2000n);
+  assertLedgerSound(w);
+});
+
+Deno.test('a donation to an outside party: only the giver posts, as the expense it chose', () => {
+  const x = krishWithCash();
+  const { w, e, l } = x;
+  const plan = planPosting({
+    type: 'give',
+    giverId: e.krish,
+    giverLocationId: l.cashKrish,
+    purpose: 'donation',
+    repayable: false,
+    giverSide: 'expense',
+    giverCategoryId: w.cat('donations'),
+    receiverId: e.hotelVendor,
+    amount: 3000n,
+  }, w);
+  assertEquals(plan.journals.map((j) => j.entityId), [e.krish]);
+  assertEquals(plan.openItems, []);
+});
+
+Deno.test('a business expense paid to an owner (rent for his premises) is the firm’s cost and the owner’s chosen income', () => {
+  const x = mintFunded();
+  const { w, e, l } = x;
+  post(
+    w,
+    firmToOwner(x, {
+      purpose: 'business_expense',
+      repayable: false,
+      giverSide: 'expense',
+      giverCategoryId: w.cat('rent'),
+      receiverSide: 'own',
+      receiverLocationId: l.cashKrish,
+      receiverIncomeCategoryId: w.cat('rent_received'),
+    }),
+  );
+  assertEquals(w.balance(e.mint, 'expense', { categoryId: w.cat('rent') }), 20000n);
+  assertEquals(w.balance(e.krish, 'revenue', { categoryId: w.cat('rent_received') }), 20000n);
+  assertLedgerSound(w);
+});
+
+// ---- Two transactions, two books, one movement each -------------------------------------------------------------
+
+Deno.test('Option A — two separate transactions, two linked debts; the first amount is never posted twice', () => {
+  const x = mintFunded();
+  const { w, e, l } = x;
   const [krishOwesMint] = post(
     w,
     firmToOwner(x, {
+      purpose: 'loan',
+      repayable: true,
       giverSide: 'own',
       receiverSide: 'own',
       receiverLocationId: l.cashKrish,
-      arrangement: 'repayable',
     }),
   );
   const journalsAfterFirst = w.journals.length;
   const [sujalOwesKrish] = post(
     w,
     ownerToSujal(x, {
+      purpose: 'loan',
+      repayable: true,
       giverSide: 'own',
       receiverSide: 'own',
       receiverLocationId: l.cashSujal,
-      arrangement: 'repayable',
     }),
   );
   assertEquals(w.journals.length - journalsAfterFirst, 2, 'the second event posts only its own two journals');
   assertEquals(w.openItem(krishOwesMint).remaining, 20000n, 'Krish still owes Mint in full');
   assertEquals(w.openItem(sujalOwesKrish).remaining, 8000n);
   assertEquals(w.moneyAt(l.tijori, e.mint), 30000n);
-  assertEquals(w.moneyAt(l.cashKrish, e.krish), 12000n, 'the rest stays with Krish');
+  assertEquals(w.moneyAt(l.cashKrish, e.krish), 12000n, 'the remaining ₹12,000 stays with Krish');
   assertLedgerSound(w);
 });
 
 Deno.test('Option B — the owner only carries the firm cash: Sujal owes Mint directly; the owner books never move', () => {
-  const x = exampleWorld();
+  const x = mintFunded();
   const { w, e, l } = x;
-  fund(w, e.mint, l.tijori, 50000n);
   // Transaction 1 is custody inside Mint's books, not F8: the money stays Mint's while Krish holds it.
   post(w, { type: 'transfer', entityId: e.mint, fromLocationId: l.tijori, toLocationId: l.cashKrish, amount: 20000n });
   post(w, {
     type: 'give',
     giverId: e.mint,
     giverLocationId: l.cashKrish,
+    purpose: 'loan',
+    repayable: true,
     giverSide: 'own',
     receiverId: e.sujal,
     receiverSide: 'own',
     receiverLocationId: l.cashSujal,
-    arrangement: 'repayable',
     amount: 8000n,
   });
   assertEquals(w.owed(e.sujal, e.mint), 8000n);
@@ -314,27 +444,17 @@ Deno.test('Option B — the owner only carries the firm cash: Sujal owes Mint di
   assertLedgerSound(w);
 });
 
-Deno.test('an outside party keeps no books: only the giver posts; repayable makes the party the debtor', () => {
+Deno.test('an outside party keeps no books: only the giver posts; a loan makes the party the debtor', () => {
   const x = krishWithCash();
   const { w, e, l } = x;
-  const expense = planPosting({
-    type: 'give',
-    giverId: e.krish,
-    giverLocationId: l.cashKrish,
-    giverSide: 'expense',
-    giverCategoryId: w.cat('hotel'),
-    receiverId: e.hotelVendor,
-    arrangement: 'none',
-    amount: 3000n,
-  }, w);
-  assertEquals(expense.journals.map((j) => j.entityId), [e.krish]);
   const [item] = post(w, {
     type: 'give',
     giverId: e.krish,
     giverLocationId: l.cashKrish,
+    purpose: 'loan',
+    repayable: true,
     giverSide: 'own',
     receiverId: e.customer,
-    arrangement: 'repayable',
     amount: 5000n,
   });
   assertEquals(w.openItem(item).debtorId, e.customer);
@@ -342,81 +462,180 @@ Deno.test('an outside party keeps no books: only the giver posts; repayable make
   assertLedgerSound(w);
 });
 
-Deno.test('missing choices are asked for, never assumed (CLASSIFICATION_REQUIRED)', () => {
+// ---- Never assumed, never manufactured --------------------------------------------------------------------------
+
+Deno.test('missing choices are asked for, in order, never assumed (CLASSIFICATION_REQUIRED)', () => {
   const x = krishWithCash();
   const { w, l } = x;
   const ask = (choice: Partial<GiveIntent>) => refused(() => planPosting(ownerToSujal(x, choice), w));
-  assertEquals(ask({}).details.question, 'giver_side');
-  assertEquals(ask({ giverSide: 'own' }).details.question, 'receiver_side');
-  assertEquals(ask({ giverSide: 'own', receiverSide: 'own' }).details.question, 'arrangement');
+  assertEquals(ask({}).details.question, 'purpose', 'a non-repayable transfer is never assumed to be an expense');
+  assertEquals(ask({ purpose: 'loan' }).details.question, 'repayable');
+  assertEquals(ask({ purpose: 'loan', repayable: true }).details.question, 'giver_side');
+  assertEquals(ask({ purpose: 'loan', repayable: true, giverSide: 'own' }).details.question, 'receiver_side');
   assertEquals(
-    ask({ giverSide: 'own', receiverSide: 'own', arrangement: 'repayable' }).details.question,
+    ask({ purpose: 'loan', repayable: true, giverSide: 'own', receiverSide: 'own' }).details.question,
     'receiver_location',
   );
-  const noIncome = ask({
+  const noCategory = ask({
+    purpose: 'gift',
+    repayable: false,
     giverSide: 'expense',
-    giverCategoryId: w.cat('food'),
     receiverSide: 'own',
     receiverLocationId: l.cashSujal,
-    arrangement: 'none',
   });
-  assertEquals(noIncome.details.question, 'receiver_income_category');
-  for (const err of [ask({}), noIncome]) assertEquals(err.code, 'CLASSIFICATION_REQUIRED');
+  assertEquals(noCategory.details.question, 'giver_category');
+  const noIncome = ask({
+    purpose: 'gift',
+    repayable: false,
+    giverSide: 'expense',
+    giverCategoryId: w.cat('gifts_given'),
+    receiverSide: 'own',
+    receiverLocationId: l.cashSujal,
+  });
+  assertEquals(noIncome.details.question, 'receiver_income_category', 'the receiver’s income is chosen, not mirrored');
+  for (const err of [ask({}), noCategory, noIncome]) assertEquals(err.code, 'CLASSIFICATION_REQUIRED');
 });
 
-Deno.test('incoherent combinations are explained and refused (CLASSIFICATION_CONFLICT, NOT_AN_OWNER)', () => {
+Deno.test('a firm expense never becomes the owner’s income by itself: the owner side must be chosen', () => {
+  const x = mintFunded();
+  const { w, l } = x;
+  const err = refused(() =>
+    planPosting(
+      firmToOwner(x, {
+        purpose: 'personal_benefit',
+        repayable: false,
+        giverSide: 'expense',
+        giverCategoryId: w.cat('travel'),
+        receiverSide: 'own',
+        receiverLocationId: l.cashKrish,
+      }),
+      w,
+    )
+  );
+  assertEquals([err.code, err.details.question], ['CLASSIFICATION_REQUIRED', 'receiver_income_category']);
+});
+
+Deno.test('purposes that do not fit the real event are explained and refused (CLASSIFICATION_CONFLICT)', () => {
   const x = krishWithCash();
   const { w, e, l } = x;
-  const code = (choice: Partial<GiveIntent>) => refused(() => planPosting(ownerToSujal(x, choice), w)).code;
-  // Spent and owed back at once.
+  fund(w, e.mint, l.tijori, 50000n);
+  const conflict = (it: GiveIntent) => refused(() => planPosting(it, w)).code;
+  const gift: Partial<GiveIntent> = {
+    purpose: 'gift',
+    repayable: false,
+    giverSide: 'expense',
+    giverCategoryId: w.cat('gifts_given'),
+    receiverSide: 'own',
+    receiverLocationId: l.cashSujal,
+    receiverIncomeCategoryId: w.cat('gift_received'),
+  };
+  // A loan that is not paid back; a gift that is.
+  assertEquals(conflict(ownerToSujal(x, { ...gift, purpose: 'loan' })), 'CLASSIFICATION_CONFLICT');
+  assertEquals(conflict(ownerToSujal(x, { ...gift, repayable: true })), 'CLASSIFICATION_CONFLICT');
+  // A gift recorded as Own (not spent) by the giver.
+  assertEquals(conflict(ownerToSujal(x, { ...gift, giverSide: 'own' })), 'CLASSIFICATION_CONFLICT');
+  // A loan recorded as the giver's expense.
   assertEquals(
-    code({
+    conflict(ownerToSujal(x, {
+      purpose: 'loan',
+      repayable: true,
       giverSide: 'expense',
       giverCategoryId: w.cat('food'),
       receiverSide: 'own',
       receiverLocationId: l.cashSujal,
-      arrangement: 'repayable',
+    })),
+    'CLASSIFICATION_CONFLICT',
+  );
+  // A loan is not income for the borrower.
+  assertEquals(
+    conflict(ownerToSujal(x, {
+      purpose: 'loan',
+      repayable: true,
+      giverSide: 'own',
+      receiverSide: 'own',
+      receiverLocationId: l.cashSujal,
+      receiverIncomeCategoryId: w.cat('other_income'),
+    })),
+    'CLASSIFICATION_CONFLICT',
+  );
+  // A firm does not give its owner gifts; an owner benefit goes through its own purposes.
+  assertEquals(
+    conflict(firmToOwner(x, { ...gift, giverCategoryId: w.cat('gifts_given'), receiverLocationId: l.cashKrish })),
+    'CLASSIFICATION_CONFLICT',
+  );
+  // A personal benefit is for an owner of the firm, not anyone else.
+  assertEquals(
+    conflict({
+      type: 'give',
+      giverId: e.mint,
+      giverLocationId: l.tijori,
+      purpose: 'personal_benefit',
+      repayable: false,
+      giverSide: 'expense',
+      giverCategoryId: w.cat('travel'),
+      receiverId: e.sujal,
+      receiverSide: 'own',
+      receiverLocationId: l.cashSujal,
+      receiverIncomeCategoryId: w.cat('other_income'),
+      amount: 100n,
     }),
     'CLASSIFICATION_CONFLICT',
   );
-  // Own, but nothing owed, not a drawing, not capital.
+  // A reimbursement repays money already spent: it cannot be the receiver's new expense.
   assertEquals(
-    code({ giverSide: 'own', receiverSide: 'own', receiverLocationId: l.cashSujal, arrangement: 'none' }),
+    conflict(ownerToSujal(x, {
+      purpose: 'reimbursement',
+      repayable: false,
+      giverSide: 'expense',
+      giverCategoryId: w.cat('courier'),
+      receiverSide: 'expense',
+      receiverExpenseCategoryId: w.cat('courier'),
+      receiverRecoveryCategoryId: w.cat('courier'),
+    })),
     'CLASSIFICATION_CONFLICT',
   );
   // The receiver's expense cannot also arrive in a place of theirs.
   assertEquals(
-    code({
+    conflict(ownerToSujal(x, {
+      purpose: 'loan',
+      repayable: true,
       giverSide: 'own',
       receiverSide: 'expense',
       receiverLocationId: l.cashSujal,
       receiverExpenseCategoryId: w.cat('food'),
-      arrangement: 'repayable',
-    }),
+    })),
     'CLASSIFICATION_CONFLICT',
   );
-  // Drawings only to an owner of the firm.
+});
+
+Deno.test('ownership is checked, never assumed (NOT_AN_OWNER); giving to oneself is refused', () => {
+  const x = krishWithCash();
+  const { w, e, l } = x;
   fund(w, e.mint, l.tijori, 1000n);
-  const notOwner = refused(() =>
-    planPosting({
-      type: 'give',
-      giverId: e.mint,
-      giverLocationId: l.tijori,
-      giverSide: 'own',
-      receiverId: e.sujal,
-      receiverSide: 'own',
-      receiverLocationId: l.cashSujal,
-      arrangement: 'drawings',
-      amount: 100n,
-    }, w)
-  );
-  assertEquals(notOwner.code, 'NOT_AN_OWNER');
-  // Giving to oneself.
+  for (const purpose of ['drawings', 'distribution'] as const) {
+    const notOwner = refused(() =>
+      planPosting({
+        type: 'give',
+        giverId: e.mint,
+        giverLocationId: l.tijori,
+        purpose,
+        repayable: false,
+        giverSide: 'own',
+        receiverId: e.sujal,
+        receiverSide: 'own',
+        receiverLocationId: l.cashSujal,
+        receiverIncomeCategoryId: purpose === 'distribution' ? w.cat('distribution_received') : undefined,
+        amount: 100n,
+      }, w)
+    );
+    assertEquals(notOwner.code, 'NOT_AN_OWNER', purpose);
+  }
   const self = ownerToSujal(x, {
+    purpose: 'loan',
+    repayable: true,
     giverSide: 'own',
     receiverSide: 'own',
     receiverLocationId: l.cashKrish,
-    arrangement: 'repayable',
   });
   assertEquals(refused(() => planPosting({ ...self, receiverId: e.krish }, w)).code, 'SAME_SOURCE_DESTINATION');
 });

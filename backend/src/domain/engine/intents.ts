@@ -60,8 +60,27 @@ export interface BillIntent {
 }
 
 /**
- * Money given from one entity to another (F8 firm → owner, F9 owner → anyone; docs/accounting/F8-F9-model.md). Each
- * side's treatment and the repayment arrangement are explicit; nothing is inferred from the parties or the amount.
+ * What money given actually is (D-039, GATE-RESPONSE-05 §2–§3). Always chosen by the user, never inferred from the
+ * parties, the amount or one side's treatment. A repayment of an existing debt is not here: it is a settlement.
+ */
+export const GIVE_PURPOSES = [
+  'loan',
+  'drawings',
+  'capital',
+  'distribution',
+  'remuneration',
+  'reimbursement',
+  'gift',
+  'donation',
+  'business_expense',
+  'personal_benefit',
+] as const;
+export type GivePurpose = typeof GIVE_PURPOSES[number];
+
+/**
+ * Money given from one entity to another (F8 firm → owner, F9 owner → anyone; docs/accounting/F8-F9-model.md). The
+ * purpose, whether it is repayable, and each side's treatment are explicit and validated together (§6 of the model);
+ * nothing is inferred from the parties or the amount.
  */
 export interface GiveIntent {
   type: 'give';
@@ -69,6 +88,10 @@ export interface GiveIntent {
   /** The giver's place the money leaves from. */
   giverLocationId: Id;
   giverFundId?: Id;
+  /** What the money is. Required. */
+  purpose?: GivePurpose;
+  /** Whether the receiver must pay it back — recorded separately from the purpose. Required. */
+  repayable?: boolean;
   /** `expense`: spent for good in the giver's books. `own`: still the giver's value (owed back, drawings, capital). */
   giverSide?: 'own' | 'expense';
   /** The giver's expense category (giverSide = expense). */
@@ -81,10 +104,10 @@ export interface GiveIntent {
   receiverFundId?: Id;
   /** The receiver's expense category (receiverSide = expense). */
   receiverExpenseCategoryId?: Id;
-  /** The receiver's income category (arrangement = none). */
+  /** The receiver's income category, chosen explicitly (remuneration, distribution, gift, donation, sale, benefit). */
   receiverIncomeCategoryId?: Id;
-  /** Who owes whom, recorded separately from the two sides (GATE-RESPONSE-04 §2, §4). */
-  arrangement?: 'repayable' | 'drawings' | 'capital' | 'none';
+  /** Reimbursement: the receiver's own expense category that the reimbursement recovers. */
+  receiverRecoveryCategoryId?: Id;
   amount: Rupees;
 }
 

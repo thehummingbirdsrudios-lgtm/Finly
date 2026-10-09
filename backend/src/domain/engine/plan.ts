@@ -343,11 +343,29 @@ function bill(ctx: EngineContext, it: I.BillIntent): PostingPlan {
   return b.build();
 }
 
+/** How each purpose reads in a message ("A loan …"). */
+const PURPOSE_LABEL: Record<I.GivePurpose, string> = {
+  loan: 'A loan',
+  drawings: 'A drawing',
+  capital: 'Capital',
+  distribution: 'A distribution of profit',
+  remuneration: 'Remuneration',
+  reimbursement: 'A reimbursement',
+  gift: 'A gift',
+  donation: 'A donation',
+  business_expense: 'A business expense',
+  personal_benefit: 'A personal benefit',
+};
+
+/** Purposes where the giver keeps the value (a receivable, its equity or an investment) rather than spending it. */
+const GIVER_KEEPS: ReadonlySet<I.GivePurpose> = new Set(['drawings', 'capital', 'distribution']);
+
 /**
  * Money given from one entity to another — F8 (firm → owner) and F9 (owner → anyone) alike, as two independent
- * events (docs/accounting/F8-F9-model.md). The giver's side, the receiver's side and the arrangement are explicit
- * choices; a missing one is CLASSIFICATION_REQUIRED, an incoherent combination CLASSIFICATION_CONFLICT. Only a
- * `repayable` arrangement creates a debt.
+ * events (docs/accounting/F8-F9-model.md). The purpose, whether it is repayable, the giver's side and the receiver's
+ * side are explicit and validated together against the parties (D-039, §6 of the model): a missing choice is
+ * CLASSIFICATION_REQUIRED, an incoherent one CLASSIFICATION_CONFLICT. Only a repayable gift of money creates a debt,
+ * and the receiver's income is always a category the user chose, never a mirror of the giver's expense.
  */
 function give(ctx: EngineContext, it: I.GiveIntent): PostingPlan {
   checkRupees(it.amount);
@@ -358,39 +376,54 @@ function give(ctx: EngineContext, it: I.GiveIntent): PostingPlan {
   const ask = (question: string, message: string): never =>
     fail('CLASSIFICATION_REQUIRED', message, { question, giverId: giver.id, receiverId: receiver.id });
   const conflict = (message: string): never => fail('CLASSIFICATION_CONFLICT', message);
-  if (!it.giverSide) ask('giver_side', `Choose how ${giver.name} records this: Own or Expense.`);
-  if (books && !it.receiverSide) ask('receiver_side', `Choose how ${receiver.name} records this: Own or Expense.`);
-  if (!it.arrangement) ask('arrangement', 'Say whether this is owed back, a drawing, capital, or nothing is owed.');
-  const arrangement = it.arrangement!;
 
-  switch (arrangement) {
-    case 'repayable':
-      if (it.giverSide !== 'own') conflict('An amount that is owed back is not spent. Choose Own for the giver.');
-      break;
-    case 'drawings':
-      if (it.giverSide !== 'own') conflict('A drawing is not an expense of the firm. Choose Own for the firm.');
-      if (giver.kind !== 'firm' || receiver.kind !== 'person') {
-        conflict('A drawing is money a firm gives one of its owners.');
-      }
-      if (!ctx.isOwner(giver.id, receiver.id)) {
-        fail('NOT_AN_OWNER', `${receiver.name} is not an owner of ${giver.name}.`, { personId: receiver.id });
-      }
-      break;
-    case 'capital':
-      if (it.giverSide !== 'own') conflict('Capital put into a firm is not an expense. Choose Own for the giver.');
-      if (giver.kind !== 'person' || receiver.kind !== 'firm') conflict('Capital goes from a person to a firm.');
-      if (!ctx.isOwner(receiver.id, giver.id)) {
-        fail('NOT_AN_OWNER', `${giver.name} is not an owner of ${receiver.name}.`, { personId: giver.id });
-      }
-      break;
-    case 'none':
-      if (it.giverSide !== 'expense') {
-        conflict(
-          `If nothing is owed back, ${giver.name} has spent this money: choose Expense, ` +
-            'or say whether it is owed back, a drawing or capital.',
-        );
-      }
-      break;
+  if (!it.purpose) {
+    ask(
+      'purpose',
+      'Say what this money is: a loan, drawings, capital, a distribution of profit, remuneration, a reimbursement, ' +
+        'a gift, a donation, a business expense or a personal benefit.',
+    );
+  }
+  const purpose = it.purpose!;
+  if (!PURPOSE_LABEL[purpose]) fail('VALIDATION', 'This purpose is not supported.', { purpose });
+  const label = PURPOSE_LABEL[purpose];
+  if (it.repayable === undefined) ask('repayable', `Say whether ${receiver.name} has to pay this back.`);
+  const repayable = it.repayable!;
+  checkGivePurpose(ctx, giver, receiver, purpose, repayable, conflict);
+
+  const giverKeeps = repayable || GIVER_KEEPS.has(purpose);
+  if (!it.giverSide) ask('giver_side', `Choose how ${giver.name} records this: Own or Expense.`);
+  if (giverKeeps && it.giverSide !== 'own') {
+    conflict(
+      repayable
+        ? `Money that is paid back is not spent. Choose Own for ${giver.name}.`
+        : `${label} is not an expense of ${giver.name}. Choose Own.`,
+    );
+  }
+  if (!giverKeeps && it.giverSide !== 'expense') {
+    conflict(
+      `${label} that is not paid back leaves ${giver.name} for good. Choose Expense, ` +
+        'or say it is repayable if it has to come back.',
+    );
+  }
+  if (books && !it.receiverSide) ask('receiver_side', `Choose how ${receiver.name} records this: Own or Expense.`);
+  const receiverCredit = repayable
+    ? 'payable'
+    : purpose === 'drawings'
+    ? 'investment'
+    : purpose === 'capital'
+    ? 'capital'
+    : purpose === 'reimbursement'
+    ? 'recovery'
+    : 'income';
+  if (receiverCredit !== 'income' && it.receiverIncomeCategoryId) {
+    conflict(`${label} ${repayable ? 'that is paid back ' : ''}is not income for ${receiver.name}.`);
+  }
+  if (receiverCredit !== 'recovery' && it.receiverRecoveryCategoryId) {
+    conflict('Only a reimbursement recovers an expense of the receiver.');
+  }
+  if (purpose === 'reimbursement' && it.receiverSide === 'expense') {
+    conflict(`A reimbursement repays money ${receiver.name} already spent. Choose Own for ${receiver.name}.`);
   }
 
   const b = new PlanBuilder(ctx);
@@ -399,20 +432,17 @@ function give(ctx: EngineContext, it: I.GiveIntent): PostingPlan {
 
   // The giver's books: the money leaves, and what it became.
   b.leg = { kind: 'source', index: 0 };
-  switch (arrangement) {
-    case 'repayable':
-      b.party(giver.id, 'interentity_receivable', receiver.id, 'Dr', it.amount, gf);
-      break;
-    case 'drawings':
-      b.party(giver.id, 'owner_drawings', receiver.id, 'Dr', it.amount, gf);
-      break;
-    case 'capital':
-      b.party(giver.id, 'investment_in_firms', receiver.id, 'Dr', it.amount, gf);
-      break;
-    case 'none':
-      if (!it.giverCategoryId) ask('giver_category', `Choose what kind of expense this is for ${giver.name}.`);
-      b.category(giver.id, it.giverCategoryId!, 'expense', 'Dr', it.amount, gf);
-      break;
+  if (repayable) {
+    b.party(giver.id, 'interentity_receivable', receiver.id, 'Dr', it.amount, gf);
+  } else if (purpose === 'drawings') {
+    b.party(giver.id, 'owner_drawings', receiver.id, 'Dr', it.amount, gf);
+  } else if (purpose === 'distribution') {
+    b.party(giver.id, 'owner_distributions', receiver.id, 'Dr', it.amount, gf);
+  } else if (purpose === 'capital') {
+    b.party(giver.id, 'investment_in_firms', receiver.id, 'Dr', it.amount, gf);
+  } else {
+    if (!it.giverCategoryId) ask('giver_category', `Choose what kind of expense this is for ${giver.name}.`);
+    b.category(giver.id, it.giverCategoryId!, 'expense', 'Dr', it.amount, gf);
   }
   b.money(giver.id, it.giverLocationId, 'Cr', it.amount, gf);
 
@@ -432,19 +462,31 @@ function give(ctx: EngineContext, it: I.GiveIntent): PostingPlan {
       }
       b.category(receiver.id, it.receiverExpenseCategoryId!, 'expense', 'Dr', it.amount, rf);
     }
-    switch (arrangement) {
-      case 'repayable':
+    switch (receiverCredit) {
+      case 'payable':
         b.party(receiver.id, 'interentity_payable', giver.id, 'Cr', it.amount, rf);
         break;
-      case 'drawings':
+      case 'investment':
         b.party(receiver.id, 'investment_in_firms', giver.id, 'Cr', it.amount, rf);
         break;
       case 'capital':
         b.party(receiver.id, 'owner_capital', giver.id, 'Cr', it.amount, rf);
         break;
-      case 'none':
+      case 'recovery':
+        if (!it.receiverRecoveryCategoryId) {
+          ask(
+            'receiver_recovery_category',
+            `Choose which of ${receiver.name}'s expenses this reimbursement recovers.`,
+          );
+        }
+        b.category(receiver.id, it.receiverRecoveryCategoryId!, 'expense', 'Cr', it.amount, rf);
+        break;
+      case 'income':
         if (!it.receiverIncomeCategoryId) {
-          ask('receiver_income_category', `Choose how ${receiver.name} records receiving this (an income category).`);
+          ask(
+            'receiver_income_category',
+            `Choose how ${receiver.name} records receiving ${label.toLowerCase()} (an income category).`,
+          );
         }
         b.category(receiver.id, it.receiverIncomeCategoryId!, 'income', 'Cr', it.amount, rf);
         break;
@@ -452,7 +494,7 @@ function give(ctx: EngineContext, it: I.GiveIntent): PostingPlan {
   }
   b.leg = undefined;
 
-  if (arrangement === 'repayable') {
+  if (repayable) {
     b.owe(
       'interentity',
       receiver.id,
@@ -465,6 +507,81 @@ function give(ctx: EngineContext, it: I.GiveIntent): PostingPlan {
     );
   }
   return b.build();
+}
+
+/**
+ * Whether a purpose fits the parties (§6 of the model): who may give it, who may receive it, the ownership it needs,
+ * and whether it can be repayable. Repayment expectation and purpose are separate answers that must agree.
+ */
+function checkGivePurpose(
+  ctx: EngineContext,
+  giver: EntityInfo,
+  receiver: EntityInfo,
+  purpose: I.GivePurpose,
+  repayable: boolean,
+  conflict: (message: string) => never,
+): void {
+  const label = PURPOSE_LABEL[purpose];
+  const notAnOwner = (firm: EntityInfo, person: EntityInfo): never =>
+    fail('NOT_AN_OWNER', `${person.name} is not an owner of ${firm.name}.`, { personId: person.id });
+  if (purpose === 'loan' && !repayable) {
+    conflict('A loan is paid back. Say it is repayable, or choose the purpose that fits.');
+  }
+  if (repayable && purpose !== 'loan' && purpose !== 'personal_benefit') {
+    conflict(`${label} is not paid back. Choose a loan if ${receiver.name} has to repay it.`);
+  }
+  switch (purpose) {
+    case 'drawings':
+      if (giver.kind !== 'firm' || receiver.kind !== 'person') {
+        conflict('A drawing is money a firm gives one of its owners.');
+      }
+      if (!ctx.isOwner(giver.id, receiver.id)) notAnOwner(giver, receiver);
+      break;
+    case 'distribution':
+      if (giver.kind !== 'firm') conflict('A distribution of profit is made by a firm to its owners.');
+      if (!ctx.isOwner(giver.id, receiver.id)) notAnOwner(giver, receiver);
+      break;
+    case 'capital':
+      if (giver.kind !== 'person' || receiver.kind !== 'firm') conflict('Capital goes from a person to a firm.');
+      if (!ctx.isOwner(receiver.id, giver.id)) notAnOwner(receiver, giver);
+      break;
+    case 'personal_benefit':
+      if (giver.kind === 'person' || receiver.kind !== 'person') {
+        conflict('A personal benefit is something a firm pays for one of its owners.');
+      }
+      if (!ctx.isOwner(giver.id, receiver.id)) {
+        conflict(
+          `${receiver.name} is not an owner of ${giver.name}. For someone else choose remuneration, a gift or a ` +
+            'business expense.',
+        );
+      }
+      break;
+    case 'remuneration':
+      if (receiver.kind !== 'person' && receiver.kind !== 'party') {
+        conflict(`${receiver.name} is not a person. A firm is paid for goods or services: choose a business expense.`);
+      }
+      break;
+    case 'gift':
+    case 'donation':
+      if (receiver.kind !== 'person' && receiver.kind !== 'party' && ctx.isOwner(receiver.id, giver.id)) {
+        conflict(
+          `Money ${giver.name} puts into ${receiver.name}, which they own, is capital or a loan, not ${
+            purpose === 'gift' ? 'a gift' : 'a donation'
+          }.`,
+        );
+      }
+      if (giver.kind !== 'person' && ctx.isOwner(giver.id, receiver.id)) {
+        conflict(
+          `${giver.name} does not give its owner ${receiver.name} gifts: choose drawings, a distribution, ` +
+            'remuneration or a personal benefit.',
+        );
+      }
+      break;
+    case 'loan':
+    case 'reimbursement':
+    case 'business_expense':
+      break;
+  }
 }
 
 function income(ctx: EngineContext, it: I.IncomeIntent): PostingPlan {
@@ -663,32 +780,34 @@ function interestCategory(ctx: EngineContext, _entityId: Id, kind: 'expense' | '
   return kind === 'expense' ? ctx.categoryByKey('interest_paid').id : ctx.categoryByKey('interest').id;
 }
 
-/** Capital put into a firm by one of its owners: `give` with both sides Own and the `capital` arrangement. */
+/** Capital put into a firm by one of its owners: `give` with the purpose `capital`, not repayable, both sides Own. */
 function capital(ctx: EngineContext, it: I.CapitalIntent): PostingPlan {
   return give(ctx, {
     type: 'give',
     giverId: it.personId,
     giverLocationId: it.personLocationId,
+    purpose: 'capital',
+    repayable: false,
     giverSide: 'own',
     receiverId: it.firmId,
     receiverSide: 'own',
     receiverLocationId: it.firmLocationId,
-    arrangement: 'capital',
     amount: it.amount,
   });
 }
 
-/** An owner's withdrawal (F8 A): `give` from the firm with both sides Own and the `drawings` arrangement. */
+/** An owner's withdrawal (F8 A): `give` from the firm with the purpose `drawings`, not repayable, both sides Own. */
 function withdrawal(ctx: EngineContext, it: I.WithdrawalIntent): PostingPlan {
   return give(ctx, {
     type: 'give',
     giverId: it.firmId,
     giverLocationId: it.firmLocationId,
+    purpose: 'drawings',
+    repayable: false,
     giverSide: 'own',
     receiverId: it.personId,
     receiverSide: 'own',
     receiverLocationId: it.personLocationId,
-    arrangement: 'drawings',
     amount: it.amount,
   });
 }

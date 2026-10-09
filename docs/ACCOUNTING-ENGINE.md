@@ -107,8 +107,9 @@ Cr Supplier payable(cp S)`; open item O owes S. Paying it later is a settlement 
 
 ### 5.3 Money given between entities — F8 and F9 (owner's decision, D-037)
 Firm → owner (F8) and owner → anyone (F9) are **two separate events**, both the `give` intent. Each states the
-giver's side (Own/Expense), the receiver's side (Own/Expense, when it keeps books) and the arrangement
-(`repayable`, `drawings`, `capital`, `none`); none is ever inferred, and only `repayable` creates a debt. The full
+giver's side (Own/Expense), the receiver's side (Own/Expense, when it keeps books), the purpose (loan, drawings,
+capital, distribution, remuneration, reimbursement, gift, donation, business expense, personal benefit) and whether it
+is repayable (D-039); none is ever inferred, all four are validated together, and only a repayable one creates a debt. The full
 journal-entry matrix — the eight scenarios, F8 A/B/C, F9 C1/C2 and repayment Options A/B — is in
 [accounting/F8-F9-model.md](accounting/F8-F9-model.md). `withdrawal` (F8 A) and `capital_contribution` are fixed
 shortcuts of the same planner. The earlier `nonowner_payment` and `interentity_transfer` intents assumed a debt

@@ -21,7 +21,8 @@ Deno.test('acceptance 9: firm money for the worker’s own use, owed back — ex
     receiverId: e.sujal,
     receiverSide: 'own',
     receiverLocationId: l.cashSujal,
-    arrangement: 'repayable',
+    purpose: 'loan',
+    repayable: true,
     amount: 20000n,
   });
   assertEquals(w.moneyAt(l.tijori, e.mint), 30000n);
@@ -44,7 +45,8 @@ Deno.test('acceptance 10: a final firm expense paid to the worker — nothing ow
     receiverSide: 'own',
     receiverLocationId: l.cashSujal,
     receiverIncomeCategoryId: w.cat('salary_received'),
-    arrangement: 'none',
+    purpose: 'remuneration',
+    repayable: false,
     amount: 20000n,
   }, w);
   assertEquals(plan.openItems, []);
@@ -66,7 +68,8 @@ Deno.test('acceptance 11 (F9 Option A): two separate events — owner owes firm,
     receiverId: e.krish,
     receiverSide: 'own',
     receiverLocationId: l.cashKrish,
-    arrangement: 'repayable',
+    purpose: 'loan',
+    repayable: true,
     amount: 20000n,
   }, w);
   assertEquals(first.journals.map((j) => j.step), [1, 1], 'one event, one step: never merged with what follows');
@@ -79,7 +82,8 @@ Deno.test('acceptance 11 (F9 Option A): two separate events — owner owes firm,
     receiverId: e.sujal,
     receiverSide: 'own',
     receiverLocationId: l.cashSujal,
-    arrangement: 'repayable',
+    purpose: 'loan',
+    repayable: true,
     amount: 20000n,
   });
   assertEquals(w.moneyAt(l.tijori, e.mint), 30000n);
@@ -103,7 +107,8 @@ Deno.test('acceptance 12 (F9 Option B): the owner only carries firm cash, then t
     receiverSide: 'own',
     receiverLocationId: l.cashSujal,
     receiverIncomeCategoryId: w.cat('salary_received'),
-    arrangement: 'none',
+    purpose: 'remuneration',
+    repayable: false,
     amount: 20000n,
   }, w);
   assertEquals(plan.openItems, []);

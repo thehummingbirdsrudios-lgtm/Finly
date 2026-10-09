@@ -21,7 +21,7 @@ missing):
 
 ### What "Own" means — precisely (ADDON-16 §5.1)
 
-"Own" never creates a debt, a loan, income or capital by itself. The arrangement says which it is:
+"Own" never creates a debt, a loan, income or capital by itself. The purpose and the repayment answer say which it is (§6):
 
 | Arrangement | Allowed when | Giver's own side | Receiver's counterpart |
 |---|---|---|---|
@@ -83,7 +83,7 @@ different arrangement needs its own authorised entry.
 
 1. Every journal balances per entity and per fund; each side posts in its own entity's books (ADDON-16 §2.1).
 2. `repayable` always creates exactly one open item with the real debtor and creditor; nothing else creates debt.
-3. A `drawings` or `capital` arrangement is refused unless ownership on the posting date proves it (`NOT_AN_OWNER`).
+3. A `drawings`, `distribution` or `capital` purpose is refused unless ownership on the posting date proves it (`NOT_AN_OWNER`).
 4. Giver and receiver must differ (`SAME_SOURCE_DESTINATION`); amounts are positive whole rupees.
 5. The receiver's place is required for `own`, refused for `expense`; categories must be active and of the right kind.
 6. Another partner's capital never moves: drawings, capital and receivables name the one owner concerned.
@@ -97,14 +97,50 @@ drawings ↔ investment, capital ↔ investment, receivable ↔ payable — are 
 to the outside world remain. Scenario 4 therefore shows one expense in a combined report, never two. (Implemented
 with the reports module; the event and its journals carry everything needed to pair them.)
 
-## 6. Points for the owner to confirm
+## 6. Purpose and validation matrix (D-039, GATE-RESPONSE-05)
 
-These follow from the specification but are choices of meaning worth a look before the screens go live:
+The owner answered the three points this section used to ask (GATE-RESPONSE-05): a firm's expense must not become the
+owner's income by itself, a non-repayable transfer must not be assumed to be the giver's expense, and owner-benefit
+approval is an entity policy (D-040). The engine therefore asks for two more explicit answers on every gift of money,
+and validates all four together:
 
-1. **Scenario 3 and 4 on the owner's side** ("Expense in the firm, Own/Expense in the owner's books") are recorded as
-   personal **income** for the owner (e.g. remuneration), because the firm treated the money as its cost.
-2. **Giver Own without repayment** is valid only as drawings (firm → its owner) or capital (person → a firm they own).
-   Money given to anyone else without being owed back is recorded as the giver's expense (for example a gift).
-3. **Partner protection for C:** a firm-side Expense for one owner's benefit reduces every partner's profit. Should it
-   require approval by another owner when the firm has more than one? Not enforced until the owner decides
-   (approval rules are configurable).
+- **Purpose** — what the money actually is: `loan`, `drawings`, `capital`, `distribution`, `remuneration`,
+  `reimbursement`, `gift`, `donation`, `business_expense`, `personal_benefit`. A repayment of an existing debt is a
+  settlement, not money given.
+- **Repayable** — whether the receiver must pay it back. Separate from the purpose, and required.
+- **Giver side / receiver side** — Own or Expense, as before (GATE-RESPONSE-04).
+
+| Purpose | Repayable | Who → whom | Giver's books (Dr) | Receiver's books (Cr) |
+|---|---|---|---|---|
+| loan | must be yes | any → any | Inter-entity receivable (Own) | Inter-entity payable + open item |
+| personal_benefit | yes or no | firm/pool → **its owner** | yes: receivable (Own) · no: expense category chosen (Expense) | yes: payable · no: **income category the owner chooses** |
+| drawings | no | firm → **its owner** (person) | Owner drawings (Own) | Investment in firms |
+| distribution | no | firm → **its owner** | 3160 Profit distributions (Own) — equity, not an expense | income category chosen (e.g. Profit share received) |
+| capital | no | person → **a firm they own** | Investment in firms (Own) | Owner capital |
+| remuneration | no | any → person or outside party | expense category chosen (Expense) | income category chosen |
+| reimbursement | no | any → the person who spent it | expense category chosen (Expense) | **recovers** the receiver's expense category (Cr expense) — never income; receiver side must be Own |
+| gift, donation | no | any → any, except into a firm the giver owns, or from a firm to its owner | expense category chosen (Expense) | income category chosen (e.g. Gift received) |
+| business_expense | no | any → any (to an owner: a related-party payment) | expense category chosen (Expense) | income category chosen |
+
+Rules the matrix enforces (each refusal says what to change):
+
+1. A missing purpose, repayment answer, side, place or category is **CLASSIFICATION_REQUIRED** — never filled in.
+2. A loan that is not repayable, or any other purpose that is (except a personal benefit), is a conflict.
+3. Own is required where the giver keeps the value (repayable, drawings, capital, distribution); Expense where the money
+   leaves for good (remuneration, reimbursement, gift, donation, business expense, a non-repayable personal benefit).
+4. Income on the receiver's side appears only as the category the user chose for that purpose; a loan, drawing or
+   capital receipt with an income category is a conflict.
+5. Ownership is checked against `entity_ownership` (`is_owner_of`): drawings, distributions and personal benefits go
+   only to an owner; capital only into a firm the giver owns; a firm does not give its owner gifts; an owner's money
+   into their own firm is capital or a loan, not a gift.
+6. Every refusal is raised before anything posts; nothing creates income, debt, capital or expense that the chosen
+   purpose does not support (GATE-RESPONSE-05 §5).
+
+The eight Own/Expense scenarios of §2 remain, each now reached with a purpose — tested in
+`backend/tests/engine/give_test.ts`: F8 1 drawings / loan / distribution, F8 2 drawings or a repayable personal benefit
+paying the owner's expense, F8 3 remuneration, F8 4 a non-repayable personal benefit paying the owner's bill; F9 5 loan
+(and capital into the owner's firm), F9 6 loan spent by the receiver, F9 7 gift, F9 8 gift paying the receiver's bill.
+
+**Owner-benefit approval (D-040)** applies on top: personal benefits, remuneration, distributions, drawings and
+business expenses paid to an owner are related-party movements, and the entity's approval policy decides whether they
+wait for an independent approver before posting.

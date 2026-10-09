@@ -298,7 +298,8 @@ Deno.test('money lent between firms is never an expense or income: an explicit r
     receiverId: e.mint,
     receiverSide: 'own',
     receiverLocationId: l.savanBank,
-    arrangement: 'repayable',
+    purpose: 'loan',
+    repayable: true,
     amount: 50000n,
   });
   assertEquals(w.balance(e.jsk, 'expense'), 0n);
