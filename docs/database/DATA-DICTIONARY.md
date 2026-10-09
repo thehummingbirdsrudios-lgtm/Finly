@@ -5,7 +5,7 @@ relationships and reasons are in [03-schema.md](03-schema.md); this file is the 
 
 Sensitivity: **C** encrypted · **H** keyed or integrity hash · **S** one-way secret hash · **R** plaintext,
 row-level-security restricted / personal data · blank = non-sensitive structure. Every table has row-level security
-enabled. Tables: 96.
+enabled. Tables: 97.
 
 ## `access_rule`
 
@@ -535,6 +535,7 @@ Tamper-evident audit trail (U2): who, what, when, before/after (encrypted), why,
 | prev_hash | bytea | no |  | row_hash of the previous audit row | H — keyed hash or integrity hash |  |
 | row_hash | bytea | no |  | HMAC chain link over this row (tamper evidence) | H — keyed hash or integrity hash |  |
 | hash_key_version | integer | no |  |  |  |  |
+| written_xid | xid8 | no | pg_current_xact_id() | Top-level transaction that wrote the row (savepoint-safe); lets commit checks find the audit row of this transaction |  |  |
 
 **Keys and constraints**
 
@@ -558,6 +559,7 @@ Tamper-evident audit trail (U2): who, what, when, before/after (encrypted), why,
 - n: `NOT NULL occurred_at`
 - n: `NOT NULL prev_hash`
 - n: `NOT NULL row_hash`
+- n: `NOT NULL written_xid`
 - Primary key: `PRIMARY KEY (id)`
 
 **Indexes**
@@ -566,6 +568,7 @@ Tamper-evident audit trail (U2): who, what, when, before/after (encrypted), why,
 - `audit_log_env_idx btree (env_entity_id, occurred_at DESC) WHERE (env_entity_id IS NOT NULL)`
 - `audit_log_object_idx btree (object_id, occurred_at) WHERE (object_id IS NOT NULL)`
 - `audit_log_txn_idx btree (txn_id) WHERE (txn_id IS NOT NULL)`
+- `audit_log_txn_written_idx btree (txn_id, written_xid) WHERE (txn_id IS NOT NULL)`
 
 **Row-level security policies**
 
@@ -1697,6 +1700,7 @@ Owner / partner / staff relationships over time. The engine's "owner of the firm
 - entity_membership_api_insert: INSERT for finly_api
 - entity_membership_api_read: SELECT for finly_api
 - entity_membership_api_update: UPDATE for finly_api
+- entity_membership_ledger: SELECT for finly_ledger
 - entity_membership_system_read: SELECT for finly_system
 
 ## `entity_type`
@@ -3047,6 +3051,65 @@ The journal lines an open item came from, on each side that keeps books (AC11); 
 - open_item_origin_ledger: ALL for finly_ledger
 - open_item_origin_system_read: SELECT for finly_system
 
+## `outbox_event`
+
+After-commit effects, written in the same transaction as the change (transactional outbox). Payloads hold ids only — never amounts, names or other confidential values. Delivered by finly_system; (topic, dedupe_key) makes redelivery harmless.
+
+**Lifecycle:** see 01 §1.8.
+
+| Column | Type | Null | Default | Meaning | Sensitivity | Source of truth |
+|---|---|---|---|---|---|---|
+| id | bigint | no |  | Stable identifier (UUIDv7); never a name |  |  |
+| topic | text | no |  |  |  |  |
+| dedupe_key | text | no |  |  |  |  |
+| payload | jsonb | no | '{}'::jsonb |  |  |  |
+| txn_id | uuid | yes |  | → txn |  |  |
+| created_by | uuid | yes |  | User who created the row |  |  |
+| created_at | timestamp with time zone | no | now() | When the row was created |  |  |
+| event_status | text | no | 'pending'::text |  |  |  |
+| attempts | smallint | no | 0 |  |  |  |
+| available_at | timestamp with time zone | no | now() |  |  |  |
+| locked_until | timestamp with time zone | yes |  |  |  |  |
+| last_error_code | text | yes |  |  |  |  |
+| done_at | timestamp with time zone | yes |  |  |  |  |
+
+**Keys and constraints**
+
+- Check: `CHECK (((attempts >= 0) AND (attempts <= 20)))`
+- Check: `CHECK (((event_status = 'done'::text) = (done_at IS NOT NULL)))`
+- Check: `CHECK (((event_status = 'processing'::text) = (locked_until IS NOT NULL)))`
+- Check: `CHECK (((length(dedupe_key) >= 1) AND (length(dedupe_key) <= 200)))`
+- Check: `CHECK ((event_status = ANY (ARRAY['pending'::text, 'processing'::text, 'done'::text, 'dead'::text])))`
+- Check: `CHECK ((last_error_code ~ '^[a-z0-9_.:-]{1,80}$'::text))`
+- Check: `CHECK (((jsonb_typeof(payload) = 'object'::text) AND (octet_length((payload)::text) <= 2000)))`
+- Check: `CHECK ((topic ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'::text))`
+- Foreign key: `FOREIGN KEY (created_by) REFERENCES finly.app_user(id)`
+- Foreign key: `FOREIGN KEY (txn_id) REFERENCES finly.txn(id)`
+- n: `NOT NULL attempts`
+- n: `NOT NULL available_at`
+- n: `NOT NULL created_at`
+- n: `NOT NULL dedupe_key`
+- n: `NOT NULL event_status`
+- n: `NOT NULL id`
+- n: `NOT NULL payload`
+- n: `NOT NULL topic`
+- Primary key: `PRIMARY KEY (id)`
+- Unique: `UNIQUE (topic, dedupe_key)`
+
+**Indexes**
+
+- `outbox_event_due_idx btree (available_at) WHERE (event_status = 'pending'::text)`
+- `outbox_event_stuck_idx btree (locked_until) WHERE (event_status = 'processing'::text)`
+- `outbox_event_txn_idx btree (txn_id) WHERE (txn_id IS NOT NULL)`
+- `UNIQUE outbox_event_topic_dedupe_key_key btree (topic, dedupe_key)`
+
+**Row-level security policies**
+
+- outbox_event_system: SELECT for finly_system
+- outbox_event_system_cleanup: DELETE for finly_system
+- outbox_event_system_deliver: UPDATE for finly_system
+- outbox_event_write: INSERT for finly_api, finly_ledger
+
 ## `period_close_run`
 
 Month Close Assistant runs and reopenings, with their checklist results (no amounts).
@@ -4212,12 +4275,15 @@ Master transaction: one real-world event (H7). Its accounting is in journal/jour
 | version | integer | no | 1 | Optimistic-concurrency version, incremented on every update |  |  |
 | updated_at | timestamp with time zone | no | now() | When the row last changed |  |  |
 | change_xid | xid8 | no | pg_current_xact_id() | Transaction that last wrote the row; mobile delta-sync cursor (06 §6.6) |  |  |
+| intent_enc | finly.ciphertext | yes |  | The request this event was created from (AES-256-GCM, bound to txn.intent_enc:<id>). Re-planned under lock at posting; frozen after submission. | C — encrypted (AES-256-GCM, keys outside the database) |  |
+| key_version | integer | yes |  | Key version of intent_enc (rotation) |  |  |
 
 **Keys and constraints**
 
 - Check: `CHECK (((status = ANY (ARRAY['posted'::text, 'reversed'::text, 'corrected'::text])) <= (posted_at IS NOT NULL)))`
 - Check: `CHECK (((status <> 'approved'::text) OR (approved_at IS NOT NULL)))`
 - Check: `CHECK ((currency = 'INR'::bpchar))`
+- Check: `CHECK (((intent_enc IS NULL) = (key_version IS NULL)))`
 - Check: `CHECK ((length(reason) <= 500))`
 - Check: `CHECK ((reference ~ '^TX-[0-9]{8}-[0-9]{6}$'::text))`
 - Check: `CHECK ((status = ANY (ARRAY['draft'::text, 'pending_approval'::text, 'approved'::text, 'pending_acknowledgement'::text, 'posted'::text, 'rejected'::text, 'failed'::text, 'cancelled'::text, 'reversed'::text, 'corrected'::text])))`

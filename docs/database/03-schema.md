@@ -120,9 +120,10 @@ migrations disagree.
 | 91 | `secure_link` | Sharing | Secure Viewer links (token hash only) | OWN |
 | 92 | `secure_link_access` | Sharing | Every Secure Viewer access attempt | OWN |
 | 93 | `idempotency_record` | Operations | Exactly-once mutations: a retried request after a network failure posts once | OWN |
-| 94 | `notification` | Operations | In-app and push notifications (no amounts stored) | OWN |
-| 95 | `audit_log` | Operations | Tamper-evident audit trail | ENV / OWN |
-| 96 | `audit_chain_head` | Operations | Head of the audit hash chain (one row) | SYS |
+| 94 | `outbox_event` | Operations | After-commit effects written in the same transaction (transactional outbox); ids only | SYSTEM |
+| 95 | `notification` | Operations | In-app and push notifications (no amounts stored) | OWN |
+| 96 | `audit_log` | Operations | Tamper-evident audit trail | ENV / OWN |
+| 97 | `audit_chain_head` | Operations | Head of the audit hash chain (one row) | SYS |
 
 ### Coverage of BUILD_PROMPT I2
 
@@ -536,6 +537,8 @@ any status change not listed.
 | submitted_at / approved_at / posted_at | timestamptz | yes | | AC8 separate dates; `posted_at` required when status is posted, reversed or corrected |
 | currency | char(3) | no | `'INR'` | check `= 'INR'` |
 | reason | text | yes | | R — the shared description of the event, visible to every participant environment (open question Q2); private remarks go to `txn_note` |
+| intent_enc | ciphertext | yes | | the request the event was created from (encrypted, bound to the row id); re-planned under lock at posting; frozen after submission except key rotation (0012) |
+| key_version | int | yes | | key version of `intent_enc`; set together with it |
 | search_tsv | tsvector | no | generated from reason + reference | full-text search, no extension |
 | payment_method_id | uuid | yes | | → lookup_value (payment_method) |
 | expense_event_id | uuid | yes | | → expense_event |
@@ -788,6 +791,14 @@ caller's current permissions.
 *`sync_review` and `txn.client_ref` were removed by migration 0010: Finly is online only (D-031), so there is no
 offline queue to review. A request retried after a network failure carries the same idempotency key.*
 
+### `outbox_event` (R, SYSTEM) — 0012
+`id bigint identity`, `topic` (`push.notification`, `nudge.data_changed`, …), `dedupe_key` — unique `(topic,
+dedupe_key)`, `payload jsonb` (ids only, ≤ 2 KB), `txn_id`, `created_by`, `created_at`, `event_status text check in
+('pending','processing','done','dead')`, `attempts ≤ 20`, `available_at` (next try), `locked_until` (claim lease),
+`last_error_code`, `done_at`. Written by `finly_ledger`/`finly_api` in the business transaction; delivered by
+`finly_system` (`FOR UPDATE SKIP LOCKED`, exponential back-off, `dead` after the limit → exception finding). A guard
+keeps the content immutable and the status moves valid; delivered rows are deleted after 30 days.
+
 ### `notification` (R, OWN)
 `id`, `user_id`, `event_key`, `severity`, `content_mode text check in ('full','masked','generic')`, `resource_type`,
 `resource_id` — **no amounts or names stored**: content is rendered when opened, after a fresh permission check (R5),
@@ -798,7 +809,9 @@ offline queue to review. A request retried after a network failure carries the s
 `action text` (`txn.posted`, `access.granted`, `share.confirmed`, `resource.viewed`…), `object_type`, `object_id`,
 `env_entity_id` (whose environment — visibility), `changes_enc` (before/after, encrypted), `key_version`, `reason`,
 `txn_id`, `approval_request_id`, `share_request_id`, `request_id uuid`, `ip inet`, `prev_hash bytea`,
-`row_hash bytea` (HMAC chain), `hash_key_version`. Append-only: no `UPDATE`/`DELETE` privilege, trigger refuses both.
+`row_hash bytea` (HMAC chain), `hash_key_version`, `written_xid xid8` (top-level transaction that wrote it, stamped
+by trigger — the commit checks "an audit row in this transaction" use it, so they also hold when the row was written
+inside a savepoint; 0012). Append-only: no `UPDATE`/`DELETE` privilege, trigger refuses both.
 
 ### `audit_chain_head` (P, SYS)
 `id smallint PK check (id = 1)`, `last_id bigint`, `last_hash bytea`.

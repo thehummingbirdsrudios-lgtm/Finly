@@ -70,6 +70,8 @@ Deno.test("nothing is granted to PUBLIC; credentials are out of the API role's r
   assertEquals(creds, []);
 });
 
+// Deletes allowed: the API's own draft legs and tags, and the system role's cleanup of operational queues (expired
+// idempotency keys, delivered outbox events). Never history.
 Deno.test('the API role may delete only its own draft legs and tags; nobody may delete or truncate history', async () => {
   const deletes = await rows<{ grantee: string; table_name: string }>(
     `select grantee, table_name from information_schema.role_table_grants
@@ -80,6 +82,7 @@ Deno.test('the API role may delete only its own draft legs and tags; nobody may 
     { grantee: 'finly_api', table_name: 'txn_leg' },
     { grantee: 'finly_api', table_name: 'txn_tag' },
     { grantee: 'finly_system', table_name: 'idempotency_record' },
+    { grantee: 'finly_system', table_name: 'outbox_event' },
   ]);
 });
 
