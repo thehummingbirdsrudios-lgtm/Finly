@@ -86,8 +86,9 @@ void main() {
         refreshes++;
         return reply(200, tokens('A$refreshes', 'R${refreshes + 1}'));
       }
-      if (o.headers['authorization'] == 'Bearer A1')
+      if (o.headers['authorization'] == 'Bearer A1') {
         return reply(200, {'items': []});
+      }
       return reply(401, {
         'code': 'UNAUTHENTICATED',
         'detail': 'Please sign in again.',
