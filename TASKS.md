@@ -1,94 +1,84 @@
 # Tasks
 
-Milestones follow BUILD_PROMPT Part W. **Gates stop the work until the product owner approves.** Every task runs the
-loop in [docs/RULES.md](docs/RULES.md) and ends in its own commit.
+The checklist for [docs/PLAN.md](docs/PLAN.md) (the plan of record since 2026-10-09; scope frozen at ADDON-22,
+D-041). An item is ticked only with evidence: a passing test run, a build, or a verified deployment. Every item ends
+in its own commit. Where the last session stopped: [docs/CONTINUATION.md](docs/CONTINUATION.md).
 
-Legend: `[x]` done · `[~]` in progress · `[ ]` not started · ⛔ gate
+Legend: `[x]` done · `[~]` in progress · `[ ]` not started · 🔑 needs the owner
 
-## M0 — Foundation (branch `chore/m0-foundation`)
+## Done before this plan (evidence in git history and docs/MEMORY.md)
 
-- [x] Repository, ignore rules, attributes
-- [x] Build specification and add-ons 01–09 recorded verbatim in `docs/source/`
-- [x] Design system draft: tokens (light/dark, WCAG AA checked), brand book, 47 reference components, logo, splash, setup wizard — published for review
-- [x] Documentation skeleton: README, TASKS, PRD, SRS (glossary, traceability), RULES, SECURITY (threat-model outline), TEST_PLAN, ARCHITECTURE, DESIGN, DECISIONS, MEMORY, FLOWS, privacy data inventory
-- [x] First-session restatement: Part A, the AC1 glossary, AC10 example 4 as journal lines
-- [x] Stack Decision Record (Flutter fixed; packages vs built-ins; backend evaluation with current free-tier facts) — `docs/DECISIONS.md`
-- [x] Accounting Model Record (AC19, nine decisions) — `docs/DECISIONS.md`
-- [x] ⛔ **Gate 1 — technology stack** approved with conditions (D-013..D-017) · ⛔ **Gate 2 — accounting model** resolved by the owner's F1–F7 answers (revision 3, D-021); F8 and F9 await confirmation
+- [x] Specification, add-ons 01–22, gate responses 01–05 recorded verbatim (`docs/source/`)
+- [x] Design-system draft (tokens, components, logo); stack and accounting model records
+- [x] Database: migrations 0001–0017, RLS everywhere, guards, encryption map; data dictionary; catalog parity tests
+- [x] Supabase project `finly`; 0001–0014 deployed and fingerprint-verified
+- [x] Accounting engine: 17 intents, F8/F9 with purpose (D-039), invariants
+- [x] Posting service: idempotent, locked, encrypted, acknowledgement flow (D-029), outbox, monthly periods
+- [x] D-038: platform roles open no books; explicit scoped owner/admin roles
+- [x] Identity service: sign-in, temporary → own password, rotating refresh tokens, lockout, sessions
+- [x] HTTP API v1 with books and activity services; architecture rules (`src/main` composition root)
+- [x] Flutter app: theme from tokens, API client, sign-in, books, overview, places, entries, dues/settle, entry forms,
+  entry detail, inbox, new business, add place, settings/sessions
 
-## M1 — Architecture and schema
+## R1 — First usable app
 
-- [ ] Threat model (STRIDE) and data-flow diagrams
-- [ ] Client-independent architecture, API contracts and versioning, error model
-- [x] Encryption and key-management design (AC7): investigated, benchmarked, recovery drill — kept (D-033, [encryption-architecture.md](docs/security/encryption-architecture.md)); production KEK escrow and production restore drill wait for the owner
-- [x] Database architecture and schema design (add-on 11): ERD levels 1–6, 93 tables, data dictionary, index and RLS design, concurrency, sync, migration and backup strategies, edge-case matrix, open questions — [docs/database/](docs/database/README.md)
-- [x] Independent architecture review of the design; all findings fixed (docs/database/README "Independent review")
-- [x] Migrations 0001–0009 implementing the design (roles, 93 tables, guards, RLS, seeds, column meanings)
-- [x] Migration 0010: owner decisions Q1 (acknowledgement), Q3 (activation, consented support), online only — 96 tables
-- [x] Database tests: ledger structure, privacy and RLS, lifecycles, catalog parity (design ↔ schema ↔ engine ↔
-  dictionary) — 40 tests; generated [data dictionary](docs/database/DATA-DICTIONARY.md)
-- [x] Database suite on real PostgreSQL 17.11 and 18.6 (D-032): 52/52 each, including 5 two-connection concurrency tests and the dump/restore recovery drill
-- [ ] Query benchmark (`db:bench`) on PostgreSQL 17
-- [x] F8/F9 decided (D-037): `give` intent, eight scenarios, Options A/B, migration 0013, 17 tests
-- [ ] Authorisation redesign (add-ons 17/18): gap analysis → target model → migrations → policy engine → tests
-- [ ] Add-on 16 edge-case catalogue mapped to tests; Integrity Verifier; reversal/correction; settlement; approvals
-- [x] CI workflow `.github/workflows/backend.yml` (PGlite gate + database suite on PostgreSQL 17.11 and 18.6 services, actions pinned to SHAs) — **not yet run**: needs the repository pushed
-- ⛔ **Gate 3 — database schema** delivered as documents (D-019, D-025); Q1–Q3 decided by the owner (D-029, D-030, D-033); F8, F9 await the owner
+- [ ] Branding: launcher icon (adaptive + monochrome), Android 12 splash, app name, from `design-system` assets
+- [ ] Splash/startup flow polish; error states for an unreachable server
+- [ ] Least-privilege API login role (`finly_app`): member of finly_api/finly_auth/finly_ledger only, script + docs
+- [ ] Release signing setup (key outside Git) and a release APK build against a configured `FINLY_API_URL`
+- [ ] 🔑 Deploy migrations 0015–0017 to Supabase (fingerprint-verified)
+- [ ] 🔑 Host the API (Supabase Edge Function) with the KEK and DB secrets set by the owner
+- [ ] 🔑 Seed the initial users through the bootstrap (temporary passwords delivered only to the owner)
+- [ ] Device check: install, sign in, set password, create firm, add place, record entries
 
-## M2 — Design, UX blueprint, edge cases
+## R2 — Safe daily use
 
-- [ ] Final design system (after review comments on the draft), revised for add-on 08: a distinct motion language per interaction (navigation, tabs, nav bar, cards, buttons, forms, search, filters, sheets, dialogs, success, error, loading, notifications, financial state changes, expand/collapse, gestures), decoration rules and tokens (depth, surfaces, gradients, highlights, backgrounds, dividers), and empty-state illustrations — all within reduced-motion, contrast and performance limits
-- [ ] Theme completed for add-on 09: a colour-blind-safe chart palette (categorical and sequential, distinct from money and state colours), chart styling rules, and the written rationale for the Finly theme (why ledger green, brass, paper surfaces and this type)
-- [ ] UX blueprint: navigation map per role, search model, tap and time budgets, key flows
-- [ ] Master Edge-Case Matrix (Part G-EC)
-- ⛔ **Gate 4 — design system + UX blueprint + edge-case matrix**
+- [ ] App lock: auto-lock, M-PIN (create/confirm/change/reset/lockout), biometric unlock, step-up
+- [ ] Super Admin user management (add/edit/role/suspend/reset/revoke/archive), activation codes
+- [ ] Password reset by administrator code; recovery codes; TOTP MFA for Super Admin; devices (revoke, lost)
+- [ ] Approvals per entity policy (D-040) with self-approval prevention and single-owner alternative
+- [ ] Reversal and correction
+- [ ] Entry workflows: common expense with exact per-entity amounts, personal-from-firm, reimbursement, handover with
+  holder chain, advance give/account/return, loan given/taken with repayments, bill and payment, income on credit
+- [ ] Review sheet with impact preview; duplicate warning; repeat last / recents
+- [ ] Global search (server-side, permission-filtered)
+- [ ] First-time setup wizard; opening position with context; entity creation flow with owners and partners
+- [ ] Location access list (add/replace) and current holder; funds; categories per entity
+- [ ] In-app notification centre
 
-## M3 — Foundations in code
+## R3 — Complete accounting
 
-- [x] ~~Docker Desktop + Supabase CLI local stack~~ — replaced by the owner's local PostgreSQL 17.11/18.6 (D-032)
-- [x] Hosted Supabase project `finly` created (D-034)
-- [x] Migrations 0001–0011 applied to Supabase `finly` (D-036, [deployment.md](docs/operations/deployment.md)); fingerprint identical to a fresh PostgreSQL 17 build over three channels; security advisor clean (0011 fixed 18 mutable search paths and one duplicate policy)
-- [ ] Full TLS verification for the migrator (owner downloads Supabase's CA certificate) and SSL enforcement (owner)
-- [x] Posting service (`backend/src/app/posting/`): idempotent two-transaction posting, global lock order, encrypted journals/lines/balances, legs with blind indexes, open items and settlements, custody, holds, acknowledgement flow (D-029), audit chain, transactional outbox; 10 integration tests on PGlite, PostgreSQL 17.11 and 18.6 (incl. racing spends)
-- [ ] Backend foundation: config, structured logging, error model, audit engine, encryption service, idempotency
-- [ ] Flutter app skeleton: theme generated from `tokens.json`, branding from `brand.json`, navigation shell, runs on the owner's phone
+- [ ] Period close and Month Close Assistant; reopening with privilege and audit
+- [ ] Integrity Verifier and deterministic exception engine
+- [ ] Cash and bank reconciliation with adjustment journals
+- [ ] Statements (TB, GL, place statement, P&L, balance sheet, cash flow, fund, aging, inter-entity, custody, expense
+  event) and Explain Balance
+- [ ] PDF and CSV generation; Photo Proof; share pipeline with content-hash verification; share history
+- [ ] Receipts and attachments (protected storage)
+- [ ] Audit viewer; login history; personal-finance owner grants; consented support sessions
+- [ ] Encrypted backups to Cloudflare R2 with a restore drill
+- [ ] Allocation adjustments, write-off/forgiveness, refunds, interest/EMI
 
-## M4 — Authentication and startup
+## R4 — Configurable access
 
-- [ ] Splash and startup flow, first-time setup wizard (add-on 07)
-- [ ] Sign-in, MFA, throttling; forgot password; Remember Me; biometric; M-PIN; devices and sessions; auto-lock; screen privacy; step-up
-- [ ] Seed users via one-time local bootstrap; Krish's temporary password delivered only to him (add-ons 06/07)
+- [ ] Permission registry, membership states, invitations, role versions (migration 0018+)
+- [ ] `effective_permissions` used by RLS, API and UI; amount and field visibility; confidentiality levels
+- [ ] Custom role builder, role holders, delegation, hierarchy grants, change requests
+- [ ] Entity switcher, hierarchy and administration screens; simulator / View-As; temporary access; break-glass
+- [ ] ADDON-18 scenarios A–X as tests
 
-## M5 — Authorization and configuration
+## R5 — Flexible workspace
 
-- [ ] Authorization engine (RBAC + ABAC + resource, field, confidentiality, discovery, precedence, owner grants)
-- [ ] Permission-aware aggregation; master/configuration system; Super Admin user management
+- [ ] Ledger templates, typed columns, dropdowns, row grid with drafts
+- [ ] Safe formula engine and composed functions
+- [ ] Rough-hisab workspace with clearing items, reconciliation and settlement
+- [ ] Asset register, rate-based sale and exchange; bank-account register with holders
+- [ ] Custom report builder; optional tax, inventory and fixed-asset accounts
 
-## M6 — Accounting core and the first money movement
+## R6 — Whole financial life
 
-- [~] Accounting entities, chart-of-accounts templates, location ↔ ledger mappings, journal engine, posting-rule templates with preview
-  - [x] Pure posting planner (`backend/src/domain/engine/`), journal invariants, in-memory reference ledger; 42 tests covering ACCOUNTING-ENGINE §5 and RULEBOOK-03 §72 tests 1–21 (engine level)
-  - [ ] Persisted to Postgres through the schema from M1
-- [ ] AC6 invariant checker, encrypted balance snapshots, hash chain, Integrity Verifier, Explain Balance
-- [ ] Precondition pipeline, available balance, concurrency, idempotency, state machine, Impact + Conflict Engine
-- [ ] First end-to-end Avak / Javak / transfer on the phone
-
-## M7 — Full ledger
-
-- [ ] Expenses, expense events, splits; outstanding, reimbursement, advance, settlement, inter-company; handover
-- [ ] Reversal, correction, allocation adjustment, opening balances, period locking
-
-## M8 — Reporting
-
-- [ ] Reconciliation, exception engine, month-end close; financial statements; reports and report builder; import/export; notifications
-
-## M9 — Sharing
-
-- [ ] WhatsApp message with the verification pipeline and share profiles; Photo Proof; PDF; Secure PDF, security builder, Secure Viewer, expiry, revocation
-
-## M10 — Production
-
-- [ ] Offline sync; remaining Super Admin tools; multi-language and custom labels
-- [ ] Security hardening, backup and restore drill, monitoring, incident runbooks
-- [ ] Full test suite (Part V) on supported Android versions; production readiness review (Part X); signed release build
-- [ ] Deliver Krish's first-login credentials through the secure bootstrap
+- [ ] Wealth dashboard, investments, loans with schedules, budgets, earmarks, recurring items
+- [ ] Bank statement PDF import with review grid, duplicate matching and reconciliation
+- [ ] Push notifications with lock-screen policy; Secure Viewer links
+- [ ] Hindi and Gujarati; custom labels
+- [ ] Performance benchmark on PostgreSQL 17; monitoring; incident runbook; device certification
