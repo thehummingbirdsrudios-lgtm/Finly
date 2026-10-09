@@ -4490,14 +4490,14 @@ Relationships between events: reversal, correction, partial reversal, refund, re
 |---|---|---|---|---|---|---|
 | from_txn_id | uuid | no |  | → txn |  |  |
 | to_txn_id | uuid | no |  | → txn |  |  |
-| kind | text | no |  | reverses, corrects, partially_reverses, refunds, replaces, duplicate_of, confirms |  |  |
+| kind | text | no |  | reverses / corrects / partially_reverses / refunds / replaces / duplicate_of / confirms / follows (a later event that continues an earlier one, e.g. F9 after F8; never a re-posting) |  |  |
 | created_at | timestamp with time zone | no | now() | When the row was created |  |  |
 | created_by | uuid | no |  | User who created the row |  |  |
 
 **Keys and constraints**
 
 - Check: `CHECK ((from_txn_id <> to_txn_id))`
-- Check: `CHECK ((kind = ANY (ARRAY['reverses'::text, 'corrects'::text, 'partially_reverses'::text, 'refunds'::text, 'replaces'::text, 'duplicate_of'::text, 'confirms'::text])))`
+- Check: `CHECK ((kind = ANY (ARRAY['reverses'::text, 'corrects'::text, 'partially_reverses'::text, 'refunds'::text, 'replaces'::text, 'duplicate_of'::text, 'confirms'::text, 'follows'::text])))`
 - Foreign key: `FOREIGN KEY (created_by) REFERENCES finly.app_user(id)`
 - Foreign key: `FOREIGN KEY (from_txn_id) REFERENCES finly.txn(id)`
 - Foreign key: `FOREIGN KEY (to_txn_id) REFERENCES finly.txn(id)`
@@ -4629,7 +4629,7 @@ Configurable transaction types (labels such as Avak/Javak) over fixed engine int
 
 **Keys and constraints**
 
-- Check: `CHECK ((intent_type = ANY (ARRAY['transfer'::text, 'transit_confirm'::text, 'expense'::text, 'bill'::text, 'nonowner_payment'::text, 'income'::text, 'unidentified_receipt'::text, 'advance_give'::text, 'advance_account'::text, 'loan'::text, 'loan_repayment'::text, 'capital_contribution'::text, 'withdrawal'::text, 'interentity_transfer'::text, 'settlement'::text, 'offset'::text, 'opening_balance'::text, 'cash_adjustment'::text, 'allocation_adjustment'::text, 'reversal'::text, 'correction'::text])))`
+- Check: `CHECK ((intent_type = ANY (ARRAY['transfer'::text, 'transit_confirm'::text, 'expense'::text, 'bill'::text, 'nonowner_payment'::text, 'give'::text, 'income'::text, 'unidentified_receipt'::text, 'advance_give'::text, 'advance_account'::text, 'loan'::text, 'loan_repayment'::text, 'capital_contribution'::text, 'withdrawal'::text, 'interentity_transfer'::text, 'settlement'::text, 'offset'::text, 'opening_balance'::text, 'cash_adjustment'::text, 'allocation_adjustment'::text, 'reversal'::text, 'correction'::text])))`
 - Check: `CHECK ((key ~ '^[a-z][a-z0-9_]{0,62}$'::text))`
 - Check: `CHECK (((length(label) >= 1) AND (length(label) <= 80)))`
 - Foreign key: `FOREIGN KEY (created_by) REFERENCES finly.app_user(id)`

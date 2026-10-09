@@ -1,23 +1,28 @@
 /**
- * Non-owner payments (owner F3, RULEBOOK-02 §45–§49, RULEBOOK-03 §72 tests 9–12) and transfers / handovers (F2).
+ * Money given to people outside the firm (RULEBOOK-03 §72 tests 9–12, in the F8/F9 model of GATE-RESPONSE-04) and
+ * transfers / handovers (F2).
  */
 import { assertEquals, assertThrows } from '@std/assert';
 import { FinlyError } from '../../src/domain/errors.ts';
 import { planPosting } from '../../src/domain/engine/plan.ts';
 import { assertLedgerSound, exampleWorld, fund, post } from '../support/world.ts';
 
-Deno.test('acceptance 9: direct + own — firm money deducted now, worker owes the firm', () => {
+// RULEBOOK-03 §72 acceptance tests 9–12, expressed in the F8/F9 model (GATE-RESPONSE-04): the same outcomes, each
+// reached by explicit choices instead of a debt or a merged two-step event being assumed.
+
+Deno.test('acceptance 9: firm money for the worker’s own use, owed back — explicit `repayable`', () => {
   const { w, e, l } = exampleWorld();
   fund(w, e.mint, l.tijori, 50000n);
   post(w, {
-    type: 'nonowner_payment',
-    firmId: e.mint,
-    sourceLocationId: l.tijori,
-    recipientId: e.sujal,
-    route: 'direct',
-    treatment: 'own',
+    type: 'give',
+    giverId: e.mint,
+    giverLocationId: l.tijori,
+    giverSide: 'own',
+    receiverId: e.sujal,
+    receiverSide: 'own',
+    receiverLocationId: l.cashSujal,
+    arrangement: 'repayable',
     amount: 20000n,
-    recipientCashLocationId: l.cashSujal,
   });
   assertEquals(w.moneyAt(l.tijori, e.mint), 30000n);
   assertEquals(w.owed(e.sujal, e.mint), 20000n);
@@ -26,102 +31,87 @@ Deno.test('acceptance 9: direct + own — firm money deducted now, worker owes t
   assertLedgerSound(w);
 });
 
-Deno.test('acceptance 10: direct + expense — final firm expense, nothing owed', () => {
+Deno.test('acceptance 10: a final firm expense paid to the worker — nothing owed', () => {
   const { w, e, l } = exampleWorld();
   fund(w, e.mint, l.tijori, 50000n);
   const plan = planPosting({
-    type: 'nonowner_payment',
-    firmId: e.mint,
-    sourceLocationId: l.tijori,
-    recipientId: e.sujal,
-    route: 'direct',
-    treatment: 'expense',
-    categoryId: w.cat('labour'),
+    type: 'give',
+    giverId: e.mint,
+    giverLocationId: l.tijori,
+    giverSide: 'expense',
+    giverCategoryId: w.cat('labour'),
+    receiverId: e.sujal,
+    receiverSide: 'own',
+    receiverLocationId: l.cashSujal,
+    receiverIncomeCategoryId: w.cat('salary_received'),
+    arrangement: 'none',
     amount: 20000n,
   }, w);
   assertEquals(plan.openItems, []);
-  assertEquals(plan.journals.length, 1);
   w.apply(plan);
   assertEquals(w.balance(e.mint, 'expense'), 20000n);
-  assertEquals(w.trialBalance(e.sujal), { debits: 0n, credits: 0n });
+  assertEquals(w.owed(e.sujal, e.mint), 0n);
+  assertEquals(w.balance(e.sujal, 'revenue'), 20000n, 'the worker records his own side (F9: both sides classify)');
   assertLedgerSound(w);
 });
 
-Deno.test('acceptance 11 (F9): through owner + own — two linked journals; owner owes firm, worker owes owner', () => {
+Deno.test('acceptance 11 (F9 Option A): two separate events — owner owes firm, worker owes owner', () => {
   const { w, e, l } = exampleWorld();
   fund(w, e.mint, l.tijori, 50000n);
-  const plan = planPosting({
-    type: 'nonowner_payment',
-    firmId: e.mint,
-    sourceLocationId: l.tijori,
-    recipientId: e.sujal,
-    route: 'through_owner',
-    ownerId: e.krish,
-    ownerCashLocationId: l.cashKrish,
-    treatment: 'own',
+  const first = planPosting({
+    type: 'give',
+    giverId: e.mint,
+    giverLocationId: l.tijori,
+    giverSide: 'own',
+    receiverId: e.krish,
+    receiverSide: 'own',
+    receiverLocationId: l.cashKrish,
+    arrangement: 'repayable',
     amount: 20000n,
-    recipientCashLocationId: l.cashSujal,
   }, w);
-  assertEquals(new Set(plan.journals.map((j) => j.step)), new Set([1, 2]));
-  w.apply(plan);
+  assertEquals(first.journals.map((j) => j.step), [1, 1], 'one event, one step: never merged with what follows');
+  w.apply(first);
+  post(w, {
+    type: 'give',
+    giverId: e.krish,
+    giverLocationId: l.cashKrish,
+    giverSide: 'own',
+    receiverId: e.sujal,
+    receiverSide: 'own',
+    receiverLocationId: l.cashSujal,
+    arrangement: 'repayable',
+    amount: 20000n,
+  });
   assertEquals(w.moneyAt(l.tijori, e.mint), 30000n);
   assertEquals(w.owed(e.krish, e.mint), 20000n);
   assertEquals(w.owed(e.sujal, e.krish), 20000n);
-  assertEquals(w.balance(e.krish, 'cash', { locationId: l.cashKrish }), 0n, 'passed straight through Krish');
+  assertEquals(w.balance(e.krish, 'cash', { locationId: l.cashKrish }), 0n, 'passed on in full');
   assertLedgerSound(w);
 });
 
-Deno.test('acceptance 12: through owner + expense — custody step then final expense, no settlement', () => {
+Deno.test('acceptance 12 (F9 Option B): the owner only carries firm cash, then the firm pays — no personal entries', () => {
   const { w, e, l } = exampleWorld();
   fund(w, e.mint, l.tijori, 50000n);
+  post(w, { type: 'transfer', entityId: e.mint, fromLocationId: l.tijori, toLocationId: l.cashKrish, amount: 20000n });
   const plan = planPosting({
-    type: 'nonowner_payment',
-    firmId: e.mint,
-    sourceLocationId: l.tijori,
-    recipientId: e.sujal,
-    route: 'through_owner',
-    ownerId: e.krish,
-    ownerCashLocationId: l.cashKrish,
-    treatment: 'expense',
-    categoryId: w.cat('labour'),
+    type: 'give',
+    giverId: e.mint,
+    giverLocationId: l.cashKrish,
+    giverSide: 'expense',
+    giverCategoryId: w.cat('labour'),
+    receiverId: e.sujal,
+    receiverSide: 'own',
+    receiverLocationId: l.cashSujal,
+    receiverIncomeCategoryId: w.cat('salary_received'),
+    arrangement: 'none',
     amount: 20000n,
   }, w);
   assertEquals(plan.openItems, []);
-  assertEquals(plan.journals.length, 2);
   w.apply(plan);
   assertEquals(w.balance(e.mint, 'expense'), 20000n);
   assertEquals(w.moneyAt(l.cashKrish, e.mint), 0n);
   assertEquals(w.trialBalance(e.krish), { debits: 0n, credits: 0n }, "firm money never entered Krish's books");
   assertLedgerSound(w);
-});
-
-Deno.test('non-owner rules: an owner cannot be the recipient; through-owner needs a real owner', () => {
-  const { w, e, l } = exampleWorld();
-  assertThrows(() =>
-    planPosting({
-      type: 'nonowner_payment',
-      firmId: e.mint,
-      sourceLocationId: l.tijori,
-      recipientId: e.krish,
-      route: 'direct',
-      treatment: 'expense',
-      categoryId: w.cat('labour'),
-      amount: 100n,
-    }, w), FinlyError);
-  const err = assertThrows(() =>
-    planPosting({
-      type: 'nonowner_payment',
-      firmId: e.jsk,
-      sourceLocationId: l.tijori,
-      recipientId: e.sujal,
-      route: 'through_owner',
-      ownerId: e.father,
-      ownerCashLocationId: l.cashFather,
-      treatment: 'expense',
-      categoryId: w.cat('labour'),
-      amount: 100n,
-    }, w), FinlyError);
-  assertEquals(err.code, 'NOT_AN_OWNER');
 });
 
 Deno.test('transfer: Tijori → office drawer moves location only; no income or expense', () => {

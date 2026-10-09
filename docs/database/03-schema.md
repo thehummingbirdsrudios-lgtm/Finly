@@ -138,7 +138,7 @@ Every entity the specification lists maps to a table (or, where marked, to a col
 | Projects · Trips / Expense Events · Categories · Expense/Income types · Transaction types · Tags · Statuses · Confidentiality levels | `expense_event` (kinds include project) · `category` (kind) · `txn_type` · `tag`, `txn_tag` · CHECK constraints + `label_override` · `confidentiality_level` |
 | Custom fields · Custom labels · Custom forms + conditional rules | `custom_field_def`, `custom_field_value` · `label_override` · `form_definition` |
 | Master Transactions · Transaction lines · Ledger entries · Posting rules | `txn` · `txn_leg` · `journal`, `journal_line` · `posting_rule_version` |
-| Fund allocations · Allocation adjustments · Expenses · Expense lines · Expense splits | `journal_line.fund_id` · between entities: a `withdrawal` or `interentity_transfer` posted at the same location (AC10 example 7); between funds of one entity: an `allocation_adjustment` intent, schema-ready, engine planned for M7 · `txn` (intent expense) · `txn_leg` (allocation legs) · `txn_leg` amounts |
+| Fund allocations · Allocation adjustments · Expenses · Expense lines · Expense splits | `journal_line.fund_id` · between entities: a `withdrawal` or a `give` posted at the same location (AC10 example 7); between funds of one entity: an `allocation_adjustment` intent, schema-ready, engine planned for M7 · `txn` (intent expense) · `txn_leg` (allocation legs) · `txn_leg` amounts |
 | Advances · Reimbursements · Outstanding · Settlements · Handovers · Opening balances | `open_item` (kind advance) · `open_item` (kind interentity) · `open_item`, `open_item_origin` · `settlement_allocation` · `custody_event` · `txn` (intent opening_balance) + `journal.kind = 'opening'` |
 | Periods · Approvals / workflows / thresholds · Workflow rules | `accounting_period`, `period_close_run` · `approval_rule`, `approval_request` · `approval_rule.steps` |
 | Reconciliation records · Exception findings · Attachments | `reconciliation`, `bank_statement_*` · `exception_finding` · `attachment`, `attachment_link` |
@@ -401,8 +401,8 @@ to in every entity's chart), `managed_in_env_id` (null = global), `sort_order`, 
 
 ### `txn_type` (P, CFG)
 `id`, `key text unique`, `label`, `intent_type text check in` the engine intents (`transfer`, `transit_confirm`,
-`expense`, `bill`, `nonowner_payment`, `income`, `unidentified_receipt`, `advance_give`, `advance_account`, `loan`,
-`loan_repayment`, `capital_contribution`, `withdrawal`, `interentity_transfer`, `settlement`, `offset`,
+`expense`, `bill`, `give` (F8/F9, D-037), `income`, `unidentified_receipt`, `advance_give`, `advance_account`, `loan`,
+`loan_repayment`, `capital_contribution`, `withdrawal`, `settlement`, `offset`, retired: `nonowner_payment`, `interentity_transfer`,
 `opening_balance`, `cash_adjustment`, `allocation_adjustment`, `reversal`, `correction`), `requires_reason bool`,
 `default_confidentiality_level_id`, `form_definition_id`, `sort_order`, [std]. Labels (Avak, Javak…) over fixed
 intents; the intent decides the accounting (AC2, P8).
@@ -613,7 +613,7 @@ posting: one global order of journals.
 | id | uuid | PK | |
 | txn_id | uuid | no | → txn |
 | entity_id | uuid | no | → entity (has books) — whose books |
-| step | smallint | no | 1, 2 … (through-owner flows have two linked steps) |
+| step | smallint | no | 1, 2 … (an event with several stages; separate real-world transactions are separate events linked by `txn_link`, never steps — D-037) |
 | kind | text | no | the engine's `JOURNAL_KINDS`: standard, transfer, settlement, opening, adjusting, closing, reversal, correction (a catalog test keeps them equal) |
 | period_id | uuid | no | → `accounting_period (id, entity_id)` — same entity |
 | value_date | date | no | must fall inside the period |

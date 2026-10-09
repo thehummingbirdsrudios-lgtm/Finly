@@ -177,15 +177,16 @@ Deno.test('only someone with rights to the books can post; a Super Admin role al
 });
 
 function giftToSujal(s: Awaited<ReturnType<typeof setup>>, amount: bigint, giver = s.w.u.krish) {
-  return s.cmd(giver, 'nonowner_payment', {
-    type: 'nonowner_payment',
-    firmId: s.w.e.mint,
-    sourceLocationId: s.w.l.tijori,
-    recipientId: s.w.e.sujal,
-    route: 'direct',
-    treatment: 'own',
+  return s.cmd(giver, 'give', {
+    type: 'give',
+    giverId: s.w.e.mint,
+    giverLocationId: s.w.l.tijori,
+    giverSide: 'own',
+    receiverId: s.w.e.sujal,
+    receiverSide: 'own',
+    receiverLocationId: s.w.l.cashSujal,
+    arrangement: 'repayable',
     amount,
-    recipientCashLocationId: s.w.l.cashSujal,
   }, s.w.e.mint);
 }
 
@@ -258,6 +259,80 @@ Deno.test('a person who chose immediate posting gets the entry at once, with a n
     await count(w, `finly.outbox_event where txn_id = $1 and topic = 'entry.added_to_your_books'`, [r.txnId]),
     1,
   );
+});
+
+Deno.test('F8 then F9 as two events: the second follows the first, posts only itself, each debt recorded once', async () => {
+  const s = await setup();
+  const { w, svc } = s;
+  await s.open(100_000n);
+  // Transaction 1: Mint → its owner Krish, owed back (F8 B). Krish's own books need no acknowledgement.
+  const t1 = await svc.submit(s.cmd(w.u.krish, 'give', {
+    type: 'give',
+    giverId: w.e.mint,
+    giverLocationId: w.l.tijori,
+    giverSide: 'own',
+    receiverId: w.e.krish,
+    receiverSide: 'own',
+    receiverLocationId: w.l.krishBank,
+    arrangement: 'repayable',
+    amount: 20_000n,
+  }, w.e.mint));
+  assertEquals(t1.status, 'posted');
+  const t1Journals = await count(w, `finly.journal where txn_id = $1`, [t1.txnId]);
+  // Transaction 2: Krish → Sujal ₹8,000, owed back to Krish (F9 C2), linked to Transaction 1.
+  const t2 = await svc.submit({
+    ...s.cmd(w.u.krish, 'give', {
+      type: 'give',
+      giverId: w.e.krish,
+      giverLocationId: w.l.krishBank,
+      giverSide: 'own',
+      receiverId: w.e.sujal,
+      receiverSide: 'own',
+      receiverLocationId: w.l.cashSujal,
+      arrangement: 'repayable',
+      amount: 8_000n,
+    }, w.e.krish),
+    followsTxnId: t1.txnId,
+  });
+  assertEquals(t2.status, 'pending_acknowledgement', "Sujal's books wait for Sujal (D-029)");
+  assertEquals((await svc.acknowledge(w.u.sujal, t2.txnId)).status, 'posted');
+  assertEquals(
+    await count(w, `finly.txn_link where from_txn_id = $1 and to_txn_id = $2 and kind = 'follows'`, [
+      t2.txnId,
+      t1.txnId,
+    ]),
+    1,
+  );
+  assertEquals(await count(w, `finly.journal where txn_id = $1`, [t1.txnId]), t1Journals, 'never re-posted');
+  assertEquals(
+    await count(w, `finly.open_item where debtor_entity_id = $1 and creditor_entity_id = $2`, [
+      w.e.krish,
+      w.e.mint,
+    ]),
+    1,
+  );
+  assertEquals(
+    await count(w, `finly.open_item where debtor_entity_id = $1 and creditor_entity_id = $2`, [
+      w.e.sujal,
+      w.e.krish,
+    ]),
+    1,
+  );
+});
+
+Deno.test('a classification that is missing or incoherent is refused before anything is drafted', async () => {
+  const s = await setup();
+  const { w, svc } = s;
+  await s.open(10_000n);
+  const missing = s.cmd(w.u.krish, 'give', {
+    type: 'give',
+    giverId: w.e.mint,
+    giverLocationId: w.l.tijori,
+    receiverId: w.e.krish,
+    amount: 1_000n,
+  }, w.e.mint);
+  assertEquals((await refusal(() => svc.submit(missing))).code, 'CLASSIFICATION_REQUIRED');
+  assertEquals(await count(w, `finly.txn where intent_type = 'give'`), 0);
 });
 
 Deno.test('two spends racing for the same money: exactly one posts', async () => {

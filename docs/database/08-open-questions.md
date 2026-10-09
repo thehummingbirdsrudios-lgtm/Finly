@@ -12,14 +12,16 @@ Nothing here changes an approved accounting rule.
 | Q11 / Q13(b) | **Accounts are created or invited by the Super Admin and activated by the person themself.** Existing books are linked, never duplicated. A one-time activation credential expires (24 h) and dies on use; the person sets their own password and M-PIN on their own phone. **No impersonation:** no path lets an administrator sign in as someone else or act in their name; administrative setup is done with separate tools and recorded under the administrator's identity. Help is a separate, consented, time-limited support grant, fully audited. Nobody can retrieve another person's password, PIN or biometric data | Gate response 03 | `account_activation`, `support_access` (migration 0010); identity service; [SECURITY.md §7](../SECURITY.md) |
 | Q4 + Q3 | **Encryption of amounts:** keep application-level encryption if it proves secure and performant (investigate, benchmark, prove key recovery); a different architecture is authorised only if investigation shows it is impractical, and then without pretending storage encryption is equivalent | Gate response 03 | Investigation and decision: [docs/security/encryption-architecture.md](../security/encryption-architecture.md) |
 | Q14 | **Test against the real PostgreSQL 17.** The owner's machine runs PostgreSQL 17.11 (port 5435) and 18.6 (port 5432); every database test runs on 17.11, the production version, and also on 18.6 and in-process PGlite | Gate response 03 | `deno task test:pg17`, `test:pg18` |
+| F8 / F9 | **Two independent transactions** — firm → owner and owner → anyone — each side classified Own or Expense (eight base scenarios); the repayment arrangement is a separate explicit choice; Option A (two linked debts) and Option B (the receiver owes the firm, the owner only carries the cash) are both supported; never infer a debt or merge the transactions | [Gate response 04](../source/GATE-RESPONSE-04-f8-f9-final.md) | `give` intent, migration 0013, [accounting/F8-F9-model.md](../accounting/F8-F9-model.md), D-037 |
 | — | **Online only:** no local database, no offline mode, no offline transaction queue. Every change is saved to the central database; other users see it in real time or through reliable updates. Network failures are handled by retrying the same request with the same idempotency key | [Add-on 12](../source/ADDON-12-complete-the-app-online-only.md) | D-031; `sync_review` and `txn.client_ref` removed (migration 0010); [06 §6.6](06-transactions-concurrency-sync.md) |
 
 ## Waiting for the owner
 
 | # | Question | Explained in | Applied meanwhile |
 |---|---|---|---|
-| F8 | Firm money pays a personal expense of that firm's owner: withdrawal, or the owner owes the firm? | [F8-F9-explained.md](../F8-F9-explained.md) — recommendation: ask every time, with an optional per-owner pre-selected default | Asked every time |
-| F9 | Through owner + Own: two linked debts (owner owes firm, non-owner owes owner) or one (non-owner owes firm)? | [F8-F9-explained.md](../F8-F9-explained.md) — recommendation: two linked debts | Two linked debts |
+| F8/F9-1 | Scenarios 3 and 4: the owner's side of a firm Expense is recorded as personal income (e.g. remuneration) — confirm | [accounting/F8-F9-model.md §6](../accounting/F8-F9-model.md) | As described |
+| F8/F9-2 | Giver Own without repayment is valid only as drawings or capital; otherwise it is the giver's expense (e.g. a gift) — confirm | same | As described |
+| F8/F9-3 | Should a firm Expense for one owner's benefit need another owner's approval when the firm has several owners? | same | Not enforced (approval rules are configurable) |
 
 ## Recommendations applied (the owner may change any of them later through a normal migration)
 

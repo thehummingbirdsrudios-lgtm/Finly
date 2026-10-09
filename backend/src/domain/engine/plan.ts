@@ -343,90 +343,127 @@ function bill(ctx: EngineContext, it: I.BillIntent): PostingPlan {
   return b.build();
 }
 
-function nonOwnerPayment(ctx: EngineContext, it: I.NonOwnerPaymentIntent): PostingPlan {
+/**
+ * Money given from one entity to another — F8 (firm → owner) and F9 (owner → anyone) alike, as two independent
+ * events (docs/accounting/F8-F9-model.md). The giver's side, the receiver's side and the arrangement are explicit
+ * choices; a missing one is CLASSIFICATION_REQUIRED, an incoherent combination CLASSIFICATION_CONFLICT. Only a
+ * `repayable` arrangement creates a debt.
+ */
+function give(ctx: EngineContext, it: I.GiveIntent): PostingPlan {
   checkRupees(it.amount);
-  const firm = withBooks(ctx, it.firmId);
-  if (firm.kind !== 'firm') fail('VALIDATION', 'Choose the firm whose money is being given.');
-  const recipient = withBooks(ctx, it.recipientId);
-  if (recipient.kind !== 'person') fail('VALIDATION', 'Choose the person who received the money.');
-  if (ctx.isOwner(firm.id, recipient.id)) {
-    fail('VALIDATION', `${recipient.name} is an owner of ${firm.name}; use a withdrawal or an owner expense instead.`);
+  const giver = withBooks(ctx, it.giverId);
+  const receiver = active(ctx, it.receiverId);
+  if (giver.id === receiver.id) fail('SAME_SOURCE_DESTINATION', 'Money is given to someone else.');
+  const books = hasBooks(receiver);
+  const ask = (question: string, message: string): never =>
+    fail('CLASSIFICATION_REQUIRED', message, { question, giverId: giver.id, receiverId: receiver.id });
+  const conflict = (message: string): never => fail('CLASSIFICATION_CONFLICT', message);
+  if (!it.giverSide) ask('giver_side', `Choose how ${giver.name} records this: Own or Expense.`);
+  if (books && !it.receiverSide) ask('receiver_side', `Choose how ${receiver.name} records this: Own or Expense.`);
+  if (!it.arrangement) ask('arrangement', 'Say whether this is owed back, a drawing, capital, or nothing is owed.');
+  const arrangement = it.arrangement!;
+
+  switch (arrangement) {
+    case 'repayable':
+      if (it.giverSide !== 'own') conflict('An amount that is owed back is not spent. Choose Own for the giver.');
+      break;
+    case 'drawings':
+      if (it.giverSide !== 'own') conflict('A drawing is not an expense of the firm. Choose Own for the firm.');
+      if (giver.kind !== 'firm' || receiver.kind !== 'person') {
+        conflict('A drawing is money a firm gives one of its owners.');
+      }
+      if (!ctx.isOwner(giver.id, receiver.id)) {
+        fail('NOT_AN_OWNER', `${receiver.name} is not an owner of ${giver.name}.`, { personId: receiver.id });
+      }
+      break;
+    case 'capital':
+      if (it.giverSide !== 'own') conflict('Capital put into a firm is not an expense. Choose Own for the giver.');
+      if (giver.kind !== 'person' || receiver.kind !== 'firm') conflict('Capital goes from a person to a firm.');
+      if (!ctx.isOwner(receiver.id, giver.id)) {
+        fail('NOT_AN_OWNER', `${giver.name} is not an owner of ${receiver.name}.`, { personId: giver.id });
+      }
+      break;
+    case 'none':
+      if (it.giverSide !== 'expense') {
+        conflict(
+          `If nothing is owed back, ${giver.name} has spent this money: choose Expense, ` +
+            'or say whether it is owed back, a drawing or capital.',
+        );
+      }
+      break;
   }
-  if (it.treatment === 'expense' && !it.categoryId) fail('VALIDATION', 'Choose what kind of expense this is.');
-  if (it.treatment === 'own' && !it.recipientCashLocationId) {
-    fail('VALIDATION', `Choose where ${recipient.name} keeps this money.`);
-  }
+
   const b = new PlanBuilder(ctx);
-  const f = it.fundId;
+  const gf = it.giverFundId;
+  const rf = it.receiverFundId;
 
-  if (it.route === 'direct') {
-    if (it.treatment === 'expense') {
-      b.category(firm.id, it.categoryId!, 'expense', 'Dr', it.amount, f);
-      b.money(firm.id, it.sourceLocationId, 'Cr', it.amount, f);
+  // The giver's books: the money leaves, and what it became.
+  b.leg = { kind: 'source', index: 0 };
+  switch (arrangement) {
+    case 'repayable':
+      b.party(giver.id, 'interentity_receivable', receiver.id, 'Dr', it.amount, gf);
+      break;
+    case 'drawings':
+      b.party(giver.id, 'owner_drawings', receiver.id, 'Dr', it.amount, gf);
+      break;
+    case 'capital':
+      b.party(giver.id, 'investment_in_firms', receiver.id, 'Dr', it.amount, gf);
+      break;
+    case 'none':
+      if (!it.giverCategoryId) ask('giver_category', `Choose what kind of expense this is for ${giver.name}.`);
+      b.category(giver.id, it.giverCategoryId!, 'expense', 'Dr', it.amount, gf);
+      break;
+  }
+  b.money(giver.id, it.giverLocationId, 'Cr', it.amount, gf);
+
+  // The receiver's books, when it keeps any: where the money went, and what it is to them.
+  if (books) {
+    if (it.receiverSide === 'own') {
+      b.leg = { kind: 'destination', index: 0 };
+      if (!it.receiverLocationId) ask('receiver_location', `Choose where ${receiver.name} received the money.`);
+      b.money(receiver.id, it.receiverLocationId!, 'Dr', it.amount, rf);
     } else {
-      b.party(firm.id, 'interentity_receivable', recipient.id, 'Dr', it.amount, f);
-      b.money(firm.id, it.sourceLocationId, 'Cr', it.amount, f);
-      b.money(recipient.id, it.recipientCashLocationId!, 'Dr', it.amount);
-      b.party(recipient.id, 'interentity_payable', firm.id, 'Cr', it.amount);
-      b.owe(
-        'interentity',
-        recipient.id,
-        firm.id,
-        it.amount,
-        `${firm.name} gave ${recipient.name} money for own use`,
-        'interentity_payable',
-        'interentity_receivable',
-        { creditor: f },
-      );
+      b.leg = { kind: 'allocation', index: 0 };
+      if (it.receiverLocationId) {
+        conflict(`An expense of ${receiver.name} is spent, not kept: leave out where it was received, or choose Own.`);
+      }
+      if (!it.receiverExpenseCategoryId) {
+        ask('receiver_category', `Choose what kind of expense this is for ${receiver.name}.`);
+      }
+      b.category(receiver.id, it.receiverExpenseCategoryId!, 'expense', 'Dr', it.amount, rf);
     }
-    return b.build();
+    switch (arrangement) {
+      case 'repayable':
+        b.party(receiver.id, 'interentity_payable', giver.id, 'Cr', it.amount, rf);
+        break;
+      case 'drawings':
+        b.party(receiver.id, 'investment_in_firms', giver.id, 'Cr', it.amount, rf);
+        break;
+      case 'capital':
+        b.party(receiver.id, 'owner_capital', giver.id, 'Cr', it.amount, rf);
+        break;
+      case 'none':
+        if (!it.receiverIncomeCategoryId) {
+          ask('receiver_income_category', `Choose how ${receiver.name} records receiving this (an income category).`);
+        }
+        b.category(receiver.id, it.receiverIncomeCategoryId!, 'income', 'Cr', it.amount, rf);
+        break;
+    }
   }
+  b.leg = undefined;
 
-  // Through owner: two linked steps.
-  if (!it.ownerId) fail('OWNER_REQUIRED', 'Choose the owner the money passed through.');
-  const owner = withBooks(ctx, it.ownerId);
-  if (!ctx.isOwner(firm.id, owner.id)) {
-    fail('NOT_AN_OWNER', `${owner.name} is not an owner of ${firm.name}.`, { ownerId: owner.id });
+  if (arrangement === 'repayable') {
+    b.owe(
+      'interentity',
+      receiver.id,
+      giver.id,
+      it.amount,
+      `${giver.name} gave ${receiver.name} money to be paid back`,
+      books ? 'interentity_payable' : undefined,
+      'interentity_receivable',
+      { debtor: rf, creditor: gf },
+    );
   }
-  if (!it.ownerCashLocationId) fail('VALIDATION', `Choose where ${owner.name} held the money.`);
-
-  if (it.treatment === 'expense') {
-    // Step 1: firm money moves into the owner's custody (still the firm's money). Step 2: the owner pays it out.
-    b.money(firm.id, it.ownerCashLocationId, 'Dr', it.amount, f, 1);
-    b.money(firm.id, it.sourceLocationId, 'Cr', it.amount, f, 1);
-    b.category(firm.id, it.categoryId!, 'expense', 'Dr', it.amount, f, undefined, 2);
-    b.money(firm.id, it.ownerCashLocationId, 'Cr', it.amount, f, 2);
-    return b.build();
-  }
-
-  // Own: the owner owes the firm (step 1); the recipient owes the owner (step 2) — F9 interpretation.
-  b.party(firm.id, 'interentity_receivable', owner.id, 'Dr', it.amount, f, 1);
-  b.money(firm.id, it.sourceLocationId, 'Cr', it.amount, f, 1);
-  b.money(owner.id, it.ownerCashLocationId, 'Dr', it.amount, undefined, 1);
-  b.party(owner.id, 'interentity_payable', firm.id, 'Cr', it.amount, undefined, 1);
-  b.party(owner.id, 'interentity_receivable', recipient.id, 'Dr', it.amount, undefined, 2);
-  b.money(owner.id, it.ownerCashLocationId, 'Cr', it.amount, undefined, 2);
-  b.money(recipient.id, it.recipientCashLocationId!, 'Dr', it.amount, undefined, 2);
-  b.party(recipient.id, 'interentity_payable', owner.id, 'Cr', it.amount, undefined, 2);
-  b.owe(
-    'interentity',
-    owner.id,
-    firm.id,
-    it.amount,
-    `${firm.name} money taken by ${owner.name} for ${recipient.name}`,
-    'interentity_payable',
-    'interentity_receivable',
-    { creditor: f },
-  );
-  b.owe(
-    'interentity',
-    recipient.id,
-    owner.id,
-    it.amount,
-    `${owner.name} gave ${recipient.name} money for own use`,
-    'interentity_payable',
-    'interentity_receivable',
-  );
   return b.build();
 }
 
@@ -626,55 +663,34 @@ function interestCategory(ctx: EngineContext, _entityId: Id, kind: 'expense' | '
   return kind === 'expense' ? ctx.categoryByKey('interest_paid').id : ctx.categoryByKey('interest').id;
 }
 
+/** Capital put into a firm by one of its owners: `give` with both sides Own and the `capital` arrangement. */
 function capital(ctx: EngineContext, it: I.CapitalIntent): PostingPlan {
-  checkRupees(it.amount);
-  const person = withBooks(ctx, it.personId);
-  const firm = withBooks(ctx, it.firmId);
-  if (person.kind !== 'person' || firm.kind !== 'firm') fail('VALIDATION', 'Capital goes from a person to a firm.');
-  const b = new PlanBuilder(ctx);
-  b.party(person.id, 'investment_in_firms', firm.id, 'Dr', it.amount);
-  b.money(person.id, it.personLocationId, 'Cr', it.amount);
-  b.money(firm.id, it.firmLocationId, 'Dr', it.amount);
-  b.party(firm.id, 'owner_capital', person.id, 'Cr', it.amount);
-  return b.build();
+  return give(ctx, {
+    type: 'give',
+    giverId: it.personId,
+    giverLocationId: it.personLocationId,
+    giverSide: 'own',
+    receiverId: it.firmId,
+    receiverSide: 'own',
+    receiverLocationId: it.firmLocationId,
+    arrangement: 'capital',
+    amount: it.amount,
+  });
 }
 
+/** An owner's withdrawal (F8 A): `give` from the firm with both sides Own and the `drawings` arrangement. */
 function withdrawal(ctx: EngineContext, it: I.WithdrawalIntent): PostingPlan {
-  checkRupees(it.amount);
-  const firm = withBooks(ctx, it.firmId);
-  const person = withBooks(ctx, it.personId);
-  if (!ctx.isOwner(firm.id, person.id)) {
-    fail('NOT_AN_OWNER', `${person.name} is not an owner of ${firm.name}.`, { personId: person.id });
-  }
-  const b = new PlanBuilder(ctx);
-  b.party(firm.id, 'owner_drawings', person.id, 'Dr', it.amount);
-  b.money(firm.id, it.firmLocationId, 'Cr', it.amount);
-  b.money(person.id, it.personLocationId, 'Dr', it.amount);
-  b.party(person.id, 'investment_in_firms', firm.id, 'Cr', it.amount);
-  return b.build();
-}
-
-function interEntityTransfer(ctx: EngineContext, it: I.InterEntityTransferIntent): PostingPlan {
-  checkRupees(it.amount);
-  const from = withBooks(ctx, it.from.entityId);
-  const to = withBooks(ctx, it.to.entityId);
-  if (from.id === to.id) fail('SAME_SOURCE_DESTINATION', 'Use a transfer to move money within one entity.');
-  const b = new PlanBuilder(ctx);
-  b.party(from.id, 'interentity_receivable', to.id, 'Dr', it.amount, it.from.fundId);
-  b.money(from.id, it.from.locationId, 'Cr', it.amount, it.from.fundId);
-  b.money(to.id, it.to.locationId, 'Dr', it.amount, it.to.fundId);
-  b.party(to.id, 'interentity_payable', from.id, 'Cr', it.amount, it.to.fundId);
-  b.owe(
-    'interentity',
-    to.id,
-    from.id,
-    it.amount,
-    `${from.name} transferred money to ${to.name}`,
-    'interentity_payable',
-    'interentity_receivable',
-    { debtor: it.to.fundId, creditor: it.from.fundId },
-  );
-  return b.build();
+  return give(ctx, {
+    type: 'give',
+    giverId: it.firmId,
+    giverLocationId: it.firmLocationId,
+    giverSide: 'own',
+    receiverId: it.personId,
+    receiverSide: 'own',
+    receiverLocationId: it.personLocationId,
+    arrangement: 'drawings',
+    amount: it.amount,
+  });
 }
 
 function settlement(ctx: EngineContext, it: I.SettlementIntent): PostingPlan {
@@ -791,8 +807,8 @@ export function planPosting(intent: I.Intent, ctx: EngineContext): PostingPlan {
       return expense(ctx, intent);
     case 'bill':
       return bill(ctx, intent);
-    case 'nonowner_payment':
-      return nonOwnerPayment(ctx, intent);
+    case 'give':
+      return give(ctx, intent);
     case 'income':
       return income(ctx, intent);
     case 'unidentified_receipt':
@@ -809,8 +825,6 @@ export function planPosting(intent: I.Intent, ctx: EngineContext): PostingPlan {
       return capital(ctx, intent);
     case 'withdrawal':
       return withdrawal(ctx, intent);
-    case 'interentity_transfer':
-      return interEntityTransfer(ctx, intent);
     case 'settlement':
       return settlement(ctx, intent);
     case 'offset':

@@ -59,23 +59,33 @@ export interface BillIntent {
   lines: { categoryId: Id; amount: Rupees; fundId?: Id; projectId?: Id }[];
 }
 
-export interface NonOwnerPaymentIntent {
-  type: 'nonowner_payment';
-  firmId: Id;
-  sourceLocationId: Id;
-  recipientId: Id;
-  route: 'direct' | 'through_owner';
-  treatment: 'own' | 'expense';
+/**
+ * Money given from one entity to another (F8 firm → owner, F9 owner → anyone; docs/accounting/F8-F9-model.md). Each
+ * side's treatment and the repayment arrangement are explicit; nothing is inferred from the parties or the amount.
+ */
+export interface GiveIntent {
+  type: 'give';
+  giverId: Id;
+  /** The giver's place the money leaves from. */
+  giverLocationId: Id;
+  giverFundId?: Id;
+  /** `expense`: spent for good in the giver's books. `own`: still the giver's value (owed back, drawings, capital). */
+  giverSide?: 'own' | 'expense';
+  /** The giver's expense category (giverSide = expense). */
+  giverCategoryId?: Id;
+  receiverId: Id;
+  /** Required when the receiver keeps books: `own` = the money arrives in a place; `expense` = spent on its expense. */
+  receiverSide?: 'own' | 'expense';
+  /** Where the money arrives (receiverSide = own). */
+  receiverLocationId?: Id;
+  receiverFundId?: Id;
+  /** The receiver's expense category (receiverSide = expense). */
+  receiverExpenseCategoryId?: Id;
+  /** The receiver's income category (arrangement = none). */
+  receiverIncomeCategoryId?: Id;
+  /** Who owes whom, recorded separately from the two sides (GATE-RESPONSE-04 §2, §4). */
+  arrangement?: 'repayable' | 'drawings' | 'capital' | 'none';
   amount: Rupees;
-  /** Required for treatment = expense. */
-  categoryId?: Id;
-  /** Required for route = through_owner. */
-  ownerId?: Id;
-  /** The owner's cash-in-hand location (through owner). */
-  ownerCashLocationId?: Id;
-  /** The recipient's cash-in-hand location (treatment = own). */
-  recipientCashLocationId?: Id;
-  fundId?: Id;
 }
 
 export interface IncomeIntent {
@@ -150,13 +160,6 @@ export interface WithdrawalIntent {
   personLocationId: Id;
 }
 
-export interface InterEntityTransferIntent {
-  type: 'interentity_transfer';
-  from: MoneyAt;
-  to: MoneyAt;
-  amount: Rupees;
-}
-
 export interface SettlementIntent {
   type: 'settlement';
   payerId: Id;
@@ -195,7 +198,7 @@ export type Intent =
   | TransitConfirmIntent
   | ExpenseIntent
   | BillIntent
-  | NonOwnerPaymentIntent
+  | GiveIntent
   | IncomeIntent
   | UnidentifiedReceiptIntent
   | AdvanceGiveIntent
@@ -204,7 +207,6 @@ export type Intent =
   | LoanRepaymentIntent
   | CapitalIntent
   | WithdrawalIntent
-  | InterEntityTransferIntent
   | SettlementIntent
   | OffsetIntent
   | OpeningBalanceIntent

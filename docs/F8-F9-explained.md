@@ -1,5 +1,9 @@
 # F8 and F9 — explained for the owner's decision
 
+> **Answered on 2026-10-09** — see [GATE-RESPONSE-04](source/GATE-RESPONSE-04-f8-f9-final.md); the model now
+> implemented is [accounting/F8-F9-model.md](accounting/F8-F9-model.md) (D-037). This page is kept as the record of
+> the question.
+
 Requested in [gate response 03](source/GATE-RESPONSE-03-decisions-q1-q3-postgres.md) (Q4). Nothing here changes an
 accounting rule: until the owner decides, the engine keeps the behaviour marked *applied meanwhile*. Notation:
 `[Mint] Dr X / Cr Y ₹n` means a debit and a credit in Mint's books. Every example uses whole rupees.

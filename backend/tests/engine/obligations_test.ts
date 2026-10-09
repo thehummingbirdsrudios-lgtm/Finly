@@ -287,13 +287,18 @@ Deno.test('settlement: overpaying an item, or paying the wrong party, is refused
   assertEquals(wrong.code, 'SETTLEMENT_PARTY_MISMATCH');
 });
 
-Deno.test('inter-entity transfer is never an expense or income: it creates a due between them', () => {
+Deno.test('money lent between firms is never an expense or income: an explicit repayable creates the due', () => {
   const { w, e, l } = exampleWorld();
   fund(w, e.jsk, l.hdfc, 100000n);
   post(w, {
-    type: 'interentity_transfer',
-    from: { entityId: e.jsk, locationId: l.hdfc },
-    to: { entityId: e.mint, locationId: l.savanBank },
+    type: 'give',
+    giverId: e.jsk,
+    giverLocationId: l.hdfc,
+    giverSide: 'own',
+    receiverId: e.mint,
+    receiverSide: 'own',
+    receiverLocationId: l.savanBank,
+    arrangement: 'repayable',
     amount: 50000n,
   });
   assertEquals(w.balance(e.jsk, 'expense'), 0n);

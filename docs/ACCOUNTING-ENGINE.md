@@ -100,23 +100,19 @@ intent is rejected; nothing is guessed. Each allocation is matched to the fundin
 | P = O | `[O] Dr Expense(c) / Cr Cash(loc) a` |
 | P ≠ O, general (firm↔firm, person pays firm, firm pays another entity's expense) | `[O] Dr Expense(c) / Cr Inter-entity payable(cp P) a` · `[P] Dr Inter-entity receivable(cp O) / Cr Cash(loc) a` · open item: O owes P |
 | P is a firm, O is a person who **owns** P (owner's personal expense from firm money) | classification **asked every time** (F8): *withdrawal* → `[P] Dr Owner drawings(cp O) / Cr Cash(loc)` · `[O] Dr Expense(c) / Cr Investment in firms(cp P)`; *owner owes firm* → general case (open item) |
-| P is a firm, O is a non-owner person | handled by §5.3 (the non-owner questions) |
+| P is a firm, O is a non-owner person | a `give` (§5.3) with explicit treatments, or this general case when the person owes the firm for the expense |
 
 Unpaid bill (accrual, F4): the funding source is *Supplier payable (cp party)* instead of cash: `[O] Dr Expense(c) /
 Cr Supplier payable(cp S)`; open item O owes S. Paying it later is a settlement (§5.7) and never a second expense (§113).
 
-### 5.3 Money given to a non-owner (owner, F3 — asked every time, no default)
-Questions: **How?** Directly from firm / Through owner. **What?** Own-personal / Expense. F = firm, W = owner,
-N = non-owner person, loc = firm's source location.
-
-| How + What | Postings | Settlement |
-|---|---|---|
-| Direct + Own | `[F] Dr Inter-entity receivable(cp N) / Cr Cash(loc)` · `[N] Dr Cash(loc=cash with N) / Cr Inter-entity payable(cp F)` | N owes F (open) |
-| Direct + Expense | `[F] Dr Expense(c) / Cr Cash(loc)` | none — final |
-| Through owner + Own | journal 1: `[F] Dr Inter-entity receivable(cp W) / Cr Cash(loc)` · `[W] Dr Cash(cash with W) / Cr Inter-entity payable(cp F)`; journal 2: `[W] Dr Inter-entity receivable(cp N) / Cr Cash(cash with W)` · `[N] Dr Cash(cash with N) / Cr Inter-entity payable(cp W)` | W owes F; N owes W (**F9 — interpretation, flagged**) |
-| Through owner + Expense | journal 1: `[F] Dr Cash(cash with W) / Cr Cash(loc)`; journal 2: `[F] Dr Expense(c) / Cr Cash(cash with W)` | none — final |
-
-Own/Personal is a real deduction posted immediately and settled later; Expense is final (RULEBOOK-02 §43–49).
+### 5.3 Money given between entities — F8 and F9 (owner's decision, D-037)
+Firm → owner (F8) and owner → anyone (F9) are **two separate events**, both the `give` intent. Each states the
+giver's side (Own/Expense), the receiver's side (Own/Expense, when it keeps books) and the arrangement
+(`repayable`, `drawings`, `capital`, `none`); none is ever inferred, and only `repayable` creates a debt. The full
+journal-entry matrix — the eight scenarios, F8 A/B/C, F9 C1/C2 and repayment Options A/B — is in
+[accounting/F8-F9-model.md](accounting/F8-F9-model.md). `withdrawal` (F8 A) and `capital_contribution` are fixed
+shortcuts of the same planner. The earlier `nonowner_payment` and `interentity_transfer` intents assumed a debt
+whenever money moved and are retired (migration 0013).
 
 ### 5.4 Income
 Receiver = owner: `[R] Dr Cash(loc) / Cr Revenue(c)`. On credit: `[R] Dr Customer receivable(cp party) / Cr Revenue(c)`.

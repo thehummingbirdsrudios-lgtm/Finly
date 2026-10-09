@@ -51,6 +51,11 @@ export interface SubmitCommand {
   primaryEnvId: Id;
   reason?: string;
   deviceId?: Id;
+  /**
+   * An earlier posted event this one continues (F9 after F8): recorded as a `follows` link for traceability. The
+   * earlier event is never re-posted and its amounts are not reused.
+   */
+  followsTxnId?: Id;
 }
 
 export interface PostingResult {
@@ -97,6 +102,7 @@ export class PostingService {
       date: cmd.valueDate,
       env: cmd.primaryEnvId,
       reason: cmd.reason ?? null,
+      follows: cmd.followsTxnId ?? null,
     });
     return new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)));
   }
@@ -201,6 +207,16 @@ export class PostingService {
       );
     }
     await this.writeLegs(tx, txnId, plan);
+    if (cmd.followsTxnId) {
+      const [earlier] = await tx.query<{ status: string }>(`select status from finly.txn where id = $1`, [
+        cmd.followsTxnId,
+      ]);
+      if (earlier?.status !== 'posted') fail('VALIDATION', 'The earlier entry this continues must be posted.');
+      await tx.query(
+        `insert into finly.txn_link (from_txn_id, to_txn_id, kind, created_by) values ($1, $2, 'follows', $3)`,
+        [txnId, cmd.followsTxnId, cmd.actorUserId],
+      );
+    }
     await tx.query(
       `update finly.idempotency_record set result_type = 'txn', result_id = $3 where user_id = $1 and key = $2`,
       [cmd.actorUserId, cmd.idempotencyKey, txnId],
@@ -521,6 +537,7 @@ export function httpStatus(code: ErrorCode): number {
     case 'DIMENSION_MISSING':
     case 'SAME_SOURCE_DESTINATION':
     case 'CLASSIFICATION_REQUIRED':
+    case 'CLASSIFICATION_CONFLICT':
     case 'NOT_AN_OWNER':
     case 'OWNER_REQUIRED':
     case 'SETTLEMENT_PARTY_MISMATCH':
