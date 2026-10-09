@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Finly is online only (D-031): every screen talks to the API over HTTPS. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="finly"
+        android:label="Finly"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
