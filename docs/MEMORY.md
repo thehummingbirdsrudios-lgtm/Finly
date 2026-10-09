@@ -5,10 +5,12 @@ Running context between sessions. Newest entries first in §3. Read with [TASKS.
 ## 1. Where we are
 
 - **Milestones:** M0 done; Gates 1 and 2 resolved (D-013..D-018, D-021); the accounting engine is built and tested
-  (`backend/src/domain/engine`, 49 tests); **M1 database: design and implementation done** — 96 tables, 10 migrations,
-  generated data dictionary ([docs/database/](database/README.md), D-025..D-035). Owner decided Q1 (acknowledgement,
-  D-029), Q2 (keep amount encryption, D-033), Q3 (activation by the person, D-030), online only (D-031). **Waiting for
-  the owner:** F8 and F9 ([F8-F9-explained.md](F8-F9-explained.md)).
+  (`backend/src/domain/engine`, 63 tests); **M1 database done** — 98 tables, migrations 0001–0013, deployed to the
+  Supabase project `finly` (D-034, D-036). **Posting service done** (`backend/src/app/posting/`). Owner decided Q1
+  (D-029), Q2 (D-033), Q3 (D-030), online only (D-031), **F8/F9 (D-037, `give` intent)**. Three F8/F9 interpretation
+  points await confirmation ([accounting/F8-F9-model.md §6](accounting/F8-F9-model.md)).
+- **Big next item:** add-ons 17/18 redesign authorisation (ownership ≠ partnership ≠ creator ≠ membership ≠ role ≠
+  permission; entity hierarchy; custom role builder; delegation). Gap analysis and migration plan first.
 - **Branches:** work on `feat/database`; `main` is fast-forwarded after each verified milestone. Remote `origin` =
   github.com/thehummingbirdsrudios-lgtm/Finly (public). **Nothing pushed yet:** this PC's saved GitHub credentials belong
   to another account (TheDevKriish → 403); the owner signs in and runs `git push -u origin main`.
@@ -63,6 +65,18 @@ original expense. How each entity's share is broken down by category is an open 
 **Ambiguities found:** see [DECISIONS.md](DECISIONS.md), Accounting Model Record revision 2 — F1 (Angadiya category split) and flags F2–F7.
 
 ## 3. Session log
+
+### 2026-10-09 — Session 5
+
+- Posting service built and tested on PGlite, PostgreSQL 17.11 and 18.6 (idempotent two-transaction posting, global
+  lock order, acknowledgement flow, outbox). Found and fixed: PGlite stored bytes bound to bytea-domain columns as
+  text (adapter serializers + regression test); audit commit checks failed for rows written in a savepoint
+  (`audit_log.written_xid`, 0012); outbox insert needed SELECT for a conflict target; postgres.js double-encoded a
+  jsonb string parameter.
+- Owner answered F8/F9 (GATE-RESPONSE-04) → `give` intent, eight scenarios, Options A/B; retired the two intents that
+  assumed debts (0013). Add-ons 16 (universal accounting), 17 (hierarchy, custom roles) and 18 (ownership,
+  partnership, permission engine) recorded verbatim.
+- Deployed 0012–0013 to Supabase; fingerprint `6b396daa…` identical on three channels.
 
 ### 2026-10-09 — Session 4
 
@@ -131,10 +145,11 @@ original expense. How each entity's share is broken down by category is an open 
 
 ## 5. Next steps
 
-0. ~~Deploy to Supabase~~ — done (0001–0011, D-036). Next: architecture/dependency map and import-boundary tests
-   (add-on 15); CI workflow with a PostgreSQL 17 service; query benchmark on PostgreSQL 17.
-1. Persistence: posting service (lock protocol of docs/database/06 §6.2, acknowledgement flow 06 §6.7), encryption
-   and blind-index service (HKDF keys, D-026), audit and journal hash chains, Integrity Verifier.
+0. Authorisation redesign for add-ons 17/18: gap analysis of the current model (env_access, entity_membership with
+   engine_role, global roles + user_role.scope_entity_id, access_rule), target model, safe migration plan; then
+   migrations, policy engine and tests.
+1. Edge-case catalogue of add-on 16 mapped to engine/service behaviour and tests; Integrity Verifier; reversal and
+   correction service; settlement service; approval flow.
 2. Identity service (Argon2id, sessions, devices, M-PIN, TOTP) and the versioned HTTP API with the policy engine.
 3. Flutter app: theme from tokens, startup and sign-in flows, quick entry, activity, balances, outstanding.
 4. M2 design-system revision (add-ons 08, 09), UX blueprint, master edge-case matrix → Gate 4.

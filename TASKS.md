@@ -29,6 +29,9 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · ⛔ gate
   dictionary) — 40 tests; generated [data dictionary](docs/database/DATA-DICTIONARY.md)
 - [x] Database suite on real PostgreSQL 17.11 and 18.6 (D-032): 52/52 each, including 5 two-connection concurrency tests and the dump/restore recovery drill
 - [ ] Query benchmark (`db:bench`) on PostgreSQL 17
+- [x] F8/F9 decided (D-037): `give` intent, eight scenarios, Options A/B, migration 0013, 17 tests
+- [ ] Authorisation redesign (add-ons 17/18): gap analysis → target model → migrations → policy engine → tests
+- [ ] Add-on 16 edge-case catalogue mapped to tests; Integrity Verifier; reversal/correction; settlement; approvals
 - [x] CI workflow `.github/workflows/backend.yml` (PGlite gate + database suite on PostgreSQL 17.11 and 18.6 services, actions pinned to SHAs) — **not yet run**: needs the repository pushed
 - ⛔ **Gate 3 — database schema** delivered as documents (D-019, D-025); Q1–Q3 decided by the owner (D-029, D-030, D-033); F8, F9 await the owner
 

@@ -64,6 +64,7 @@ deno task test:pg17              # real PostgreSQL 17.11, incl. concurrency and 
 |---|---|---|---|
 | 2026-10-09 | 0001–0010 (3.1 s) | `875116566578705a8ea4942c88a53cfa` | security: 18 functions with mutable search_path, 1 duplicate permissive policy → fixed by 0011 |
 | 2026-10-09 | 0011 (0.3 s) | `16afa4016ae83becdc2b6d92515e0af8` | security: only the intentional INFO; performance: unindexed foreign keys (INFO, deliberate — docs/database/04 §4.2 rule 7) and unused indexes (empty database) |
+| 2026-10-09 | 0012, 0013 (1.0 s) | `6b396daa4c3cbb1a7d362a90faff04c5` | security: only the intentional INFO |
 
 ## 5. Open items
 
