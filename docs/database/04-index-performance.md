@@ -35,10 +35,11 @@ most one page of rows or a few hundred balance slices — never "all lines" (Edg
 5. **No materialised views over financial data.** Amounts are encrypted and every result is permission-scoped, so a
    shared precomputed view would either be useless (ciphertext) or leak across scopes. The encrypted snapshots are
    the precomputation, kept exact in the posting transaction.
-6. **No shared caches across permission scopes** (O). The phone keeps its own authorised results in its encrypted local
-   database; master data uses ETags derived from the newest `change_xid`.
+6. **No shared caches across permission scopes** (O). The phone holds its own authorised results in memory only —
+   there is no local database (online only, D-031); master data uses ETags derived from the newest `change_xid`.
 7. Foreign keys are indexed when a query or a parent-side check needs it. Parent rows are never deleted (archive
-   policy), so cascades never need child indexes.
+   policy), so cascades never need child indexes. Supabase's advisor lists the deliberately unindexed foreign keys
+   (mostly `created_by`/`granted_by`-style audit columns) as INFO; the benchmark below decides any additions.
 
 ## 4.3 Query → index → benefit
 

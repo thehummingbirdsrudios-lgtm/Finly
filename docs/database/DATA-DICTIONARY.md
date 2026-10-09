@@ -1693,8 +1693,10 @@ Owner / partner / staff relationships over time. The engine's "owner of the firm
 
 **Row-level security policies**
 
+- entity_membership_api_delete: DELETE for finly_api
+- entity_membership_api_insert: INSERT for finly_api
 - entity_membership_api_read: SELECT for finly_api
-- entity_membership_api_write: ALL for finly_api
+- entity_membership_api_update: UPDATE for finly_api
 - entity_membership_system_read: SELECT for finly_system
 
 ## `entity_type`
@@ -3620,7 +3622,7 @@ Role -> permission with explicit allow or deny (deny wins, L8).
 
 ## `schema_migration`
 
-
+Applied migrations with their checksums (D-027). Row-level security is on with no policy on purpose: only the owner role reads it.
 
 **Lifecycle:** see 01 §1.8.
 

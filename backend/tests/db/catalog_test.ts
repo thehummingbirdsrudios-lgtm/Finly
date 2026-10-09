@@ -122,3 +122,27 @@ Deno.test("database kind lists equal the engine's (journal kinds, open items, se
 Deno.test('the committed data dictionary matches the schema (run `deno task db:dictionary` after a migration)', async () => {
   assertEquals(await renderDictionary(), await Deno.readTextFile(DICTIONARY_FILE));
 });
+
+Deno.test('every function pins its search_path (Supabase advisor 0011: no role-mutable search_path)', async () => {
+  const loose = await rows<{ fn: string }>(
+    `select p.oid::regprocedure::text as fn from pg_proc p
+     where p.pronamespace = 'finly'::regnamespace
+       and not exists (select 1 from unnest(coalesce(p.proconfig, '{}')) c where c like 'search_path=%')
+     order by 1`,
+  );
+  assertEquals(loose, []);
+});
+
+Deno.test('no table has two permissive policies for the same role and command (each row checked once)', async () => {
+  const doubled = await rows<{ t: string; role: string; cmd: string; n: number }>(
+    // Cross product of roles × commands (two unnests in one select list would pair them up instead).
+    `select p.tablename as t, r.role, c.cmd, count(*)::int as n
+     from pg_policies p
+     cross join lateral unnest(p.roles) as r(role)
+     cross join lateral unnest(case p.cmd when 'ALL' then array['SELECT', 'INSERT', 'UPDATE', 'DELETE']
+                                          else array[p.cmd] end) as c(cmd)
+     where p.schemaname = 'finly' and p.permissive = 'PERMISSIVE'
+     group by 1, 2, 3 having count(*) > 1 order by 1, 2, 3`,
+  );
+  assertEquals(doubled, []);
+});
