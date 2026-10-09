@@ -4,6 +4,7 @@
  * reuse detection, sign-out and session revocation, and that no secret is ever stored or returned in readable form.
  */
 import { assert, assertEquals, assertNotEquals, assertRejects } from '@std/assert';
+import { BlindIndex } from '../../src/crypto/blind.ts';
 import { KeyRing, StaticKekSource } from '../../src/crypto/keys.ts';
 import { TokenSigner } from '../../src/crypto/token.ts';
 import { type DeviceInfo, IdentityService } from '../../src/app/identity/service.ts';
@@ -18,7 +19,7 @@ async function setup() {
   const w = await dbWorld();
   const ring = new KeyRing(new StaticKekSource(new Map([[1, crypto.getRandomValues(new Uint8Array(32))]]), 1));
   const signer = new TokenSigner(ring);
-  const ids = new IdentityService(w.db.port!, signer);
+  const ids = new IdentityService(w.db.port!, signer, new BlindIndex(ring));
   const username = `user${crypto.randomUUID().slice(0, 8)}`;
   const created = await ids.createUser({
     username,

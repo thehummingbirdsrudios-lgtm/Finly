@@ -3,7 +3,7 @@
  * architecture test (tests/architecture/boundaries_test.ts) and the generated map (docs/architecture/module-map.md),
  * so the documented dependency graph cannot drift from the code.
  *
- * Direction: http → app → domain; app → crypto, db (through ports); nothing imports http or app from below.
+ * Direction: main → http → app → domain; app → crypto, db (through ports); nothing imports main, http or app from below.
  */
 
 export interface Layer {
@@ -47,6 +47,13 @@ export const LAYERS: Layer[] = [
     purpose: 'Application services (posting, identity, policy): one use case per transaction, through ports',
     may: ['src/domain/', 'src/crypto/', 'src/db/sql.ts'],
     external: [],
+  },
+  {
+    name: 'main',
+    path: 'src/main/',
+    purpose: 'Composition root: configuration, connections, keys and the services wired together; process entry points',
+    may: ['src/app/', 'src/crypto/', 'src/db/', 'src/domain/', 'src/http/'],
+    external: ['postgres'],
   },
   {
     name: 'http',

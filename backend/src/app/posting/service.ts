@@ -19,6 +19,7 @@ import { canonical, type HashChain } from '../../crypto/chain.ts';
 import type { Sql } from '../../db/sql.ts';
 import { decodeIntent, encodeIntent } from '../../domain/engine/codec.ts';
 import type { Intent } from '../../domain/engine/intents.ts';
+export type { Intent };
 import { legsOf } from '../../domain/engine/legs.ts';
 import { planPosting } from '../../domain/engine/plan.ts';
 import { type ErrorCode, fail, FinlyError } from '../../domain/errors.ts';

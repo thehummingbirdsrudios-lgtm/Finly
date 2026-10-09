@@ -17,6 +17,8 @@ supabase/.env
 supabase/**/.env
 *.age
 backups/
+.first-login.txt
+**/.first-login.txt
 
 # ---------- Flutter / Dart ----------
 .dart_tool/

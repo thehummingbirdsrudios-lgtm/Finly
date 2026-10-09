@@ -101,11 +101,4 @@ export class TokenSigner {
   async refreshHash(token: string): Promise<Uint8Array> {
     return new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(`refresh:${token}`)));
   }
-
-  /** A keyed hash of a username for failed sign-ins of unknown accounts (security_event.username_hash). */
-  async usernameHash(username: string): Promise<Uint8Array> {
-    const key = await this.keys.hmacKey('session', this.keys.activeVersion());
-    return new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(`user:${username.toLowerCase()}`)))
-      .slice(0, 16);
-  }
 }

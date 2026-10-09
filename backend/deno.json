@@ -1,7 +1,7 @@
 {
   "name": "@finly/backend",
   "version": "0.1.0",
-  "exports": "./src/http/app.ts",
+  "exports": "./src/main/compose.ts",
   "tasks": {
     "test": "deno test --allow-read --allow-write --allow-env --allow-net=registry.npmjs.org,jsr.io tests/",
     "check": "deno check src/ tests/",
@@ -13,10 +13,12 @@
     "bench:crypto": "deno bench --allow-read --allow-env bench/crypto_bench.ts",
     "db:login": "deno run --allow-read=.env.local --allow-write=.env.local db/tools/db_login.ts",
     "arch:map": "deno run --allow-read=src,arch --allow-write=../docs/architecture arch/render.ts",
+    "api": "deno run --env-file=.env.local --allow-env --allow-net --allow-read=. src/main/server.ts",
+    "user:create": "deno run --env-file=.env.local --allow-env --allow-net --allow-read=. --allow-write=.first-login.txt src/main/create_user.ts",
     "db:fingerprint": "deno run --env-file=.env.local --allow-env --allow-net --allow-read=db db/tools/fingerprint.ts",
     "db:migrate": "deno run --env-file=.env.local --allow-env --allow-net --allow-read=db/migrations db/tools/migrate.ts",
-    "test:pg17": "FINLY_TEST_TARGET=pg17 deno test --env-file=.env.local --allow-read --allow-write --allow-env --allow-net --allow-run tests/db/ tests/app/; deno run --env-file=.env.local --allow-env --allow-net db/tools/drop_test_databases.ts pg17",
-    "test:pg18": "FINLY_TEST_TARGET=pg18 deno test --env-file=.env.local --allow-read --allow-write --allow-env --allow-net --allow-run tests/db/ tests/app/; deno run --env-file=.env.local --allow-env --allow-net db/tools/drop_test_databases.ts pg18"
+    "test:pg17": "FINLY_TEST_TARGET=pg17 deno test --env-file=.env.local --allow-read --allow-write --allow-env --allow-net --allow-run tests/db/ tests/app/ tests/http/; deno run --env-file=.env.local --allow-env --allow-net db/tools/drop_test_databases.ts pg17",
+    "test:pg18": "FINLY_TEST_TARGET=pg18 deno test --env-file=.env.local --allow-read --allow-write --allow-env --allow-net --allow-run tests/db/ tests/app/ tests/http/; deno run --env-file=.env.local --allow-env --allow-net db/tools/drop_test_databases.ts pg18"
   },
   "imports": {
     "@std/assert": "jsr:@std/assert@1.0.13",

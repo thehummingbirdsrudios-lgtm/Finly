@@ -5,6 +5,7 @@
  * or logs a password, a hash or a refresh token after it is issued.
  */
 import { dummyHash, hashPassword, needsRehash, verifyPassword } from '../../crypto/password.ts';
+import type { BlindIndex } from '../../crypto/blind.ts';
 import type { AccessClaims, TokenSigner } from '../../crypto/token.ts';
 import type { Sql } from '../../db/sql.ts';
 import { fail } from '../../domain/errors.ts';
@@ -99,6 +100,7 @@ export class IdentityService {
   constructor(
     private readonly db: Sql,
     private readonly signer: TokenSigner,
+    private readonly blind: BlindIndex,
     private readonly now: () => Date = () => new Date(),
   ) {}
 
@@ -171,7 +173,7 @@ export class IdentityService {
     const u = found[0];
     if (!u || !u.password_hash) {
       await verifyPassword(password, await dummyHash());
-      const usernameHash = await this.signer.usernameHash(username);
+      const usernameHash = await this.blind.username(username);
       await this.asAuth((tx) => this.event(tx, { type: 'login_failed', outcome: 'failure', usernameHash, client }));
       fail('UNAUTHENTICATED', WRONG);
     }
