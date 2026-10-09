@@ -300,8 +300,8 @@ export function createApi(deps: ApiDeps): (req: Request, remoteAddr?: string) =>
     const started = performance.now();
     const requestId = crypto.randomUUID();
     const url = new URL(req.url);
-    // Deployments may mount the API under a prefix (e.g. /functions/v1/api); routes start at /v1.
-    const at = url.pathname.indexOf('/v1/');
+    // Deployments may mount the API under a prefix (Supabase: /functions/v1/api/v1/…); routes start at the last /v1/.
+    const at = url.pathname.lastIndexOf('/v1/');
     const path = at >= 0 ? url.pathname.slice(at) : url.pathname;
     const { route, params, allowed } = match(req.method, path);
     let status = 500;

@@ -38,12 +38,18 @@ export interface PgOptions {
   max?: number;
   /** Application name shown in pg_stat_activity. */
   applicationName?: string;
+  /** False behind a transaction-mode pooler (Supavisor port 6543), which cannot keep prepared statements. */
+  prepare?: boolean;
+  /** Close connections idle this long (seconds); serverless hosts should not hold them. */
+  idleTimeoutSeconds?: number;
 }
 
 /** Connects to `url`; the caller closes the client with `client.end()`. Notices are not printed (they may echo data). */
 export function openPostgres(url: string, opts: PgOptions = {}): { client: PgClient; sql: Sql } {
   const client = postgres(url, {
     max: opts.max ?? 4,
+    prepare: opts.prepare ?? true,
+    idle_timeout: opts.idleTimeoutSeconds,
     onnotice: () => {},
     connection: { application_name: opts.applicationName ?? 'finly' },
   });
