@@ -27,5 +27,6 @@ documents refine earlier ones, and **where two differ, the stricter security, pr
 | [ADDON-12](ADDON-12-complete-the-app-online-only.md) | 2026-10-09 | Complete the whole app to production readiness; **online-only: no local database, no offline mode, no offline queue** |
 | [ADDON-13](ADDON-13-final-master-production-grade.md) | 2026-10-09 | Final master add-on: complete production-grade app, Supabase via MCP as the primary database, enterprise architecture, industrial UI/UX, the 11-step financial operation sequence, full test strategy |
 | [ADDON-14](ADDON-14-fully-dynamic-configurable.md) | 2026-10-09 | Fully dynamic: no hard-coded names of people, firms, accounts, funds, locations or role assignments; everything from the database |
+| [ADDON-15](ADDON-15-final-master-development-dependencies.md) | 2026-10-09 | Final master development prompt: independent yet interconnected modules, explicit dependency graph and impact analysis, architecture tests, transactional outbox for async effects, one authorisation model across UI, API and database |
 
 Other documents cite "the source documents" and link here, so a new add-on is recorded in one place.

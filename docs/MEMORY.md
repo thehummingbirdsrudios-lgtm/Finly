@@ -75,7 +75,10 @@ original expense. How each entity's share is broken down by category is an open 
   support sessions, online-only removals. Review found 4 gaps (backdated activation time, extendable support window,
   self-withdrawal, request after posting) — fixed with regression tests. PGlite 107 passed; PostgreSQL 17.11 and 18.6
   52/52 each.
-- Created the Supabase project `finly` (owner's choice over sharing `vepari`).
+- Created the Supabase project `finly` (owner's choice over sharing `vepari`) and deployed 0001–0011 with our runner
+  as `finly_migrator` (SCRAM-verifier login, disabled between deploys) over the aws-0 session pooler; verified by an
+  identical catalog fingerprint on three channels. Advisors found 18 mutable search paths and a duplicate policy →
+  migration 0011. Add-on 15 (dependency-aware modular architecture) recorded.
 
 ### 2026-10-09 — Session 3 (continued)
 
@@ -128,8 +131,8 @@ original expense. How each entity's share is broken down by category is an open 
 
 ## 5. Next steps
 
-0. Apply migrations 0001–0010 to the Supabase project `finly` with the checksummed runner; check the security and
-   performance advisors; CI workflow with a PostgreSQL 17 service; query benchmark on PostgreSQL 17.
+0. ~~Deploy to Supabase~~ — done (0001–0011, D-036). Next: architecture/dependency map and import-boundary tests
+   (add-on 15); CI workflow with a PostgreSQL 17 service; query benchmark on PostgreSQL 17.
 1. Persistence: posting service (lock protocol of docs/database/06 §6.2, acknowledgement flow 06 §6.7), encryption
    and blind-index service (HKDF keys, D-026), audit and journal hash chains, Integrity Verifier.
 2. Identity service (Argon2id, sessions, devices, M-PIN, TOTP) and the versioned HTTP API with the policy engine.

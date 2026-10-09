@@ -43,7 +43,8 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · ⛔ gate
 
 - [x] ~~Docker Desktop + Supabase CLI local stack~~ — replaced by the owner's local PostgreSQL 17.11/18.6 (D-032)
 - [x] Hosted Supabase project `finly` created (D-034)
-- [ ] Migrations 0001–0010 applied to Supabase `finly`; advisors clean
+- [x] Migrations 0001–0011 applied to Supabase `finly` (D-036, [deployment.md](docs/operations/deployment.md)); fingerprint identical to a fresh PostgreSQL 17 build over three channels; security advisor clean (0011 fixed 18 mutable search paths and one duplicate policy)
+- [ ] Full TLS verification for the migrator (owner downloads Supabase's CA certificate) and SSL enforcement (owner)
 - [ ] CI on GitHub Actions (PostgreSQL 17 service)
 - [ ] Backend foundation: config, structured logging, error model, audit engine, encryption service, idempotency
 - [ ] Flutter app skeleton: theme generated from `tokens.json`, branding from `brand.json`, navigation shell, runs on the owner's phone
