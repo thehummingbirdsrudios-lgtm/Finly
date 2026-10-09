@@ -6,6 +6,9 @@ terminals afterwards.
 
 ## 1. Create the production key-encryption key (owner, once)
 
+`deno task edge:secrets` (deploy-api.md §2) does steps 1–2 without showing the value: it writes the key to
+`%USERPROFILE%\.finly\finly-kek-v1.txt` and sets the secrets. Step 3 (escrow) stays with the owner. By hand:
+
 1. Generate 32 random bytes as base64 on a trusted computer:
    ```bash
    deno eval "console.log(btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))))"

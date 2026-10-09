@@ -19,15 +19,25 @@ Who does what: **[C]** = done from this repository with the connected tools; **[
    This writes `FINLY_SUPABASE_APP_URL` (transaction pooler, port 6543) into the git-ignored `backend/.env.local` and
    prints only an `alter role … password 'SCRAM-SHA-256$…'` statement, which is run as `postgres`.
 
-## 2. Function secrets — [O]
-
-Supabase dashboard → Project `finly` → Edge Functions → Secrets → add:
+## 2. Function secrets — [O] sign in once, then one command
 
 | Name | Value |
 |---|---|
-| `FINLY_DATABASE_URL` | the value of `FINLY_SUPABASE_APP_URL` in `backend/.env.local` (open the file yourself; do not paste it into chat) |
+| `FINLY_DATABASE_URL` | `FINLY_SUPABASE_APP_URL` from `backend/.env.local` |
 | `FINLY_KEK_ACTIVE` | `1` |
-| `FINLY_KEK_V1` | the key created as in [key-recovery.md](key-recovery.md) §1 — escrow it in two offline places **before** the first real entry |
+| `FINLY_KEK_V1` | the production key-encryption key ([key-recovery.md](key-recovery.md) §1) |
+
+After the one-time `npx --yes supabase@2.118.0 login` (§3):
+
+```bash
+cd backend && deno task edge:secrets
+```
+
+The tool creates the key once in `%USERPROFILE%\.finly\finly-kek-v1.txt` (outside the repository), passes the three
+values to the CLI through a temporary git-ignored file that it deletes at once, and prints only names. It reuses the
+key file on later runs and refuses to create a second key when the function already has one. **The owner escrows the
+key file in two offline places before the first real entry** (key-recovery.md §1.3). Setting the same values by hand
+in the dashboard (Edge Functions → Secrets) is equivalent.
 
 Until these exist, the function answers every request with 503 "not configured" and `/v1/health` lists what is missing
 (names only).

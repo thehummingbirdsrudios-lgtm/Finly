@@ -22,9 +22,10 @@ Branch `feat/database`; nothing pushed (the owner pushes: `git push -u origin fe
 
 ## Waiting for the owner
 
-1. `npx --yes supabase@2.118.0 login` once in a terminal; then `deno task edge:deploy` (deploy-api.md §3).
-2. Production KEK: generate, keep two offline copies, then set the function secrets `FINLY_DATABASE_URL`,
-   `FINLY_KEK_ACTIVE`, `FINLY_KEK_V1` (deploy-api.md §2, key-recovery.md §1).
+1. `npx --yes supabase@2.118.0 login` once in a terminal. Then (by the owner or by Claude on request)
+   `deno task edge:secrets` and `deno task edge:deploy` (deploy-api.md §2–§3).
+2. Escrow `%USERPROFILE%\.finly\finly-kek-v1.txt` (created by `edge:secrets`) in two offline places
+   (key-recovery.md §1.3).
 3. Back up `%USERPROFILE%\.finly\finly-release.jks` and `app/android/key.properties` (release-signing.md).
 4. Go-ahead to create the initial accounts (deploy-api.md §4) once the function answers `{"status":"ok"}`.
 5. Install the release APK on the phones; push to GitHub (starts CI).
