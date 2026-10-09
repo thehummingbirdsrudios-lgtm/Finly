@@ -20,14 +20,16 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · ⛔ gate
 
 - [ ] Threat model (STRIDE) and data-flow diagrams
 - [ ] Client-independent architecture, API contracts and versioning, error model
-- [ ] Encryption and key-management design (AC7), backup design
+- [x] Encryption and key-management design (AC7): investigated, benchmarked, recovery drill — kept (D-033, [encryption-architecture.md](docs/security/encryption-architecture.md)); production KEK escrow and production restore drill wait for the owner
 - [x] Database architecture and schema design (add-on 11): ERD levels 1–6, 93 tables, data dictionary, index and RLS design, concurrency, sync, migration and backup strategies, edge-case matrix, open questions — [docs/database/](docs/database/README.md)
 - [x] Independent architecture review of the design; all findings fixed (docs/database/README "Independent review")
 - [x] Migrations 0001–0009 implementing the design (roles, 93 tables, guards, RLS, seeds, column meanings)
+- [x] Migration 0010: owner decisions Q1 (acknowledgement), Q3 (activation, consented support), online only — 96 tables
 - [x] Database tests: ledger structure, privacy and RLS, lifecycles, catalog parity (design ↔ schema ↔ engine ↔
   dictionary) — 40 tests; generated [data dictionary](docs/database/DATA-DICTIONARY.md)
-- [ ] Two-connection concurrency tests and the query benchmark (`db:bench`) — need PostgreSQL 17 in CI
-- ⛔ **Gate 3 — database schema** delivered as documents (D-019, D-025); open questions Q1–Q14 await the owner
+- [x] Database suite on real PostgreSQL 17.11 and 18.6 (D-032): 52/52 each, including 5 two-connection concurrency tests and the dump/restore recovery drill
+- [ ] Query benchmark (`db:bench`) on PostgreSQL 17; CI workflow with a PostgreSQL 17 service
+- ⛔ **Gate 3 — database schema** delivered as documents (D-019, D-025); Q1–Q3 decided by the owner (D-029, D-030, D-033); F8, F9 await the owner
 
 ## M2 — Design, UX blueprint, edge cases
 
@@ -39,8 +41,10 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · ⛔ gate
 
 ## M3 — Foundations in code
 
-- [ ] Docker Desktop + Supabase CLI (asks first), local stack, migrations from the first commit
-- [ ] Hosted production project `finly` (asks first), CI on GitHub Actions, private repository (asks first)
+- [x] ~~Docker Desktop + Supabase CLI local stack~~ — replaced by the owner's local PostgreSQL 17.11/18.6 (D-032)
+- [x] Hosted Supabase project `finly` created (D-034)
+- [ ] Migrations 0001–0010 applied to Supabase `finly`; advisors clean
+- [ ] CI on GitHub Actions (PostgreSQL 17 service)
 - [ ] Backend foundation: config, structured logging, error model, audit engine, encryption service, idempotency
 - [ ] Flutter app skeleton: theme generated from `tokens.json`, branding from `brand.json`, navigation shell, runs on the owner's phone
 

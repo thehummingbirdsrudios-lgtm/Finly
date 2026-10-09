@@ -25,5 +25,7 @@ documents refine earlier ones, and **where two differ, the stricter security, pr
 | [ADDON-11](ADDON-11-database-architecture-schema.md) | 2026-10-08 | Database architecture and schema master prompt: the 16 design outputs before any migration |
 | [GATE-RESPONSE-03](GATE-RESPONSE-03-decisions-q1-q3-postgres.md) | 2026-10-09 | Q1 acknowledgement default, Q2 encryption investigation and authorised fallback, Q3 account activation without impersonation, F8/F9 explanation request, use the local PostgreSQL (one credential redacted) |
 | [ADDON-12](ADDON-12-complete-the-app-online-only.md) | 2026-10-09 | Complete the whole app to production readiness; **online-only: no local database, no offline mode, no offline queue** |
+| [ADDON-13](ADDON-13-final-master-production-grade.md) | 2026-10-09 | Final master add-on: complete production-grade app, Supabase via MCP as the primary database, enterprise architecture, industrial UI/UX, the 11-step financial operation sequence, full test strategy |
+| [ADDON-14](ADDON-14-fully-dynamic-configurable.md) | 2026-10-09 | Fully dynamic: no hard-coded names of people, firms, accounts, funds, locations or role assignments; everything from the database |
 
 Other documents cite "the source documents" and link here, so a new add-on is recorded in one place.

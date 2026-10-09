@@ -21,7 +21,7 @@ this design.
 | 10 | Transaction and concurrency strategy | [06-transactions-concurrency-sync.md](06-transactions-concurrency-sync.md) |
 | 11 | Migration strategy | [01-architecture.md §1.13](01-architecture.md#113-migrations-add-on-11-item-24) |
 | 12 | Backup / recovery strategy | [01-architecture.md §1.14](01-architecture.md#114-backup-and-recovery-add-on-11-item-25) |
-| 13 | Offline / sync data strategy | [06-transactions-concurrency-sync.md §6.6](06-transactions-concurrency-sync.md#66-offline-and-sync-p7-rulebook-03-60) |
+| 13 | Offline / sync data strategy — **online only** (D-031): requests, retries and updates | [06-transactions-concurrency-sync.md §6.6](06-transactions-concurrency-sync.md#66-online-only-requests-retries-and-updates-d-031) |
 | 14 | Database edge-case matrix | [07-edge-case-matrix.md](07-edge-case-matrix.md) |
 | 15 | Query / performance strategy | [04-index-performance.md](04-index-performance.md) |
 | 16 | Open questions / decisions required | [08-open-questions.md](08-open-questions.md) |
@@ -38,8 +38,8 @@ this design.
    journals, closed periods, inactive accounts, postings during a write freeze, grants into someone's personal books.
 6. Five least-privilege roles; client roles have nothing; row-level security walls off environments, personal finance,
    hidden funds and locations, and own-user data.
-7. Every posting is one database transaction with a fixed lock order; idempotency keys and `client_ref` make retries
-   and offline sync exactly-once.
+7. Every posting is one database transaction with a fixed lock order; idempotency keys make retries exactly-once.
+   Online only (D-031): no local database, no offline queue.
 8. Open items with explicit debtor and creditor; settlements are many-to-many allocations; remaining is derived.
 9. Masters are archived, never deleted; names are labels over stable IDs; configuration is data and is audited.
 10. Plain-SQL, forward-only, checksummed migrations; nightly encrypted dumps to R2 with monthly restore drills.
@@ -55,7 +55,7 @@ this design.
 | Auditable? | Hash-chained audit written in the same transaction; commit refused without it | 05 §5.8 |
 | ACID-safe? | One operation = one transaction; deferred structural checks at commit | 06 §6.1–6.2 |
 | Concurrency-safe? | Row locks in a global order, version checks, unique keys on every race | 06 §6.3–6.4 |
-| Mobile-friendly? | Pagination, selective fields, commit-safe `change_xid` delta sync, idempotent offline queue | 04, 06 §6.6 |
+| Mobile-friendly? | Pagination, selective fields, commit-safe `change_xid` delta feed, push nudges, idempotent retries | 04, 06 §6.6 |
 | Scalable? | Years of headroom on the free plan; UUIDv7 keys; partitioning of `audit_log` and `journal_line` by year possible later without changing the model | 04 §4.1 |
 | Migration-safe? | Forward-only, checksummed, tested on an empty database every run; expand/contract | 01 §1.13 |
 | Backup-safe? | Encrypted dumps, keys elsewhere, monthly restore drill with the verifier | 01 §1.14 |
@@ -85,7 +85,7 @@ this design.
 | J6 maker/checker, segregation | `approval_rule`, `approval_request` trigger |
 | L1–L16 authorisation | 05 (database part); the API policy engine (M5) |
 | N sessions, devices, M-PIN, MFA, recovery | Identity tables, 03 |
-| P7 offline | 06 §6.6 |
+| P7 offline — superseded by online only (D-031) | 06 §6.6 |
 | Q sharing with verification bound to a content hash | 01 §1.11, 02 level 5 |
 | R5 notifications without leakage | `notification` stores no amounts |
 | S reconciliation | `reconciliation`, `bank_statement_*` |
@@ -93,7 +93,7 @@ this design.
 | U1–U3 files, audit, backup | 01 §1.10, §1.14; 05 §5.8 |
 | RULEBOOK-03 §2–§9 environments and access | `entity.managed_in_env_id`, `env_access`, `entity_membership` |
 | RULEBOOK-03 §13–§15 owner / access / holder, Add / Replace, unassigned | `location_ownership`, `location_access`, `location_holder` |
-| RULEBOOK-03 §60 offline cases | 06 §6.6 |
+| RULEBOOK-03 §60 offline cases — the same cases online (stale form, master deactivated, period closed) | 06 §6.6 |
 | RULEBOOK-03 §64 core transaction data model | `txn`, `txn_leg`, `txn_entity`, `txn_link`, `open_item` |
 | Owner F1–F7, revision 3 | 01 §1.6; engine |
 

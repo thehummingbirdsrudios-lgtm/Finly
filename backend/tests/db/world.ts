@@ -65,8 +65,8 @@ async function fund(db: Q, entityId: string, key: string, isDefault: boolean, co
 async function user(db: Q, personId: string, username: string, roleKey: string): Promise<string> {
   const r = await one<{ id: string }>(
     db,
-    `insert into finly.app_user (person_entity_id, username, display_name, status, must_change_password)
-     values ($1, $2, $2, 'active', false) returning id`,
+    `insert into finly.app_user (person_entity_id, username, display_name, status, must_change_password, activated_at)
+     values ($1, $2, $2, 'active', false, now()) returning id`,
     [personId, username],
   );
   await db.query(

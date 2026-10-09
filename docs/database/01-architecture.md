@@ -47,7 +47,7 @@ WebAssembly) and CI on a real PostgreSQL 17, the production version (D-028). Not
 ```mermaid
 flowchart LR
   subgraph Clients
-    android["Android app (Flutter)<br/>encrypted offline cache"]
+    android["Android app (Flutter)<br/>online only, no local data"]
     future["iOS / web (future)"]
   end
   subgraph Backend["Finly API (Deno, TypeScript) — the only door"]
@@ -110,9 +110,9 @@ queries, least-privilege roles and encryption do.
 | Events and ledger | `txn`, `txn_status_transition`, `txn_entity`, `txn_leg`, `txn_note`, `txn_link`, `txn_tag`, `posting_rule_version`, `accounting_period`, `journal_chain_head`, `journal`, `journal_line`, `balance_slice`, `balance_current`, `balance_period`, `open_item`, `open_item_origin`, `settlement_allocation`, `custody_event`, `approval_request`, `period_close_run` | what happened and its accounting |
 | Control | `reconciliation`, `bank_statement_import`, `bank_statement_line`, `exception_finding`, `integrity_run` | proving the books match reality |
 | Files and sharing | `attachment`, `attachment_link`, `document`, `share_profile`, `share_request`, `share_event`, `secure_link`, `secure_link_access` | evidence in, proof out |
-| Operations | `idempotency_record`, `sync_review`, `notification`, `audit_log`, `audit_chain_head` | exactly-once requests, offline review, alerts, accountability |
+| Operations | `idempotency_record`, `notification`, `audit_log`, `audit_chain_head` | exactly-once requests, alerts, accountability |
 
-Ninety-three tables. The full list with purpose, keys and relationships is [03-schema.md](03-schema.md).
+Ninety-six tables (after migration 0010). The full list with purpose, keys and relationships is [03-schema.md](03-schema.md).
 
 ## 1.6 The financial ledger model (add-on 11 item 7)
 

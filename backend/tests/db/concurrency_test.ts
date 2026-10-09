@@ -216,24 +216,24 @@ Deno.test({
 });
 
 Deno.test({
-  name: 'an offline entry synced twice at the same moment creates one transaction (client_ref)',
+  name: 'a request retried while the original is still running is recorded once (idempotency key)',
   ignore: !realServer,
   async fn() {
     const w = await dbWorld();
-    const { db, u, e } = w;
-    const ref = crypto.randomUUID();
-    const insert = `insert into finly.txn (reference, txn_type_id, intent_type, primary_env_id, value_date,
-                      created_by_user_id, client_ref)
-                    values (finly.next_reference('TX', current_date), (select id from finly.txn_type where key = 'transfer'),
-                            'transfer', $1, current_date, $2, $3) returning id`;
+    const { db, u } = w;
+    // The phone lost the response and resent the same request with the same key (online only, D-031).
+    const key = crypto.randomUUID();
+    const hash = new Uint8Array(32).fill(7);
+    const claim = `insert into finly.idempotency_record (user_id, key, operation, request_hash)
+                   values ($1, $2, 'posting.create', $3)`;
     const a = db.connect!();
     const b = db.connect!();
-    const lock = await lockedBy(a, 'finly_api', u.krish, async (tx) => {
-      await tx.query(insert, [e.mint, u.krish, ref]);
+    const lock = await lockedBy(a, 'finly_ledger', u.krish, async (tx) => {
+      await tx.query(claim, [u.krish, key, hash]);
     });
-    await expectSqlError('55P03', () => tryOn(b, 'finly_api', u.krish, insert, [e.mint, u.krish, ref]));
+    await expectSqlError('55P03', () => tryOn(b, 'finly_ledger', u.krish, claim, [u.krish, key, hash]));
     await lock.release();
-    await expectSqlError('23505', () => tryOn(b, 'finly_api', u.krish, insert, [e.mint, u.krish, ref]));
+    await expectSqlError('23505', () => tryOn(b, 'finly_ledger', u.krish, claim, [u.krish, key, hash]));
     await Promise.all([a.close(), b.close(), db.close()]);
   },
 });

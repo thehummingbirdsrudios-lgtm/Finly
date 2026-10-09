@@ -5,7 +5,7 @@ relationships and reasons are in [03-schema.md](03-schema.md); this file is the 
 
 Sensitivity: **C** encrypted · **H** keyed or integrity hash · **S** one-way secret hash · **R** plaintext,
 row-level-security restricted / personal data · blank = non-sensitive structure. Every table has row-level security
-enabled. Tables: 93.
+enabled. Tables: 96.
 
 ## `access_rule`
 
@@ -94,6 +94,53 @@ END))`
 - access_rule_api_write: INSERT for finly_api
 - access_rule_svc: SELECT for finly_ledger, finly_system
 
+## `account_activation`
+
+One-time activation credentials (D-030): stored only as a keyed hash, expire, die on first use or revocation. The person sets their own password and M-PIN on their own device.
+
+**Lifecycle:** never deleted.
+
+| Column | Type | Null | Default | Meaning | Sensitivity | Source of truth |
+|---|---|---|---|---|---|---|
+| id | uuid | no | finly.uuid_v7() | Stable identifier (UUIDv7); never a name |  |  |
+| user_id | uuid | no |  | → app_user |  |  |
+| code_hash | finly.keyed_hash | no |  |  | S — one-way hash, never readable |  |
+| issued_by | uuid | no |  | → app_user |  |  |
+| issued_at | timestamp with time zone | no | now() |  |  |  |
+| expires_at | timestamp with time zone | no |  |  |  |  |
+| used_at | timestamp with time zone | yes |  |  |  |  |
+| used_device_id | uuid | yes |  | → device |  |  |
+| revoked_at | timestamp with time zone | yes |  |  |  |  |
+| revoked_by | uuid | yes |  | → app_user |  |  |
+
+**Keys and constraints**
+
+- Check: `CHECK (((expires_at > issued_at) AND (expires_at <= (issued_at + '7 days'::interval))))`
+- Check: `CHECK ((num_nonnulls(used_at, revoked_at) <= 1))`
+- Check: `CHECK (((used_at IS NULL) = (used_device_id IS NULL)))`
+- Check: `CHECK ((issued_by <> user_id))`
+- Foreign key: `FOREIGN KEY (issued_by) REFERENCES finly.app_user(id)`
+- Foreign key: `FOREIGN KEY (revoked_by) REFERENCES finly.app_user(id)`
+- Foreign key: `FOREIGN KEY (used_device_id) REFERENCES finly.device(id)`
+- Foreign key: `FOREIGN KEY (user_id) REFERENCES finly.app_user(id)`
+- n: `NOT NULL code_hash`
+- n: `NOT NULL expires_at`
+- n: `NOT NULL id`
+- n: `NOT NULL issued_at`
+- n: `NOT NULL issued_by`
+- n: `NOT NULL user_id`
+- Primary key: `PRIMARY KEY (id)`
+- Unique: `UNIQUE (code_hash)`
+
+**Indexes**
+
+- `UNIQUE account_activation_code_hash_key btree (code_hash)`
+- `UNIQUE account_activation_live btree (user_id) WHERE ((used_at IS NULL) AND (revoked_at IS NULL))`
+
+**Row-level security policies**
+
+- account_activation_auth: ALL for finly_auth
+
 ## `accounting_period`
 
 Monthly accounting periods per entity (AC12). Journals post only into open periods.
@@ -166,9 +213,11 @@ A person who can sign in. Credentials live in separate tables the API role canno
 | created_by | uuid | yes |  | User who created the row |  |  |
 | updated_at | timestamp with time zone | no | now() | When the row last changed |  |  |
 | change_xid | xid8 | no | pg_current_xact_id() | Transaction that last wrote the row; mobile delta-sync cursor (06 §6.6) |  |  |
+| activated_at | timestamp with time zone | yes |  | When the person activated the account on their own device (D-030); an administrator can never set it. |  |  |
 
 **Keys and constraints**
 
+- Check: `CHECK (((status <> ALL (ARRAY['active'::text, 'suspended'::text])) OR (activated_at IS NOT NULL)))`
 - Check: `CHECK (((length(display_name) >= 1) AND (length(display_name) <= 120)))`
 - Check: `CHECK ((locale = ANY (ARRAY['en'::text, 'hi'::text, 'gu'::text])))`
 - Check: `CHECK ((status = ANY (ARRAY['invited'::text, 'active'::text, 'suspended'::text, 'disabled'::text, 'archived'::text])))`
@@ -1535,7 +1584,7 @@ Firms, people, pools (own books) and outside parties (no books). The id is the i
 | id | uuid | no | finly.uuid_v7() | Stable identifier (UUIDv7); never a name |  |  |
 | kind | text | no |  | firm \| person \| pool \| party. Immutable: the chart of accounts and the engine depend on it. |  |  |
 | entity_type_id | uuid | no |  | Sub-type of the same kind (company, customer, Angadiya…) |  |  |
-| display_name | text | no |  | Label (Mint, Krish); editable, never identity | R |  |
+| display_name | text | no |  | Display label, chosen by the user; editable, never identity | R |  |
 | legal_name | text | yes |  |  | R |  |
 | short_code | text | yes |  | Optional short business code, unique case-insensitively |  |  |
 | managed_in_env_id | uuid | yes |  | The environment this record was created in (RULEBOOK-03 §6): a worker created by Partner 1 lives in Partner 1's environment. |  |  |
@@ -2034,7 +2083,7 @@ Funds (Hissa) of one entity: operating, owner, reserve, travel… Exactly one de
 
 ## `idempotency_record`
 
-Exactly-once mutations, online and offline. Stores no response body: a replay re-reads the result under current permissions.
+Exactly-once mutations: a request retried after a network failure carries the same key and posts once. Stores no response body: a replay re-reads the result under current permissions.
 
 **Lifecycle:** see 01 §1.8.
 
@@ -2327,7 +2376,7 @@ Key version metadata only. No key material: keys are derived with HKDF from KEKs
 
 ## `label_override`
 
-Custom display labels and translations (Avak, Javak, Tijori, Hissa…). Never change behaviour (P8).
+Custom display labels and translations of built-in terms. Never change behaviour (P8).
 
 **Lifecycle:** active → inactive → archived.
 
@@ -2445,14 +2494,14 @@ Each entity's chart of accounts. Renames are labels over stable ids; never delet
 
 ## `location`
 
-Money locations — the user-facing "Account / Khata": Tijori, Savan Bank, Office drawer, cash with a person. Ownership of the money is in the ledger, not here.
+Money locations — the user-facing "Account / Khata": a vault, a bank account, an office drawer, cash with a person. Ownership of the money is in the ledger, not here.
 
 **Lifecycle:** never deleted; active → inactive → archived.
 
 | Column | Type | Null | Default | Meaning | Sensitivity | Source of truth |
 |---|---|---|---|---|---|---|
 | id | uuid | no | finly.uuid_v7() | Stable identifier (UUIDv7); never a name |  |  |
-| name | text | no |  | Label (Tijori, Savan Bank); renamable | R |  |
+| name | text | no |  | Display label, chosen by the user; renamable, never identity | R |  |
 | kind | text | no |  | cash, bank or wallet: which ledger account role the engine uses |  |  |
 | type_id | uuid | no |  | Configurable type: vault, drawer, locker, wardrobe, hand cash, bank account, UPI… |  |  |
 | type_list | text | no | generated: 'location_type'::text | → lookup_value |  |  |
@@ -3121,6 +3170,38 @@ Person details. Phone numbers are encrypted, with a keyed index for lookup and d
 
 - person_profile_api: ALL for finly_api
 - person_profile_system_read: SELECT for finly_system
+
+## `personal_book_setting`
+
+Settings of a person's own books. incoming_entries: acknowledge (default, D-029) or immediate with notification. Only that person may change it.
+
+**Lifecycle:** never deleted.
+
+| Column | Type | Null | Default | Meaning | Sensitivity | Source of truth |
+|---|---|---|---|---|---|---|
+| entity_id | uuid | no |  | → entity |  |  |
+| person_kind | text | no | generated: 'person'::text |  |  |  |
+| incoming_entries | text | no | 'acknowledge'::text | acknowledge: entries others make in these books wait for this person; immediate: they post at once and the person is notified |  |  |
+| updated_by | uuid | yes |  | → app_user |  |  |
+| updated_at | timestamp with time zone | no | now() | When the row last changed |  |  |
+| version | integer | no | 1 | Optimistic-concurrency version, incremented on every update |  |  |
+
+**Keys and constraints**
+
+- Check: `CHECK ((incoming_entries = ANY (ARRAY['acknowledge'::text, 'immediate'::text])))`
+- Foreign key: `FOREIGN KEY (entity_id, person_kind) REFERENCES finly.entity(id, kind)`
+- Foreign key: `FOREIGN KEY (updated_by) REFERENCES finly.app_user(id)`
+- n: `NOT NULL entity_id`
+- n: `NOT NULL incoming_entries`
+- n: `NOT NULL person_kind`
+- n: `NOT NULL updated_at`
+- n: `NOT NULL version`
+- Primary key: `PRIMARY KEY (entity_id)`
+
+**Row-level security policies**
+
+- personal_book_setting_own: ALL for finly_api
+- personal_book_setting_svc: SELECT for finly_ledger, finly_system
 
 ## `place`
 
@@ -3965,50 +4046,58 @@ One share from preview to hand-off (Q2-Q3). The verification is bound to verific
 - share_request_api: ALL for finly_api
 - share_request_system_read: SELECT for finly_system
 
-## `sync_review`
+## `support_session`
 
-Offline operations the server could not post as they were: shown to the user for review, never silently dropped (P7).
+Help with someone's account (D-030): requested by the helper, consented by the person, time-limited (max 4 hours), audited. Book access, if any, is a temporary owner grant the person gives.
 
-**Lifecycle:** see 01 §1.8.
+**Lifecycle:** never deleted.
 
 | Column | Type | Null | Default | Meaning | Sensitivity | Source of truth |
 |---|---|---|---|---|---|---|
 | id | uuid | no | finly.uuid_v7() | Stable identifier (UUIDv7); never a name |  |  |
-| user_id | uuid | no |  | → idempotency_record |  |  |
-| idempotency_key | uuid | no |  |  |  |  |
+| user_id | uuid | no |  | → app_user |  |  |
+| helper_user_id | uuid | no |  | → app_user |  |  |
+| scope | text | no |  |  |  |  |
 | reason | text | no |  | Why, in plain words | R |  |
-| details | jsonb | no | '{}'::jsonb |  |  |  |
-| review_status | text | no | 'open'::text |  |  |  |
-| resolved_by | uuid | yes |  | → app_user |  |  |
-| resolved_at | timestamp with time zone | yes |  |  |  |  |
-| resolution_txn_id | uuid | yes |  | → txn |  |  |
-| created_at | timestamp with time zone | no | now() | When the row was created |  |  |
+| requested_at | timestamp with time zone | no | now() |  |  |  |
+| session_status | text | no | 'requested'::text |  |  |  |
+| consented_at | timestamp with time zone | yes |  |  |  |  |
+| starts_at | timestamp with time zone | yes |  |  |  |  |
+| ends_at | timestamp with time zone | yes |  |  |  |  |
+| ended_at | timestamp with time zone | yes |  |  |  |  |
+| env_access_id | uuid | yes |  | → env_access |  |  |
+| version | integer | no | 1 | Optimistic-concurrency version, incremented on every update |  |  |
 
 **Keys and constraints**
 
-- Check: `CHECK (((review_status = 'open'::text) = (resolved_at IS NULL)))`
-- Check: `CHECK ((reason = ANY (ARRAY['conflict'::text, 'stale'::text, 'permission_changed'::text, 'master_inactive'::text, 'validation_failed'::text])))`
-- Check: `CHECK ((review_status = ANY (ARRAY['open'::text, 'resolved'::text, 'discarded'::text])))`
-- Foreign key: `FOREIGN KEY (resolution_txn_id) REFERENCES finly.txn(id)`
-- Foreign key: `FOREIGN KEY (resolved_by) REFERENCES finly.app_user(id)`
-- Foreign key: `FOREIGN KEY (user_id, idempotency_key) REFERENCES finly.idempotency_record(user_id, key)`
-- n: `NOT NULL created_at`
-- n: `NOT NULL details`
+- Check: `CHECK ((user_id <> helper_user_id))`
+- Check: `CHECK (((session_status = ANY (ARRAY['active'::text, 'ended'::text, 'expired'::text])) = (consented_at IS NOT NULL)))`
+- Check: `CHECK (((ends_at IS NULL) OR ((starts_at IS NOT NULL) AND (ends_at > starts_at) AND (ends_at <= (starts_at + '04:00:00'::interval)))))`
+- Check: `CHECK ((NOT ((scope = 'view_books'::text) AND (session_status = 'active'::text) AND (env_access_id IS NULL))))`
+- Check: `CHECK (((length(reason) >= 10) AND (length(reason) <= 500)))`
+- Check: `CHECK ((scope = ANY (ARRAY['account_settings'::text, 'view_books'::text])))`
+- Check: `CHECK ((session_status = ANY (ARRAY['requested'::text, 'active'::text, 'declined'::text, 'ended'::text, 'expired'::text])))`
+- Foreign key: `FOREIGN KEY (env_access_id) REFERENCES finly.env_access(id)`
+- Foreign key: `FOREIGN KEY (helper_user_id) REFERENCES finly.app_user(id)`
+- Foreign key: `FOREIGN KEY (user_id) REFERENCES finly.app_user(id)`
+- n: `NOT NULL helper_user_id`
 - n: `NOT NULL id`
-- n: `NOT NULL idempotency_key`
 - n: `NOT NULL reason`
-- n: `NOT NULL review_status`
+- n: `NOT NULL requested_at`
+- n: `NOT NULL scope`
+- n: `NOT NULL session_status`
 - n: `NOT NULL user_id`
+- n: `NOT NULL version`
 - Primary key: `PRIMARY KEY (id)`
 
 **Indexes**
 
-- `sync_review_open_idx btree (user_id) WHERE (review_status = 'open'::text)`
+- `support_session_user_idx btree (user_id, requested_at DESC)`
 
 **Row-level security policies**
 
-- sync_review_api: ALL for finly_api
-- sync_review_system_read: SELECT for finly_system
+- support_session_api: ALL for finly_api
+- support_session_system: SELECT for finly_system
 
 ## `system_setting`
 
@@ -4117,7 +4206,6 @@ Master transaction: one real-world event (H7). Its accounting is in journal/jour
 | confidentiality_level_id | uuid | yes |  | Confidentiality of the event as a whole |  |  |
 | created_by_user_id | uuid | no |  | The maker (J6); may not approve under segregation of duties |  |  |
 | handled_by_entity_id | uuid | yes |  | Person who physically handled the money (H3) |  |  |
-| client_ref | uuid | yes |  | The phone's local id for an offline entry; unique per user so a re-sync never duplicates. |  |  |
 | device_id | uuid | yes |  | Device it was entered on |  |  |
 | version | integer | no | 1 | Optimistic-concurrency version, incremented on every update |  |  |
 | updated_at | timestamp with time zone | no | now() | When the row last changed |  |  |
@@ -4130,7 +4218,7 @@ Master transaction: one real-world event (H7). Its accounting is in journal/jour
 - Check: `CHECK ((currency = 'INR'::bpchar))`
 - Check: `CHECK ((length(reason) <= 500))`
 - Check: `CHECK ((reference ~ '^TX-[0-9]{8}-[0-9]{6}$'::text))`
-- Check: `CHECK ((status = ANY (ARRAY['draft'::text, 'pending_approval'::text, 'approved'::text, 'posted'::text, 'rejected'::text, 'failed'::text, 'cancelled'::text, 'reversed'::text, 'corrected'::text])))`
+- Check: `CHECK ((status = ANY (ARRAY['draft'::text, 'pending_approval'::text, 'approved'::text, 'pending_acknowledgement'::text, 'posted'::text, 'rejected'::text, 'failed'::text, 'cancelled'::text, 'reversed'::text, 'corrected'::text])))`
 - Foreign key: `FOREIGN KEY (confidentiality_level_id) REFERENCES finly.confidentiality_level(id)`
 - Foreign key: `FOREIGN KEY (created_by_user_id) REFERENCES finly.app_user(id)`
 - Foreign key: `FOREIGN KEY (device_id) REFERENCES finly.device(id)`
@@ -4157,6 +4245,7 @@ Master transaction: one real-world event (H7). Its accounting is in journal/jour
 - Primary key: `PRIMARY KEY (id)`
 - t: `TRIGGER DEFERRABLE INITIALLY DEFERRED`
 - t: `TRIGGER DEFERRABLE INITIALLY DEFERRED`
+- t: `TRIGGER DEFERRABLE INITIALLY DEFERRED`
 - Unique: `UNIQUE (id, value_date)`
 - Unique: `UNIQUE (reference)`
 
@@ -4165,7 +4254,6 @@ Master transaction: one real-world event (H7). Its accounting is in journal/jour
 - `txn_change_xid_idx btree (change_xid)`
 - `txn_pending_idx btree (primary_env_id, status, value_date DESC) WHERE (status = ANY (ARRAY['draft'::text, 'pending_approval'::text, 'approved'::text, 'failed'::text]))`
 - `txn_search_idx gin (search_tsv)`
-- `UNIQUE txn_client_ref_key btree (created_by_user_id, client_ref) WHERE (client_ref IS NOT NULL)`
 - `UNIQUE txn_id_value_date_key btree (id, value_date)`
 - `UNIQUE txn_reference_key btree (reference)`
 
@@ -4176,6 +4264,51 @@ Master transaction: one real-world event (H7). Its accounting is in journal/jour
 - txn_api_update: UPDATE for finly_api
 - txn_ledger: ALL for finly_ledger
 - txn_system_read: SELECT for finly_system
+
+## `txn_acknowledgement`
+
+One acknowledgement per person whose personal books an event would change (D-029). While any is pending the event cannot post; on acknowledgement every effect posts atomically.
+
+**Lifecycle:** never deleted.
+
+| Column | Type | Null | Default | Meaning | Sensitivity | Source of truth |
+|---|---|---|---|---|---|---|
+| txn_id | uuid | no |  | → txn |  |  |
+| entity_id | uuid | no |  | → entity |  |  |
+| person_kind | text | no | generated: 'person'::text |  |  |  |
+| ack_status | text | no | 'pending'::text |  |  |  |
+| requested_at | timestamp with time zone | no | now() |  |  |  |
+| decided_by | uuid | yes |  | → app_user |  |  |
+| decided_at | timestamp with time zone | yes |  |  |  |  |
+| note | text | yes |  |  |  |  |
+| version | integer | no | 1 | Optimistic-concurrency version, incremented on every update |  |  |
+
+**Keys and constraints**
+
+- Check: `CHECK ((ack_status = ANY (ARRAY['pending'::text, 'acknowledged'::text, 'rejected'::text, 'withdrawn'::text])))`
+- Check: `CHECK (((ack_status = ANY (ARRAY['acknowledged'::text, 'rejected'::text])) = ((decided_by IS NOT NULL) AND (decided_at IS NOT NULL))))`
+- Check: `CHECK ((length(note) <= 500))`
+- Foreign key: `FOREIGN KEY (decided_by) REFERENCES finly.app_user(id)`
+- Foreign key: `FOREIGN KEY (entity_id, person_kind) REFERENCES finly.entity(id, kind)`
+- Foreign key: `FOREIGN KEY (txn_id) REFERENCES finly.txn(id)`
+- n: `NOT NULL ack_status`
+- n: `NOT NULL entity_id`
+- n: `NOT NULL person_kind`
+- n: `NOT NULL requested_at`
+- n: `NOT NULL txn_id`
+- n: `NOT NULL version`
+- Primary key: `PRIMARY KEY (txn_id, entity_id)`
+
+**Indexes**
+
+- `txn_acknowledgement_inbox_idx btree (entity_id) WHERE (ack_status = 'pending'::text)`
+
+**Row-level security policies**
+
+- txn_acknowledgement_api_decide: UPDATE for finly_api
+- txn_acknowledgement_api_read: SELECT for finly_api
+- txn_acknowledgement_ledger: ALL for finly_ledger
+- txn_acknowledgement_system: SELECT for finly_system
 
 ## `txn_entity`
 
@@ -4189,21 +4322,12 @@ Entities involved in an event and how. Drives visibility: a viewer sees an event
 | entity_id | uuid | no |  | → entity |  |  |
 | role | text | no |  | How the entity takes part: payer, owner, receiver, giver, holder, counterparty, lender, borrower, settler |  |  |
 | value_date | date | no |  | Copy of txn.value_date for one-index activity lists (kept equal by a cascading key) |  | txn.value_date (composite FK, ON UPDATE CASCADE) |
-| ack_status | text | no | 'not_required'::text | Acknowledgement by that environment's owner, when policy asks for it (Q1) |  |  |
-| ack_by | uuid | yes |  | → app_user |  |  |
-| ack_at | timestamp with time zone | yes |  |  |  |  |
-| ack_note | text | yes |  |  |  |  |
 
 **Keys and constraints**
 
-- Check: `CHECK ((length(ack_note) <= 500))`
-- Check: `CHECK ((ack_status = ANY (ARRAY['not_required'::text, 'pending'::text, 'acknowledged'::text, 'disputed'::text])))`
-- Check: `CHECK (((ack_status = ANY (ARRAY['acknowledged'::text, 'disputed'::text])) = (ack_at IS NOT NULL)))`
 - Check: `CHECK ((role = ANY (ARRAY['payer'::text, 'owner'::text, 'receiver'::text, 'giver'::text, 'holder'::text, 'counterparty'::text, 'lender'::text, 'borrower'::text, 'settler'::text])))`
-- Foreign key: `FOREIGN KEY (ack_by) REFERENCES finly.app_user(id)`
 - Foreign key: `FOREIGN KEY (entity_id) REFERENCES finly.entity(id)`
 - Foreign key: `FOREIGN KEY (txn_id, value_date) REFERENCES finly.txn(id, value_date) ON UPDATE CASCADE`
-- n: `NOT NULL ack_status`
 - n: `NOT NULL entity_id`
 - n: `NOT NULL role`
 - n: `NOT NULL txn_id`
@@ -4329,7 +4453,7 @@ Relationships between events: reversal, correction, partial reversal, refund, re
 
 ## `txn_note`
 
-Private notes on an event, one environment at a time: a Mint note is never shown to someone who sees only Krish's side.
+Private notes on an event, one environment at a time: a note in one environment is never shown to someone who sees only another environment's side.
 
 **Lifecycle:** see 01 §1.8.
 

@@ -43,83 +43,86 @@ migrations disagree.
 | 14 | `recovery_code` | Identity | Hashed single-use recovery codes | AUTH |
 | 15 | `device` | Identity | Registered phones and their state | AUTH |
 | 16 | `unlock_credential` | Identity | Per-device M-PIN verifier and biometric state | AUTH |
-| 17 | `auth_session` | Identity | Remembered sessions | AUTH |
-| 18 | `refresh_token` | Identity | Rotating refresh tokens (hashed) | AUTH |
-| 19 | `security_event` | Identity | Login history and security events | AUTH |
-| 20 | `role` | Authorisation | Configurable roles (baselines) | CFG |
-| 21 | `permission` | Authorisation | Catalogue of permission keys the backend enforces | CFG |
-| 22 | `role_permission` | Authorisation | Role → permission (allow / deny) | CFG |
-| 23 | `user_role` | Authorisation | User → role, optionally scoped to one environment | CFG |
-| 24 | `env_access` | Authorisation | Which environments (firm, pool, personal books) a user may enter | CFG |
-| 25 | `access_rule` | Authorisation | Fine-grained allow/deny rules (L2–L9) | CFG |
-| 26 | `break_glass` | Authorisation | Emergency access sessions | CFG |
-| 27 | `entity_type` | Masters | Configurable entity sub-types over the four fixed kinds | CFG |
-| 28 | `entity` | Masters | Firms, people, pools, outside parties | ENV |
-| 29 | `person_profile` | Masters | Person details (encrypted phone) | ENV |
-| 30 | `firm_profile` | Masters | Firm details (encrypted tax IDs) | ENV |
-| 31 | `entity_membership` | Masters | Owner / partner / worker relationships over time | ENV |
-| 32 | `contact` | Masters | Share recipients | ENV |
-| 33 | `category` | Masters | Expense and income categories (mapped to account codes) | CFG |
-| 34 | `txn_type` | Masters | Configurable transaction types over engine intents | CFG |
-| 35 | `tag` | Masters | Tags | CFG / ENV |
-| 36 | `place` | Masters | Places | CFG / ENV |
-| 37 | `expense_event` | Masters | Trips, visits, projects that group expenses | ENV |
-| 38 | `custom_field_def` | Masters | Custom field definitions | CFG |
-| 39 | `custom_field_value` | Masters | Custom field values (encrypted when sensitive) | ENV |
-| 40 | `form_definition` | Masters | Configurable forms and conditional rules | CFG |
-| 41 | `approval_rule` | Masters | Who must approve what | approval managers; posting service |
-| 42 | `notification_rule` | Masters | Which events notify whom, in which content mode | CFG |
-| 43 | `message_template` | Masters | Message / photo / PDF templates | CFG |
-| 44 | `report_definition` | Masters | System and custom report definitions | OWN / CFG |
-| 45 | `dashboard_config` | Masters | Dashboard layouts per user or role | OWN |
-| 46 | `coa_template_account` | Money | Chart-of-accounts templates per entity kind | CFG |
-| 47 | `ledger_account` | Money | Each entity's chart of accounts | ENV |
-| 48 | `fund` | Money | Funds of an entity (one default) | ENV |
-| 49 | `location` | Money | Money locations (Tijori, bank, wallet, cash with a person) | ENV |
-| 50 | `bank_account_detail` | Money | Bank details of a bank location (encrypted number) | ENV |
-| 51 | `location_ownership` | Money | Who owns a location, over time | ENV |
-| 52 | `location_access` | Money | Who may access a location, over time (Add / Replace / Revoke) | ENV |
-| 53 | `location_holder` | Money | Who holds the key or control, over time (or nobody) | ENV |
-| 54 | `balance_hold` | Money | Reservations, locks, pending outgoing amounts | ENV |
-| 55 | `txn_status_transition` | Ledger | Allowed master-transaction state changes | CFG |
-| 56 | `txn` | Ledger | Master transaction: one real-world event | ENV |
-| 57 | `txn_entity` | Ledger | Entities involved in a transaction and their role | ENV |
-| 58 | `txn_leg` | Ledger | Business legs: sources, destinations, allocations | ENV |
-| 59 | `txn_note` | Ledger | Private notes on an event, one environment at a time | ENV |
-| 60 | `txn_link` | Ledger | Reversal / correction / refund relationships | ENV |
-| 61 | `txn_tag` | Ledger | Transaction ↔ tag | ENV |
-| 62 | `posting_rule_version` | Ledger | Versioned posting rules (engine version + definition) | CFG |
-| 63 | `accounting_period` | Ledger | Monthly periods per entity | ENV |
-| 64 | `journal_chain_head` | Ledger | Head of the journal hash chain (one row) | LEDGER |
-| 65 | `journal` | Ledger | One balanced journal per entity per step | ENV / LEDGER |
-| 66 | `journal_line` | Ledger | Debit or credit lines with every dimension | ENV / LEDGER |
-| 67 | `balance_slice` | Ledger | The dimension tuple a balance is kept for | ENV / LEDGER |
-| 68 | `balance_current` | Ledger | Encrypted running balance per slice | ENV / LEDGER |
-| 69 | `balance_period` | Ledger | Encrypted movement and closing per slice per period | ENV / LEDGER |
-| 70 | `open_item` | Ledger | Receivables, payables, advances, loans, inter-entity dues | ENV / LEDGER |
-| 71 | `open_item_origin` | Ledger | The journal lines an open item came from, per side | ENV / LEDGER |
-| 72 | `settlement_allocation` | Ledger | Which settlement closed how much of which item | ENV / LEDGER |
-| 73 | `custody_event` | Ledger | Handover steps and confirmation | ENV |
-| 74 | `approval_request` | Ledger | Approval steps for transactions and sensitive changes | ENV |
-| 75 | `period_close_run` | Ledger | Close and reopen runs with their checklist | ENV |
-| 76 | `reconciliation` | Control | Expected vs actual, investigation, resolution | ENV |
-| 77 | `bank_statement_import` | Control | Imported statement files | ENV |
-| 78 | `bank_statement_line` | Control | Statement lines and their matching | ENV |
-| 79 | `exception_finding` | Control | Deterministic exception and integrity findings | ENV / SYS |
-| 80 | `integrity_run` | Control | Integrity Verifier runs | SYS |
-| 81 | `attachment` | Files | Evidence files (metadata only) | ENV |
-| 82 | `attachment_link` | Files | Attachment ↔ what it evidences | ENV |
-| 83 | `document` | Files | Generated proof (message, photo, PDF, secure PDF) | ENV |
-| 84 | `share_profile` | Sharing | Per-recipient share defaults and limits | OWN |
-| 85 | `share_request` | Sharing | One share from preview to hand-off | OWN |
-| 86 | `share_event` | Sharing | Every state change of a share | OWN |
-| 87 | `secure_link` | Sharing | Secure Viewer links (token hash only) | OWN |
-| 88 | `secure_link_access` | Sharing | Every Secure Viewer access attempt | OWN |
-| 89 | `idempotency_record` | Operations | Exactly-once mutations (online and offline) | OWN |
-| 90 | `sync_review` | Operations | Offline operations needing review | OWN |
-| 91 | `notification` | Operations | In-app and push notifications (no amounts stored) | OWN |
-| 92 | `audit_log` | Operations | Tamper-evident audit trail | ENV / OWN |
-| 93 | `audit_chain_head` | Operations | Head of the audit hash chain (one row) | SYS |
+| 17 | `account_activation` | Identity | One-time activation credentials (hash only), single use, expiring | AUTH |
+| 18 | `support_session` | Identity | Consented, time-limited support access to someone's account | OWN |
+| 19 | `auth_session` | Identity | Remembered sessions | AUTH |
+| 20 | `refresh_token` | Identity | Rotating refresh tokens (hashed) | AUTH |
+| 21 | `security_event` | Identity | Login history and security events | AUTH |
+| 22 | `role` | Authorisation | Configurable roles (baselines) | CFG |
+| 23 | `permission` | Authorisation | Catalogue of permission keys the backend enforces | CFG |
+| 24 | `role_permission` | Authorisation | Role → permission (allow / deny) | CFG |
+| 25 | `user_role` | Authorisation | User → role, optionally scoped to one environment | CFG |
+| 26 | `env_access` | Authorisation | Which environments (firm, pool, personal books) a user may enter | CFG |
+| 27 | `access_rule` | Authorisation | Fine-grained allow/deny rules (L2–L9) | CFG |
+| 28 | `break_glass` | Authorisation | Emergency access sessions | CFG |
+| 29 | `entity_type` | Masters | Configurable entity sub-types over the four fixed kinds | CFG |
+| 30 | `entity` | Masters | Firms, people, pools, outside parties | ENV |
+| 31 | `person_profile` | Masters | Person details (encrypted phone) | ENV |
+| 32 | `personal_book_setting` | Masters | A person's own setting for entries others make in their books | OWN |
+| 33 | `firm_profile` | Masters | Firm details (encrypted tax IDs) | ENV |
+| 34 | `entity_membership` | Masters | Owner / partner / worker relationships over time | ENV |
+| 35 | `contact` | Masters | Share recipients | ENV |
+| 36 | `category` | Masters | Expense and income categories (mapped to account codes) | CFG |
+| 37 | `txn_type` | Masters | Configurable transaction types over engine intents | CFG |
+| 38 | `tag` | Masters | Tags | CFG / ENV |
+| 39 | `place` | Masters | Places | CFG / ENV |
+| 40 | `expense_event` | Masters | Trips, visits, projects that group expenses | ENV |
+| 41 | `custom_field_def` | Masters | Custom field definitions | CFG |
+| 42 | `custom_field_value` | Masters | Custom field values (encrypted when sensitive) | ENV |
+| 43 | `form_definition` | Masters | Configurable forms and conditional rules | CFG |
+| 44 | `approval_rule` | Masters | Who must approve what | approval managers; posting service |
+| 45 | `notification_rule` | Masters | Which events notify whom, in which content mode | CFG |
+| 46 | `message_template` | Masters | Message / photo / PDF templates | CFG |
+| 47 | `report_definition` | Masters | System and custom report definitions | OWN / CFG |
+| 48 | `dashboard_config` | Masters | Dashboard layouts per user or role | OWN |
+| 49 | `coa_template_account` | Money | Chart-of-accounts templates per entity kind | CFG |
+| 50 | `ledger_account` | Money | Each entity's chart of accounts | ENV |
+| 51 | `fund` | Money | Funds of an entity (one default) | ENV |
+| 52 | `location` | Money | Money locations (Tijori, bank, wallet, cash with a person) | ENV |
+| 53 | `bank_account_detail` | Money | Bank details of a bank location (encrypted number) | ENV |
+| 54 | `location_ownership` | Money | Who owns a location, over time | ENV |
+| 55 | `location_access` | Money | Who may access a location, over time (Add / Replace / Revoke) | ENV |
+| 56 | `location_holder` | Money | Who holds the key or control, over time (or nobody) | ENV |
+| 57 | `balance_hold` | Money | Reservations, locks, pending outgoing amounts | ENV |
+| 58 | `txn_status_transition` | Ledger | Allowed master-transaction state changes | CFG |
+| 59 | `txn` | Ledger | Master transaction: one real-world event | ENV |
+| 60 | `txn_entity` | Ledger | Entities involved in a transaction and their role | ENV |
+| 61 | `txn_leg` | Ledger | Business legs: sources, destinations, allocations | ENV |
+| 62 | `txn_note` | Ledger | Private notes on an event, one environment at a time | ENV |
+| 63 | `txn_acknowledgement` | Ledger | Acknowledgement by each person whose books an event would change | ENV / LEDGER |
+| 64 | `txn_link` | Ledger | Reversal / correction / refund relationships | ENV |
+| 65 | `txn_tag` | Ledger | Transaction ↔ tag | ENV |
+| 66 | `posting_rule_version` | Ledger | Versioned posting rules (engine version + definition) | CFG |
+| 67 | `accounting_period` | Ledger | Monthly periods per entity | ENV |
+| 68 | `journal_chain_head` | Ledger | Head of the journal hash chain (one row) | LEDGER |
+| 69 | `journal` | Ledger | One balanced journal per entity per step | ENV / LEDGER |
+| 70 | `journal_line` | Ledger | Debit or credit lines with every dimension | ENV / LEDGER |
+| 71 | `balance_slice` | Ledger | The dimension tuple a balance is kept for | ENV / LEDGER |
+| 72 | `balance_current` | Ledger | Encrypted running balance per slice | ENV / LEDGER |
+| 73 | `balance_period` | Ledger | Encrypted movement and closing per slice per period | ENV / LEDGER |
+| 74 | `open_item` | Ledger | Receivables, payables, advances, loans, inter-entity dues | ENV / LEDGER |
+| 75 | `open_item_origin` | Ledger | The journal lines an open item came from, per side | ENV / LEDGER |
+| 76 | `settlement_allocation` | Ledger | Which settlement closed how much of which item | ENV / LEDGER |
+| 77 | `custody_event` | Ledger | Handover steps and confirmation | ENV |
+| 78 | `approval_request` | Ledger | Approval steps for transactions and sensitive changes | ENV |
+| 79 | `period_close_run` | Ledger | Close and reopen runs with their checklist | ENV |
+| 80 | `reconciliation` | Control | Expected vs actual, investigation, resolution | ENV |
+| 81 | `bank_statement_import` | Control | Imported statement files | ENV |
+| 82 | `bank_statement_line` | Control | Statement lines and their matching | ENV |
+| 83 | `exception_finding` | Control | Deterministic exception and integrity findings | ENV / SYS |
+| 84 | `integrity_run` | Control | Integrity Verifier runs | SYS |
+| 85 | `attachment` | Files | Evidence files (metadata only) | ENV |
+| 86 | `attachment_link` | Files | Attachment ↔ what it evidences | ENV |
+| 87 | `document` | Files | Generated proof (message, photo, PDF, secure PDF) | ENV |
+| 88 | `share_profile` | Sharing | Per-recipient share defaults and limits | OWN |
+| 89 | `share_request` | Sharing | One share from preview to hand-off | OWN |
+| 90 | `share_event` | Sharing | Every state change of a share | OWN |
+| 91 | `secure_link` | Sharing | Secure Viewer links (token hash only) | OWN |
+| 92 | `secure_link_access` | Sharing | Every Secure Viewer access attempt | OWN |
+| 93 | `idempotency_record` | Operations | Exactly-once mutations: a retried request after a network failure posts once | OWN |
+| 94 | `notification` | Operations | In-app and push notifications (no amounts stored) | OWN |
+| 95 | `audit_log` | Operations | Tamper-evident audit trail | ENV / OWN |
+| 96 | `audit_chain_head` | Operations | Head of the audit hash chain (one row) | SYS |
 
 ### Coverage of BUILD_PROMPT I2
 
@@ -142,7 +145,7 @@ Every entity the specification lists maps to a table (or, where marked, to a col
 | Share profiles · Share events / history · Share verifications · Secure-viewer links | `share_profile` · `share_request`, `share_event` · `share_request.verification_hash` · `secure_link`, `secure_link_access` |
 | Message / photo / PDF templates · Security policies · Notification rules / events | `message_template` · `security_policy` · `notification_rule`, `notification` |
 | Devices · Sessions / refresh tokens · M-PIN credentials · Biometric state · MFA factors · Recovery codes · Login history · Security events | `device` · `auth_session`, `refresh_token` · `unlock_credential` · `unlock_credential.biometric_*` · `mfa_factor` · `recovery_code` · `security_event` |
-| Idempotency keys · Audit logs · Encryption key metadata · Retention policies · System settings · Emergency lock state · Offline sync records | `idempotency_record` · `audit_log` · `key_version` · `retention_policy` · `system_setting` · `emergency_control` · `idempotency_record` + `sync_review` |
+| Idempotency keys · Audit logs · Encryption key metadata · Retention policies · System settings · Emergency lock state · ~~Offline sync records~~ (online only, D-031) | `idempotency_record` · `audit_log` · `key_version` · `retention_policy` · `system_setting` · `emergency_control` · — |
 | Accounting core: entities · chart of accounts · templates · location ↔ ledger mappings · journals · lines · snapshots · open items + matches · inter-entity due pairs · custody records · fund balances · periods, closes, closing journals · posting-rule templates · split records · integrity runs | `entity` · `ledger_account` · `coa_template_account` · `journal_line.location_id` on the entity's Cash/Bank/Wallet account (revision 3: one account per entity, place as dimension) · `journal` · `journal_line` · `balance_*` · `open_item`, `settlement_allocation` · `open_item` (kind interentity) with both sides' lines · `custody_event`, `location_holder` · `balance_*` by fund · `accounting_period`, `period_close_run`, `journal.kind = 'closing'` · `posting_rule_version` · `txn_leg` · `integrity_run`, `exception_finding` |
 
 ---
@@ -221,6 +224,19 @@ returns the number, so references are gapless (TX-20261008-000001…).
 | mfa_required | bool | no | false | forced true for Super Admin (N13) |
 | locale | text | no | `'en'` | en, hi, gu |
 | [std] | | | | |
+
+### `account_activation` (S, AUTH) — D-030
+`id`, `user_id`, `code_hash` (keyed hash of the one-time code; the code itself is never stored), `issued_by` (an
+administrator, never the user), `issued_at`, `expires_at` (at most 7 days; 24 hours by default), `used_at`,
+`used_device_id`, `revoked_at`, `revoked_by`. One live code per user. A code is used or revoked once; an expired code
+is refused. `app_user.activated_at` is set when the person activates on their own device.
+
+### `support_session` (R, OWN) — D-030
+`id`, `user_id` (the person helped), `helper_user_id`, `scope text check in ('account_settings','view_books')`,
+`reason`, `requested_at`, `session_status text check in ('requested','active','declined','ended','expired')`,
+`consented_at`, `starts_at`, `ends_at` (≤ 4 hours), `ended_at`, `env_access_id` (the temporary owner grant the person
+gives for `view_books`). Requested by the helper in their own name; only the person can consent or decline. Every
+action in it is audited under the helper's identity.
 
 ### `user_credential` (S, AUTH)
 `user_id PK → app_user`, `password_hash text not null` (Argon2id PHC string), `is_temporary bool`,
@@ -356,6 +372,11 @@ postings to them are refused by the engine (and by inactive accounts/funds).
 ### `person_profile` (C/R, ENV)
 `entity_id PK` → `entity (id, kind='person')`, `phone_enc`, `phone_bidx bytea` (HMAC; duplicate detection and recipient
 lookup), `email text`, `worker_type_id` → `lookup_value (worker_type)`, `notes_enc`, `key_version`, `version`.
+
+### `personal_book_setting` (R, OWN) — D-029
+`entity_id PK` → `entity (id, kind='person')`, `incoming_entries text check in ('acknowledge','immediate') default
+'acknowledge'`, `updated_by`, `updated_at`, `version`. No row means `acknowledge`. Only that person (the transaction's
+actor) can insert or change it; a giver can never override it.
 
 ### `firm_profile` (C/R, ENV)
 `entity_id PK` → `entity (id, kind='firm')`, `legal_form text`, `gstin_enc`, `pan_enc`, `address text`,
@@ -507,7 +528,7 @@ any status change not listed.
 | reference | text | no, unique | | `TX-YYYYMMDD-NNNNNN`, human, gapless |
 | txn_type_id | uuid | no | | → txn_type |
 | intent_type | text | no | | engine intent (copied from the type at creation; immutable once submitted) |
-| status | text | no | `'draft'` | state machine (trigger) |
+| status | text | no | `'draft'` | state machine (trigger), including `pending_acknowledgement` (D-029) |
 | primary_env_id | uuid | no | | → entity: the environment it was entered in (authorisation, lists) |
 | value_date | date | no | | transaction date (period assignment) |
 | value_time | time | yes | | |
@@ -522,7 +543,6 @@ any status change not listed.
 | confidentiality_level_id | uuid | yes | | |
 | created_by_user_id | uuid | no | | → app_user (the maker) |
 | handled_by_entity_id | uuid | yes | | → entity (person who physically handled it) |
-| client_ref | uuid | yes | | id the phone generated offline; unique per user (sync dedupe) |
 | device_id | uuid | yes | | |
 | version / change_xid | | no | | |
 
@@ -536,9 +556,8 @@ its own environment. A commit-time check refuses any submitted event without leg
 
 ### `txn_entity` (R, ENV)
 `txn_id`, `entity_id`, `role text check in ('payer','owner','receiver','giver','holder','counterparty','lender',
-'borrower','settler')`, `value_date` — FK `(txn_id, value_date) → txn (id, value_date) ON UPDATE CASCADE`,
-`ack_status text check in ('not_required','pending','acknowledged','disputed') default 'not_required'` (counterparty
-acknowledgement, open question Q1), `ack_by`, `ack_at`, `ack_note`. PK `(txn_id, entity_id, role)`.
+'borrower','settler')`, `value_date` — FK `(txn_id, value_date) → txn (id, value_date) ON UPDATE CASCADE`.
+PK `(txn_id, entity_id, role)`. (Acknowledgement moved to `txn_acknowledgement`, one per person, in migration 0010.)
 
 ### `txn_leg` (C/R, ENV)
 `id`, `txn_id`, `seq smallint`, `leg_kind text check in ('source','destination','allocation')`, `entity_id`,
@@ -553,6 +572,14 @@ Unique `(txn_id, leg_kind, seq)`. **Trigger:** legs can be inserted, changed or 
 ### `txn_note` (C/R, ENV)
 `id`, `txn_id`, `env_entity_id` (whose side the note belongs to), `note_enc`, `key_version`, `created_by`,
 `created_at`. Private remarks one environment at a time: a note on Krish's side is never shown to a Mint user.
+
+### `txn_acknowledgement` (R, ENV/LEDGER) — D-029
+`txn_id`, `entity_id` → `entity (id, kind='person')`, PK both; `ack_status text check in ('pending','acknowledged',
+'rejected','withdrawn')`, `requested_at`, `decided_by`, `decided_at`, `note`, `version`. Created by the posting service
+for every person whose personal books the event would change and whose setting is `acknowledge`; the event waits in
+status `pending_acknowledgement` (its pending-outgoing hold reduces the giver's available balance). Only that person
+may acknowledge or reject; an answer is final. **Commit-time check:** an event cannot become `posted` while any of its
+acknowledgements is not `acknowledged`.
 
 ### `txn_link` (R, ENV)
 `from_txn_id`, `to_txn_id`, `kind text check in ('reverses','corrects','partially_reverses','refunds','replaces',
@@ -752,16 +779,14 @@ regenerated, only its hash is kept), `content_hash bytea not null`, `generated_b
 ## Operations
 
 ### `idempotency_record` (R, OWN)
-`user_id`, `key uuid` (the `Idempotency-Key` header, or the phone's operation id offline), PK `(user_id, key)`,
+`user_id`, `key uuid` (the `Idempotency-Key` header; a resend after a network failure reuses it), PK `(user_id, key)`,
 `device_id`, `operation text`, `request_hash bytea` (same key + different body = refused), `status text check in
 ('in_progress','completed','failed')`, `result_type text`, `result_id uuid`, `http_status smallint`, `error_code text`,
 `created_at`, `completed_at`, `expires_at`. Stores **no response body**: a replay re-reads the result under the
 caller's current permissions.
 
-### `sync_review` (R, OWN)
-`id`, `user_id`, `idempotency_key` — FK `(user_id, idempotency_key) → idempotency_record`, `reason text check in
-('conflict','stale','permission_changed','master_inactive','validation_failed')`, `details jsonb`, `status text check
-in ('open','resolved','discarded')`, `resolved_by`, `resolved_at`, `resolution_txn_id`.
+*`sync_review` and `txn.client_ref` were removed by migration 0010: Finly is online only (D-031), so there is no
+offline queue to review. A request retried after a network failure carries the same idempotency key.*
 
 ### `notification` (R, OWN)
 `id`, `user_id`, `event_key`, `severity`, `content_mode text check in ('full','masked','generic')`, `resource_type`,

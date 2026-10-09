@@ -101,7 +101,6 @@ never contributes to a count, a "no result" message or an autocomplete suggestio
 - Unique `balance_slice` key — two postings creating the same slice at once: one `INSERT … ON CONFLICT DO NOTHING`
   wins, both then lock the same row.
 - Unique `(user_id, key)` on `idempotency_record` — a double submission inserts once; the second waits and replays.
-- Unique `txn (created_by_user_id, client_ref)` — an offline operation synced twice creates one transaction.
 - Unique `journal (chain_seq)`, unique `reference` — any race on numbering fails loudly instead of duplicating.
 
 ## 4.6 Verification

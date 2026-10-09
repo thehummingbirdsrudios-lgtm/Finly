@@ -47,8 +47,8 @@ compromised third-party services (backend host, WhatsApp, push), and the develop
 
 ## 5. Security requirements by layer (summary)
 
-- **Android:** no keys or decryption secrets; Keystore-backed encrypted storage for the session and the offline cache;
-  biometric via the platform prompt; secure screens per classification; certificate validation; cache cleared on
+- **Android:** no keys or decryption secrets; Keystore-backed encrypted storage for the session tokens only — no financial data is stored on the phone (online only, D-031);
+  biometric via the platform prompt; secure screens per classification; certificate validation; screens cleared on
   revocation and logout; no sensitive data in logs or crash reports.
 - **API:** versioned; authentication, session and device checks, authorization (object + field), validation and rate
   limits on every endpoint; idempotency keys on every mutation; errors that never reveal SQL, stacks, keys or hidden data.

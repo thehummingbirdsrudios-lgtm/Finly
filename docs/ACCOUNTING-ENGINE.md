@@ -184,5 +184,5 @@ ledger query on the location dimension.
 ## 8. Acceptance tests (RULEBOOK-03 §72)
 
 The engine test suite names each test after its scenario number; module tests cover the ones that need reconciliation,
-access, offline sync, assets, inventory, tax and foreign currency as those modules are built. The current status of
+access, acknowledgement (D-029), assets, inventory, tax and foreign currency as those modules are built. The current status of
 each is in [TEST_PLAN.md](TEST_PLAN.md).

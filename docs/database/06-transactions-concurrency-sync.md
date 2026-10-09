@@ -1,7 +1,8 @@
-# 6. Transactions, concurrency and offline sync
+# 6. Transactions, concurrency and online updates
 
-Add-on 11 items 4 (atomicity), 5 (impact model), 13 (concurrency), 20 (offline) and §30 items 10 and 13. BUILD_PROMPT
-J2–J5, P7; RULEBOOK-03 §60.
+Add-on 11 items 4 (atomicity), 5 (impact model), 13 (concurrency), 20 (offline, superseded) and §30 items 10 and 13.
+BUILD_PROMPT J2–J5; RULEBOOK-03 §60. **Finly is online only (D-031, add-on 12, add-on 13):** no local database, no
+offline mode, no offline queue.
 
 ## 6.1 One operation = one database transaction
 
@@ -20,9 +21,8 @@ Every row above is written by one role, `finly_ledger` (05 §5.2), because one d
 Failure anywhere → `ROLLBACK`: no source without destination, no ledger without balance, no allocation without its
 open item, no partial reversal (add-on 11 item 4, J4). Nothing financial is committed in a second transaction "to
 finish later". The one thing recorded *after* a rollback, in a second short transaction, is the **outcome of the
-failure**: the idempotency record marked `failed` with its error code, an approved event moved to `failed`, and a
-`sync_review` row for an offline operation — so a refused request has a durable, visible result and its key is not
-silently reusable.
+failure**: the idempotency record marked `failed` with its error code and an approved event moved to `failed` — so a
+refused request has a durable, visible result and its key is not silently reusable.
 
 ## 6.2 The posting pipeline in the database (J2 steps 12–30)
 
@@ -74,7 +74,7 @@ the client retries with the same idempotency key.
 | Same account updated by a transfer and an expense | Same slice row lock → serial; each sees the other's committed result |
 | Same fund reserved and spent | Holds and slice locked together; available = current − active holds, computed after locking |
 | Duplicate request / double tap / retry on a poor network | Same idempotency key → the second request waits on the unique index, then returns the first result (re-read with current permissions) |
-| Same offline operation synced from two attempts | Unique `(created_by_user_id, client_ref)` → one transaction |
+| The phone resends a request while the original is still running (response lost) | Same `(user_id, key)` in `idempotency_record`: the resend waits on the first one's key, then finds it and returns its result — one posting (`concurrency_test`) |
 | Two approvers approve at once | `txn` row lock + state-machine trigger: the second sees `approved`/`posted` and gets "already decided" |
 | Edit a draft on two devices | Optimistic concurrency: `UPDATE … WHERE id = $1 AND version = $2`; 0 rows → "changed on another device, review the latest" |
 | Edit a master (rename Tijori) while it is in use | Masters are labels over IDs; edits carry `version`; postings reference IDs, never names |
@@ -111,32 +111,64 @@ queries, not guesses:
 Nothing dependent is ever modified silently: posted rows are immutable at the database level, so every propagation is
 a new, linked, audited row.
 
-## 6.6 Offline and sync (P7, RULEBOOK-03 §60)
+## 6.6 Online only: requests, retries and updates (D-031)
+
+Finly keeps no financial data on the phone. Every read and every change goes to the API, which writes the central
+PostgreSQL database; the phone shows a result only after the server has confirmed it.
 
 ```text
-phone: prepare a permitted operation → local id (UUIDv7) + idempotency key → encrypted local queue (status: queued)
-  ↓ connection
-API: authenticate → re-authorise with *current* permissions → full precondition pipeline → post or refuse
+phone: prepare a permitted operation → idempotency key (UUIDv7) → send (button disabled while it is in flight)
   ↓
-phone: synced (server reference) | rejected (reason) | needs review (sync_review row) — never silently overwritten
+API: authenticate → authorise with *current* permissions → full precondition pipeline (6.2) → commit or refuse
+  ↓
+phone: confirmed (server reference) | refused (reason) | not sent ("No connection — nothing was saved")
 ```
 
 | Situation | Handling |
 |---|---|
-| Duplicate sync / retry / network cut during save | Same idempotency key and `client_ref` → exactly one transaction; the retry receives the original result |
-| Several offline transactions | Each is its own operation and its own database transaction; one refusal does not undo the others (each is a separate real-world event) |
-| Partial connectivity (request committed, response lost) | The retry finds the completed idempotency record and returns the result |
-| Stale data (balance changed while offline) | Re-validated under lock; insufficient funds → refused with reason; the phone shows "rejected" |
-| Authorisation changed while offline | Re-checked at sync: refused (`permission_changed`) and the review explains it; the phone's cache for revoked environments is purged |
-| Master deactivated while offline (RULEBOOK-03 §60) | Refused (`master_inactive`) → `sync_review` with the operation's details so the user can re-enter it against an active master |
-| Same draft edited on two devices | Version conflict → `sync_review` (`conflict`); the user chooses |
-| Period closed while offline | Refused for the closed period; the user may post it in the open period as a late entry with reference |
+| No connection | Nothing is saved, queued or posted locally. The screen says so plainly and keeps the user's input on the form so they can send it when the connection returns — it is never sent automatically later |
+| Network cut during save (request committed, response lost) | The phone resends with the **same** idempotency key; the server finds the completed record and returns the original result — exactly one posting |
+| Double tap / resend while the first is still running | The second waits on the first one's key, then returns its result (6.4) |
+| Balance changed since the screen was loaded | The client never sends balances; re-validated under lock; insufficient → refused with the reason |
+| Permission changed while the screen was open | Re-checked on every request; refused, and the phone reloads what the user may now see |
+| Master deactivated while the form was open (RULEBOOK-03 §60) | Refused (`F1004`) with the master named; the user picks an active one |
+| Same draft edited on two devices | Version check (`version = $2`); the second gets "changed on another device" and sees the latest |
+| Period closed while the form was open | Refused for the closed period; the user may post it in the open period as a late entry with reference |
+| Session expired | Refused (401); the user unlocks again and resends — same key, so still exactly once |
 
-**Delta sync of reference data:** every synced table has `change_xid` — the id of the transaction that last wrote the
+**Reflecting changes to other users:** after a commit the API sends a push *nudge* (no amounts, no names) to the
+devices of users whose visible data changed; an open screen also refreshes on resume and on pull-to-refresh. Either
+way the phone fetches the changes with the delta feed below. A missed nudge only delays a refresh; it can never lose
+or duplicate data, because the database is the only copy.
+
+**Delta feed:** every table the phone reads has `change_xid` — the id of the transaction that last wrote the
 row (`xid8`, set by trigger). A page returns rows with `change_xid >= cursor` and hands back the query snapshot's
 `xmin` as the next cursor: every transaction below it had finished when the page was read, so a row committed late by
 a slow transaction is never skipped (a plain sequence number would skip it). Rows are deduplicated by id and version
-on the phone. The phone asks per table, limited to what its user may see. Archived rows arrive
+in the phone's memory. The phone asks per table, limited to what its user may see. Archived rows arrive
 as status changes (nothing is ever deleted, so there are no tombstones to lose). Changes to the user's own `env_access`
-and `access_rule` rows are in the same feed: a revocation tells the phone which environments to purge. The phone never
-receives other users' data, ciphertext or keys; it receives decrypted, authorised values for its own encrypted cache.
+and `access_rule` rows are in the same feed: a revocation tells the phone which environments to drop from the screen
+at once. The phone never receives other users' data, ciphertext or keys, and keeps what it receives in memory only —
+it is never written to a local database.
+
+## 6.7 Entries into someone else's personal books — acknowledgement (D-029)
+
+Option B is the default: an event that would change another person's personal books waits for that person.
+
+```text
+giver submits → posting service finds every *other* person whose personal books the plan changes
+  setting = acknowledge (default; no row) → txn status pending_acknowledgement + one txn_acknowledgement row each
+                                             + pending-outgoing hold on the giver's side (available balance shown less)
+                                             + notification to the person
+  setting = immediate (only the person can choose it) → posts at once + notification ("added to your books")
+person acknowledges → in ONE transaction: acknowledgement row → re-validate under lock (6.2) → post every journal
+                      → release the hold → audit → notify the giver
+person rejects     → acknowledgement rejected (final) → event rejected → hold released → giver notified; history kept
+giver withdraws    → acknowledgement withdrawn → event cancelled → hold released; history kept
+```
+
+Database guards: only the person can change their own setting (`F1008`, even a Super Admin); only that person can
+answer, and an answer is final (`F1007`/`F1008`); the deferred check refuses `posted` while any acknowledgement is not
+`acknowledged`; the primary key `(txn_id, entity_id)` prevents a duplicate request; the event's row lock (6.2 step 3)
+serialises a simultaneous acknowledge and withdraw. Pending entries are listed separately from posted ones and never
+count in posted balances. Tests: `decisions_test.ts`.

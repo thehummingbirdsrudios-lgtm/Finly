@@ -323,7 +323,7 @@ flowchart LR
     attachment; attachment_link; document; share_profile; share_request; share_event; secure_link; secure_link_access
   end
   subgraph ops[Operations]
-    idempotency_record; sync_review; notification; audit_log; audit_chain_head
+    idempotency_record; notification; audit_log; audit_chain_head
   end
 
   app_user --> entity
@@ -457,7 +457,6 @@ flowchart LR
   secure_link --> share_request
   secure_link_access --> secure_link
   idempotency_record --> app_user
-  sync_review --> idempotency_record
   notification --> app_user
   audit_log --> app_user
   audit_log --> txn
