@@ -3,14 +3,9 @@
  * transaction; an applied file whose content changed stops the run. Works on any PostgreSQL 17 and on PGlite.
  */
 
-export interface Sql {
-  /** Runs one or more statements without parameters. */
-  exec(text: string): Promise<void>;
-  /** Runs one parameterised statement and returns its rows. */
-  query<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T[]>;
-  /** Runs `fn` inside one transaction: commit on success, rollback on any error. */
-  transaction<T>(fn: (tx: Sql) => Promise<T>): Promise<T>;
-}
+import type { Sql } from './sql.ts';
+
+export type { Sql };
 
 export interface Migration {
   version: string;

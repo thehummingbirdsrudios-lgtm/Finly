@@ -4,7 +4,8 @@
  * `deno task test:pg17`. The same tests run on both, through the small interface below.
  */
 import { loadMigrations, migrate, type Sql } from '../../src/db/migrate.ts';
-import { openPglite } from '../../src/db/pglite.ts';
+import { type ByteaDomains, openPglite } from '../../src/db/pglite.ts';
+import type { PGlite, Transaction } from '@electric-sql/pglite';
 import { openPostgres, type PgClient } from '../../src/db/postgres.ts';
 import { Buffer } from 'node:buffer';
 
@@ -23,6 +24,8 @@ export interface TestDb extends TestTx {
   readonly target: 'pglite' | 'pg17' | 'pg18';
   /** Opens another connection to the same database (real servers only). */
   connect?: () => TestDb;
+  /** The same database through the production `Sql` port (what application services use). */
+  port?: Sql;
 }
 
 export function testTarget(): TestDb['target'] {
@@ -59,14 +62,33 @@ function wrapPg(client: PgClient, target: 'pg17' | 'pg18', url: string): TestDb 
   };
 }
 
+/** PGlite as a TestDb, with the same bytea-domain serializers as the production adapter (src/db/pglite.ts). */
+function wrapPglite(db: PGlite, domains: ByteaDomains): TestDb {
+  const tx = (runner: PGlite | Transaction): TestTx => ({
+    async query<T>(text: string, params: unknown[] = []) {
+      const serializers = params.some((p) => p instanceof Uint8Array) ? await domains.serializers(runner) : undefined;
+      return { rows: (await runner.query<T>(text, params, serializers ? { serializers } : undefined)).rows };
+    },
+    async exec(text: string) {
+      const result = await runner.exec(text);
+      domains.invalidate();
+      return result;
+    },
+  });
+  return {
+    ...tx(db),
+    target: 'pglite',
+    transaction: <T>(fn: (t: TestTx) => Promise<T>) => db.transaction((t) => fn(tx(t))),
+    close: () => db.close(),
+  };
+}
+
 /** A fresh, empty database (no migrations) as the runner's `Sql` interface, on the configured target. */
 export async function emptyDb(): Promise<{ sql: Sql; close: () => Promise<void>; db: TestDb }> {
   const target = testTarget();
   if (target === 'pglite') {
-    const { db, sql } = await openPglite();
-    // PGlite already has query/exec/transaction/close; it only needs its target label.
-    const handle = Object.assign(db, { target: 'pglite' as const }) as unknown as TestDb;
-    return { sql, close: () => db.close(), db: handle };
+    const { db, sql, domains } = await openPglite();
+    return { sql, close: () => db.close(), db: wrapPglite(db, domains) };
   }
   const admin = openPostgres(adminUrl(target), { max: 1, applicationName: 'finly-test-admin' });
   const name = `finly_t_${crypto.randomUUID().replaceAll('-', '').slice(0, 16)}`;
@@ -81,7 +103,7 @@ export async function emptyDb(): Promise<{ sql: Sql; close: () => Promise<void>;
 export async function migratedDb(): Promise<TestDb> {
   const { sql, db } = await emptyDb();
   await migrate(sql, await loadMigrations(MIGRATIONS_DIR));
-  return db;
+  return Object.assign(db, { port: sql });
 }
 
 /** The SQLSTATE of a database error, or undefined. */

@@ -1,7 +1,7 @@
 /** The `Sql` interface over a real PostgreSQL server (postgres.js), used in production and in server-backed tests. */
 import postgres from 'postgres';
 import { Buffer } from 'node:buffer';
-import type { Sql } from './migrate.ts';
+import type { Sql } from './sql.ts';
 
 export type PgClient = ReturnType<typeof postgres>;
 type Runner = { unsafe: PgClient['unsafe'] };
