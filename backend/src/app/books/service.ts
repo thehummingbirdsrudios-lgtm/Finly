@@ -494,10 +494,17 @@ export class BooksService {
         type_label: string;
         recorded_here: boolean;
       }>(
+        // Other Finly books the person may see, and the outside parties of THIS book: those recorded here or already
+        // owing or owed by it. A party recorded in another firm's book stays in that book's list.
         `select e.id, e.kind, e.display_name as name, et.label as type_label,
                 e.managed_in_env_id is not distinct from $1::uuid as recorded_here
          from finly.entity e join finly.entity_type et on et.id = e.entity_type_id
          where e.id <> $1 and e.status = 'active'
+           and (e.kind <> 'party'
+                or e.managed_in_env_id = $1
+                or exists (select 1 from finly.open_item o
+                           where (o.debtor_entity_id = $1 and o.creditor_entity_id = e.id)
+                              or (o.creditor_entity_id = $1 and o.debtor_entity_id = e.id)))
          order by (e.managed_in_env_id is not distinct from $1::uuid) desc, e.display_name, e.id
          limit 1000`,
         [bookId],

@@ -323,3 +323,28 @@ Deno.test('the language a person chooses is kept on the server and refused when 
   assertEquals([bad.status, bad.body.code], [422, 'VALIDATION']);
   assertEquals((await call('PUT', '/v1/me/locale', { body: { locale: 'hi' } })).status, 401);
 });
+
+Deno.test('a book lists its own outside parties and Finly books, never a party recorded in another firm', async () => {
+  const me = await person('Meera');
+  const t = me.token;
+  const firm = async (name: string) =>
+    (await call<{ id: string }>('POST', '/v1/books', {
+      token: t,
+      body: { name, typeKey: 'proprietorship', openingDate: today, creatorIsOwner: true, sharePercent: 100 },
+    })).body.id;
+  const shop = await firm('Meera Sarees');
+  const studio = await firm('Meera Studio');
+  const supplier = (await call<{ id: string }>('POST', `/v1/books/${shop}/parties`, {
+    token: t,
+    body: { name: 'Surat Weavers', typeKey: 'supplier' },
+  })).body.id;
+  const ids = async (book: string) =>
+    (await call<{ items: { id: string }[] }>('GET', `/v1/books/${book}/parties`, { token: t })).body.items.map((p) =>
+      p.id
+    );
+  const shopList = await ids(shop);
+  const studioList = await ids(studio);
+  assert(shopList.includes(supplier), 'recorded in the shop');
+  assert(!studioList.includes(supplier), 'not mixed into the studio');
+  assert(studioList.includes(me.personId) && studioList.includes(shop), 'Finly books stay available');
+});

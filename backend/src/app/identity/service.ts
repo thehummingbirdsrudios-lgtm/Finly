@@ -12,12 +12,29 @@ import { fail } from '../../domain/errors.ts';
 import type { Id } from '../../domain/ids.ts';
 import { checkNewPassword } from './password_policy.ts';
 
-export const ACCESS_TTL_SECONDS = 10 * 60;
-const IDLE_DAYS = 14;
-const ABSOLUTE_DAYS = 30;
+/**
+ * How long sessions last. The owner sets them in `system_setting` (access_token_minutes, session_idle_minutes,
+ * session_absolute_days; A-14: configuration, not code); a missing or out-of-range value falls back to these.
+ * Read once per running API instance, so a change applies as instances restart.
+ */
+export interface SessionLimits {
+  accessSeconds: number;
+  idleMinutes: number;
+  absoluteDays: number;
+}
+export const DEFAULT_SESSION_LIMITS: SessionLimits = {
+  accessSeconds: 10 * 60,
+  idleMinutes: 14 * 24 * 60,
+  absoluteDays: 30,
+};
 /** Consecutive failures before the account locks; each further failure doubles the lock (capped at a day). */
 const LOCK_AFTER = 5;
 const LOCK_MINUTES = 15;
+
+function settingNumber(raw: unknown, min: number, max: number, fallback: number): number {
+  const n = typeof raw === 'number' ? raw : Number(raw);
+  return Number.isInteger(n) && n >= min && n <= max ? n : fallback;
+}
 
 export interface DeviceInfo {
   /** The id this phone received at its first sign-in, if it has one. */
@@ -109,6 +126,45 @@ export class IdentityService {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
+  private limitsLoaded?: Promise<SessionLimits>;
+
+  /** The session lifetimes in force (see SessionLimits). */
+  limits(): Promise<SessionLimits> {
+    return this.limitsLoaded ??= this.asAuth(async (tx) => {
+      const rows = await tx.query<{ key: string; value: unknown }>(
+        `select key, value from finly.system_setting
+         where key in ('access_token_minutes', 'session_idle_minutes', 'session_absolute_days')`,
+      );
+      const v = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+      const d = DEFAULT_SESSION_LIMITS;
+      return {
+        accessSeconds: settingNumber(v.access_token_minutes, 1, 60, d.accessSeconds / 60) * 60,
+        idleMinutes: settingNumber(v.session_idle_minutes, 5, 90 * 24 * 60, d.idleMinutes),
+        absoluteDays: settingNumber(v.session_absolute_days, 1, 365, d.absoluteDays),
+      };
+    }).catch((e) => {
+      this.limitsLoaded = undefined; // a failed read is retried next time
+      throw e;
+    });
+  }
+
+  /**
+   * Counts one wrong password against the account: after LOCK_AFTER in a row it locks, each further failure doubling
+   * the wait (capped at a day). Returns whether the account is now locked.
+   */
+  private async recordWrongPassword(tx: Tx, userId: Id): Promise<boolean> {
+    const [r] = await tx.query<{ locked: boolean }>(
+      `update finly.user_credential
+       set failed_count = failed_count + 1,
+           locked_until = case when failed_count + 1 >= $2
+             then now() + make_interval(mins => least($3 * power(2, failed_count + 1 - $2)::int, 1440)) end
+       where user_id = $1
+       returning locked_until is not null as locked`,
+      [userId, LOCK_AFTER, LOCK_MINUTES],
+    );
+    return r?.locked ?? false;
+  }
+
   /** One transaction as the identity role. */
   private asAuth<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
     return this.db.transaction(async (tx) => {
@@ -191,14 +247,7 @@ export class IdentityService {
     const ok = await verifyPassword(password, u.password_hash);
     if (!ok) {
       await this.asAuth(async (tx) => {
-        await tx.query(
-          `update finly.user_credential
-           set failed_count = failed_count + 1,
-               locked_until = case when failed_count + 1 >= $2
-                 then now() + make_interval(mins => least($3 * power(2, failed_count + 1 - $2)::int, 1440)) end
-           where user_id = $1`,
-          [u.id, LOCK_AFTER, LOCK_MINUTES],
-        );
+        await this.recordWrongPassword(tx, u.id);
         await this.event(tx, { type: 'login_failed', outcome: 'failure', userId: u.id, reason: 'password', client });
       });
       fail('UNAUTHENTICATED', WRONG);
@@ -217,6 +266,7 @@ export class IdentityService {
     }
     const rehash = needsRehash(u.password_hash) ? await hashPassword(password) : null;
     const mustChange = u.must_change_password || u.is_temporary === true;
+    const limits = await this.limits();
     return await this.asAuth(async (tx) => {
       await tx.query(
         `update finly.user_credential
@@ -229,10 +279,10 @@ export class IdentityService {
       const [s] = await tx.query<{ id: string }>(
         `insert into finly.auth_session (user_id, device_id, auth_methods, auth_strength, remember, idle_expires_at,
            absolute_expires_at, ip, user_agent)
-         values ($1, $2, array['password'], 1, true, now() + make_interval(days => $3),
-                 now() + make_interval(days => $4), $5::inet, $6)
+         values ($1, $2, array['password'], 1, true, least(now() + make_interval(mins => $3),
+                 now() + make_interval(days => $4)), now() + make_interval(days => $4), $5::inet, $6)
          returning id`,
-        [u.id, deviceId, IDLE_DAYS, ABSOLUTE_DAYS, ipOrNull(client.ip), short(client.userAgent, 300)],
+        [u.id, deviceId, limits.idleMinutes, limits.absoluteDays, ipOrNull(client.ip), short(client.userAgent, 300)],
       );
       const refreshToken = await this.newRefresh(tx, s.id);
       await this.event(tx, {
@@ -243,7 +293,7 @@ export class IdentityService {
         sessionId: s.id,
         client,
       });
-      return await this.tokens(u.id, s.id, deviceId, refreshToken, mustChange);
+      return await this.tokens(u.id, s.id, deviceId, refreshToken, mustChange, limits);
     });
   }
 
@@ -300,13 +350,15 @@ export class IdentityService {
     deviceId: Id,
     refreshToken: string,
     mustChange: boolean,
+    limits?: SessionLimits,
   ): Promise<SessionTokens> {
+    const ttl = (limits ?? await this.limits()).accessSeconds;
     const iat = Math.floor(this.now().getTime() / 1000);
-    const claims: AccessClaims = { sub: userId, sid: sessionId, did: deviceId, iat, exp: iat + ACCESS_TTL_SECONDS };
+    const claims: AccessClaims = { sub: userId, sid: sessionId, did: deviceId, iat, exp: iat + ttl };
     if (mustChange) claims.pwd = true;
     return {
       accessToken: await this.signer.sign(claims),
-      expiresIn: ACCESS_TTL_SECONDS,
+      expiresIn: ttl,
       refreshToken,
       userId,
       sessionId,
@@ -322,6 +374,7 @@ export class IdentityService {
   async refresh(refreshToken: string, client: ClientInfo = {}): Promise<SessionTokens> {
     if (!/^[A-Za-z0-9_-]{43}$/.test(refreshToken)) fail('UNAUTHENTICATED', 'Please sign in again.');
     const hash = await this.signer.refreshHash(refreshToken);
+    const { idleMinutes } = await this.limits();
     const outcome = await this.asAuth(async (tx) => {
       const [r] = await tx.query<{
         id: string;
@@ -385,9 +438,9 @@ export class IdentityService {
       await tx.query(`update finly.refresh_token set used_at = now(), replaced_by_id = $2 where id = $1`, [r.id, n.id]);
       await tx.query(
         `update finly.auth_session
-         set last_used_at = now(), idle_expires_at = least(now() + make_interval(days => $2), absolute_expires_at)
+         set last_used_at = now(), idle_expires_at = least(now() + make_interval(mins => $2), absolute_expires_at)
          where id = $1`,
-        [r.session_id, IDLE_DAYS],
+        [r.session_id, idleMinutes],
       );
       return { ok: { userId: r.user_id, sessionId: r.session_id, deviceId: r.device_id, next, must: r.must_change } };
     });
@@ -465,23 +518,37 @@ export class IdentityService {
     client: ClientInfo = {},
   ): Promise<SessionTokens> {
     const [cred] = await this.asAuth((tx) =>
-      tx.query<{ password_hash: string; username: string }>(
-        `select c.password_hash, u.username from finly.user_credential c join finly.app_user u on u.id = c.user_id
+      tx.query<{ password_hash: string; username: string; locked: boolean; locked_until: string | null }>(
+        `select c.password_hash, u.username, (c.locked_until is not null and c.locked_until > now()) as locked,
+                c.locked_until::text
+         from finly.user_credential c join finly.app_user u on u.id = c.user_id
          where c.user_id = $1`,
         [actor.userId],
       )
     );
+    if (cred?.locked) fail('LOCKED', 'Too many wrong attempts. Try again later.', { lockedUntil: cred.locked_until });
     if (!cred || !(await verifyPassword(currentPassword, cred.password_hash))) {
-      await this.asAuth((tx) =>
-        this.event(tx, {
+      // A wrong current password counts like a wrong sign-in: someone holding a stolen access token cannot guess the
+      // password without limit, and when the account locks this session ends too.
+      const locked = await this.asAuth(async (tx) => {
+        const nowLocked = await this.recordWrongPassword(tx, actor.userId);
+        await this.event(tx, {
           type: 'password_changed',
           outcome: 'failure',
           userId: actor.userId,
           sessionId: actor.sessionId,
           reason: 'current_password',
           client,
-        })
-      );
+        });
+        if (nowLocked) {
+          await tx.query(
+            `update finly.auth_session set revoked_at = now(), revoke_reason = 'security_change' where id = $1`,
+            [actor.sessionId],
+          );
+        }
+        return nowLocked;
+      });
+      if (locked) fail('LOCKED', 'Too many wrong attempts. Sign in again later.');
       fail('VALIDATION', 'Your current password is not correct.', { field: 'currentPassword' });
     }
     checkNewPassword(newPassword, cred.username, currentPassword);
@@ -560,7 +627,7 @@ export class IdentityService {
   async revokeSession(actor: Actor, sessionId: Id, client: ClientInfo = {}): Promise<void> {
     await this.asAuth(async (tx) => {
       const done = await tx.query(
-        `update finly.auth_session set revoked_at = now(), revoke_reason = 'logout_all'
+        `update finly.auth_session set revoked_at = now(), revoke_reason = 'logout'
          where id = $1 and user_id = $2 and revoked_at is null returning id`,
         [sessionId, actor.userId],
       );

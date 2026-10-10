@@ -19,7 +19,8 @@ async function setup() {
   const w = await dbWorld();
   const ring = new KeyRing(new StaticKekSource(new Map([[1, crypto.getRandomValues(new Uint8Array(32))]]), 1));
   const signer = new TokenSigner(ring);
-  const ids = new IdentityService(w.db.port!, signer, new BlindIndex(ring));
+  const blind = new BlindIndex(ring);
+  const ids = new IdentityService(w.db.port!, signer, blind);
   const username = `user${crypto.randomUUID().slice(0, 8)}`;
   const created = await ids.createUser({
     username,
@@ -27,7 +28,7 @@ async function setup() {
     temporaryPassword: TEMP,
     roleKeys: [],
   });
-  return { w, ids, signer, username, created };
+  return { w, ids, signer, blind, username, created };
 }
 
 async function refusal(fn: () => Promise<unknown>): Promise<FinlyError> {
@@ -187,4 +188,31 @@ Deno.test('no password, hash input or refresh token is stored readably; failed a
      where event_type = 'login_failed' and user_id is null`,
   )).rows;
   assert(events.some((e) => e.has_hash), 'an unknown username is logged as a keyed hash only');
+});
+
+Deno.test('guessing the current password with a stolen token locks the account and ends that session', async () => {
+  const { ids, username } = await setup();
+  const phone = await ids.signIn(username, TEMP, PHONE);
+  const actor = await ids.authenticate(phone.accessToken);
+  for (let i = 1; i <= 4; i++) {
+    assertEquals((await refusal(() => ids.changePassword(actor, `wrong guess ${i}`, NEW))).code, 'VALIDATION');
+  }
+  assertEquals((await refusal(() => ids.changePassword(actor, 'wrong guess 5', NEW))).code, 'LOCKED');
+  assertEquals((await refusal(() => ids.authenticate(phone.accessToken))).code, 'UNAUTHENTICATED', 'session ended');
+  assertEquals(
+    (await refusal(() => ids.signIn(username, TEMP, PHONE))).code,
+    'LOCKED',
+    'even the right password waits',
+  );
+});
+
+Deno.test('session lifetimes come from the owner’s settings, within safe bounds', async () => {
+  const { w, signer, blind, username } = await setup();
+  await w.db.query(`update finly.system_setting set value = '5' where key = 'access_token_minutes'`);
+  await w.db.query(`update finly.system_setting set value = '999999999' where key = 'session_idle_minutes'`);
+  const fresh = new IdentityService(w.db.port!, signer, blind);
+  const limits = await fresh.limits();
+  assertEquals(limits.accessSeconds, 300, 'configured: 5 minutes');
+  assertEquals(limits.idleMinutes, 14 * 24 * 60, 'out of range: the safe default');
+  assertEquals((await fresh.signIn(username, TEMP, PHONE)).expiresIn, 300);
 });
