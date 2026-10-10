@@ -116,8 +116,10 @@ Deno.test('ensure_periods opens later months only: never before the books start,
       )).rows.map((r) => r.m);
     const start = await months();
     assertEquals(start.length, 1);
-    // As the posting role, which may only call the function (it cannot read other books' periods).
+    // As the posting role inside a signed-in person's entry (0018), which may only call the function (it cannot read
+    // other books' periods).
     const ensure = async (date: string) => {
+      await tx.query(`select set_config('finly.actor_user_id', $1, true)`, [u.krish]);
       await tx.exec('set local role finly_ledger');
       await tx.query(`select finly.ensure_periods($1, ${date})`, [shop]);
       await tx.exec('reset role');

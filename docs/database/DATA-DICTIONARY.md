@@ -4959,6 +4959,7 @@ User -> role, optionally scoped to one firm or pool. Never opens anyone's person
 - user_role_api_read: SELECT for finly_api
 - user_role_api_revoke: UPDATE for finly_api
 - user_role_api_write: INSERT for finly_api
-- user_role_auth: ALL for finly_auth
+- user_role_auth_bootstrap: INSERT for finly_auth
+- user_role_auth_read: SELECT for finly_auth
 - user_role_svc: SELECT for finly_ledger, finly_system
 
