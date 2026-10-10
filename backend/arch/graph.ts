@@ -5,7 +5,9 @@
 import { type Layer, layerOf, LAYERS } from './rules.ts';
 
 const ROOT = new URL('../', import.meta.url);
-const IMPORT = /(?:^|\n)\s*(?:import|export)\s[^'"]*?from\s*['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/g;
+/** `import … from 'x'` / `export … from 'x'`, dynamic `import('x')`, and side-effect `import 'x'`. */
+const IMPORT =
+  /(?:^|\n)\s*(?:import|export)\s[^'"]*?from\s*['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)|(?:^|\n)\s*import\s*['"]([^'"]+)['"]/g;
 
 export interface Graph {
   /** File (relative to backend/) → its imports: relative files resolved, bare specifiers as written. */
@@ -33,7 +35,7 @@ export async function readGraph(): Promise<Graph> {
   const edges = new Map<string, string[]>();
   for await (const file of walk(new URL('src/', ROOT), 'src/')) {
     const text = await Deno.readTextFile(new URL(file, ROOT));
-    const specs = [...text.matchAll(IMPORT)].map((m) => m[1] ?? m[2]);
+    const specs = [...text.matchAll(IMPORT)].map((m) => m[1] ?? m[2] ?? m[3]);
     edges.set(file, [...new Set(specs.map((s) => resolve(file, s)))].sort());
   }
   return { edges: new Map([...edges].sort(([a], [b]) => a.localeCompare(b))) };

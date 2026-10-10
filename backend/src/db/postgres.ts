@@ -5,6 +5,7 @@
  * JSON-encodes any value bound to a json/jsonb parameter, so a JSON string bound to `$1::jsonb` arrives double-encoded
  * (a jsonb string, not an object). PGlite does not do this, so only the real-server tests catch it.
  */
+import './node_globals.ts'; // before the driver: it needs Node's globals while it loads
 import postgres from 'postgres';
 import { Buffer } from 'node:buffer';
 import type { Sql } from './sql.ts';

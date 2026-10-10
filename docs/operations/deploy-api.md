@@ -42,7 +42,8 @@ in the dashboard (Edge Functions → Secrets) is equivalent.
 Until these exist, the function answers every request with 503 "not configured" and `/v1/health` lists what is missing
 (names only).
 
-Steps 1–3 were done on 2026-10-09 ([deployment.md](deployment.md) §4).
+Steps 1–3 were done on 2026-10-09 ([deployment.md](deployment.md) §4). Sections 2 and 3 were done on 2026-10-10:
+secrets set by `deno task edge:secrets`, function deployed, `/v1/health` → `{"status":"ok"}`.
 
 ## 3. Function code — [O] sign in once, then [C]
 
@@ -69,6 +70,9 @@ off**: Finly authenticates every request itself, and the app carries no Supabase
 
 Before every deploy, the same bundle is proven locally: `deno task dev:setup`, `deno task dev:api`, then
 `deno task smoke http://127.0.0.1:8000 FINLY_DEV_ADMIN_URL` (a full sign-in → firm → place → entries → balances run).
+`dev:api` runs the bundle the way the hosted runtime does — without Node's `Buffer`, `process`, `setImmediate`,
+`clearImmediate` and `global` (`db/tools/edge_hosted_like.ts`) — because local Deno defines them and the hosted
+runtime does not; the database driver's need for them is met by `src/db/node_globals.ts`.
 
 ## 4. First accounts — [C] with the owner's go-ahead
 

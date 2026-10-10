@@ -35,6 +35,10 @@ Deno.test('the committed module map matches the code (run `deno task arch:map`)'
   assertEquals((await Deno.readTextFile(MAP_FILE)).replaceAll('\r\n', '\n'), renderMap(graph));
 });
 
+Deno.test('side-effect imports are part of the graph (postgres.ts loads node_globals.ts first)', () => {
+  assert(graph.edges.get('src/db/postgres.ts')?.includes('src/db/node_globals.ts'));
+});
+
 Deno.test('the checks themselves catch a cycle and a forbidden import', () => {
   const bad: Graph = {
     edges: new Map([

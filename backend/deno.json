@@ -17,7 +17,7 @@
     "edge:deploy": "deno task edge:bundle && mkdir -p build/edge-deploy/supabase/functions/api && cp deploy/supabase/config.toml build/edge-deploy/supabase/config.toml && cp build/edge/index.js build/edge-deploy/supabase/functions/api/index.js && npx --yes supabase@2.118.0 functions deploy api --project-ref joidjmwfajbeivyffymb --no-verify-jwt --use-api --workdir build/edge-deploy",
     "edge:secrets": "deno run --env-file=.env.local --allow-env --allow-read --allow-write --allow-run=npx,npx.cmd db/tools/edge_secrets.ts",
     "dev:setup": "deno run --env-file=.env.local --allow-env --allow-net --allow-read=db --allow-write=.env.dev.local --allow-read=.env.dev.local db/tools/dev_setup.ts",
-    "dev:api": "deno run --env-file=.env.dev.local --allow-env --allow-net build/edge/index.js",
+    "dev:api": "deno run --env-file=.env.dev.local --allow-env --allow-net --allow-read=build db/tools/edge_hosted_like.ts",
     "smoke": "deno run --env-file=.env.local --env-file=.env.dev.local --allow-env --allow-net db/tools/smoke.ts",
     "api": "deno run --env-file=.env.local --allow-env --allow-net --allow-read=. src/main/server.ts",
     "user:create": "deno run --env-file=.env.local --allow-env --allow-net --allow-read=. --allow-write=.first-login.txt src/main/create_user.ts",

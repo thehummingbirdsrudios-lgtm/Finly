@@ -54,6 +54,7 @@ pubspec_overrides.yaml
 
 # ---------- Supabase / Deno / Node ----------
 supabase/.temp/
+**/supabase/.temp/
 supabase/.branches/
 node_modules/
 .deno/

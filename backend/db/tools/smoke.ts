@@ -99,7 +99,8 @@ const bank = await call('POST', `/v1/books/${firmId}/places`, {
     name: 'Shop bank',
     kind: 'bank',
     typeKey: 'bank_current',
-    bank: { bankName: 'Test', accountNumber: '000011112222' },
+    // A fresh number per run: Finly refuses the same bank account twice, and the dev database keeps earlier runs.
+    bank: { bankName: 'Test', accountNumber: String(Date.now()).slice(-12).padStart(12, '0') },
   },
 });
 step('places added', tijori.status === 201 && bank.status === 201, { tijori: tijori.status, bank: bank.status });

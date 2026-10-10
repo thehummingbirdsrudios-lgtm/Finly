@@ -39,7 +39,7 @@ export const LAYERS: Layer[] = [
     path: 'src/db/',
     purpose: 'PostgreSQL adapters, migration runner, SCRAM verifiers',
     may: [],
-    external: ['postgres', 'node:buffer', '@electric-sql/pglite'],
+    external: ['postgres', 'node:buffer', 'node:process', 'node:timers', '@electric-sql/pglite'],
   },
   {
     name: 'app',
