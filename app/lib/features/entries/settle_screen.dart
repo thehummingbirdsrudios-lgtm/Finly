@@ -30,7 +30,9 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
   final _form = GlobalKey<FormState>();
   final _amount = TextEditingController();
   final _reason = TextEditingController();
-  final String _requestKey = newRequestKey();
+
+  /// Renewed only after a final refusal (see [outcomeUnknown]); kept across retries of an unknown outcome.
+  String _requestKey = newRequestKey();
   String _date = todayIso();
   String? _myPlace;
   String? _theirPlace;
@@ -87,8 +89,9 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
       refreshMoney(ref);
       showMessage(context, '${r.reference} recorded.');
       context.pop();
-    } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+    } catch (e) {
+      if (!outcomeUnknown(e)) _requestKey = newRequestKey();
+      if (mounted) setState(() => _error = messageOf(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

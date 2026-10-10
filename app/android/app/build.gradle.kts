@@ -50,15 +50,24 @@ android {
 
     buildTypes {
         release {
-            if (keyProperties.isEmpty()) {
-                throw GradleException("Release signing is not set up: run `python tool/new_release_key.py` (see docs/operations/release-signing.md).")
-            }
-            signingConfig = signingConfigs.getByName("release")
+            if (keyProperties.isNotEmpty()) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
         }
     }
 }
+
+// Without the key a release build stops when it is actually built — never signed with the debug key — while debug
+// builds and CI still work on a fresh clone (a check at configuration time would stop every build).
+val releaseKeyMissing = keyProperties.isEmpty()
+val requireReleaseKey = tasks.register("requireReleaseKey") {
+    doLast {
+        if (releaseKeyMissing) {
+            throw GradleException("Release signing is not set up: run `python tool/new_release_key.py` (see docs/operations/release-signing.md).")
+        }
+    }
+}
+tasks.matching { it.name == "preReleaseBuild" }.configureEach { dependsOn(requireReleaseKey) }
 
 kotlin {
     compilerOptions {

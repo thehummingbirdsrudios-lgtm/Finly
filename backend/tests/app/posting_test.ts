@@ -147,7 +147,16 @@ Deno.test('resending the same request returns the original result and writes not
   const reused = await refusal(() =>
     svc.submit({ ...request, intent: { ...request.intent, amount: 11_000n } as Intent })
   );
-  assertEquals(reused.code, 'CONFLICT');
+  assertEquals(reused.code, 'DUPLICATE_REQUEST');
+});
+
+Deno.test('after a refusal, the corrected entry under a new key posts (the app renews its key)', async () => {
+  const { svc, open, transfer } = await setup();
+  await open(100_000n);
+  const tooMuch = transfer(150_000n);
+  assertEquals((await refusal(() => svc.submit(tooMuch))).code, 'INSUFFICIENT_BALANCE');
+  const corrected = { ...transfer(50_000n), idempotencyKey: uuidv7() };
+  assertEquals((await svc.submit(corrected)).status, 'posted');
 });
 
 Deno.test('money that is not there cannot leave; the refusal is recorded and resent identically', async () => {

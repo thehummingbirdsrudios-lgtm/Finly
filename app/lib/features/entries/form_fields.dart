@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/api_client.dart';
 import '../../core/api/models.dart';
 import '../../core/design_system/theme.dart';
 import '../../core/design_system/tokens.g.dart';
@@ -162,7 +161,10 @@ class CategoryField extends ConsumerWidget {
     final lookups = ref.watch(lookupsProvider);
     return lookups.when(
       loading: () => const LinearProgressIndicator(),
-      error: (e, _) => FormMessage(messageOf(e)),
+      error: (e, _) => RetryMessage(
+        messageOf(e),
+        onRetry: () => ref.invalidate(lookupsProvider),
+      ),
       data: (l) {
         final cats = l.categoriesOf(kind);
         return DropdownButtonFormField<String>(
@@ -288,8 +290,8 @@ class _AddPartyDialogState extends ConsumerState<AddPartyDialog> {
           .read(apiProvider)
           .addParty(widget.bookId, name: _name.text.trim(), typeKey: _type!);
       if (mounted) Navigator.of(context).pop(id);
-    } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+    } catch (e) {
+      if (mounted) setState(() => _error = messageOf(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -297,7 +299,8 @@ class _AddPartyDialogState extends ConsumerState<AddPartyDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final types = ref.watch(lookupsProvider).value?.partyTypes ?? const [];
+    final lookups = ref.watch(lookupsProvider);
+    final types = lookups.value?.partyTypes ?? const [];
     return AlertDialog(
       title: const Text('Someone new'),
       content: SingleChildScrollView(
@@ -310,6 +313,13 @@ class _AddPartyDialogState extends ConsumerState<AddPartyDialog> {
               style: context.text.bodySmall,
             ),
             const SizedBox(height: FyDims.space3),
+            if (lookups.hasError) ...[
+              RetryMessage(
+                messageOf(lookups.error!),
+                onRetry: () => ref.invalidate(lookupsProvider),
+              ),
+              const SizedBox(height: FyDims.space3),
+            ],
             if (_error != null) ...[
               FormMessage(_error!),
               const SizedBox(height: FyDims.space3),

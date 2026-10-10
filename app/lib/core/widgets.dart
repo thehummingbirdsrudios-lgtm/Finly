@@ -197,30 +197,75 @@ class StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fy = context.fy;
-    final (label, fg, bg) = switch (status) {
-      'posted' => ('Posted', fy.success, fy.successSoft),
+    // Glyph + word + colour: a status is never told by colour alone (design system, WCAG 1.4.1).
+    final (label, icon, fg, bg) = switch (status) {
+      'posted' => ('Posted', Icons.check_rounded, fy.success, fy.successSoft),
       'pending_acknowledgement' => (
         'Waiting for acknowledgement',
+        Icons.schedule_rounded,
         fy.pending,
         fy.pendingSoft,
       ),
       'pending_approval' => (
         'Waiting for approval',
+        Icons.schedule_rounded,
         fy.pending,
         fy.pendingSoft,
       ),
-      'rejected' => ('Rejected', fy.blocked, fy.blockedSoft),
-      'reversed' => ('Reversed', fy.reversed, fy.reversedSoft),
-      'open' => ('Open', fy.outstanding, fy.outstandingSoft),
-      'partially_settled' => (
-        'Partly settled',
+      'rejected' => (
+        'Rejected',
+        Icons.block_rounded,
+        fy.blocked,
+        fy.blockedSoft,
+      ),
+      'reversed' => (
+        'Reversed',
+        Icons.undo_rounded,
+        fy.reversed,
+        fy.reversedSoft,
+      ),
+      'corrected' => (
+        'Corrected',
+        Icons.edit_note_rounded,
+        fy.reversed,
+        fy.reversedSoft,
+      ),
+      'open' => (
+        'Open',
+        Icons.radio_button_unchecked_rounded,
         fy.outstanding,
         fy.outstandingSoft,
       ),
-      'settled' => ('Settled', fy.reconciled, fy.reconciledSoft),
-      'acknowledged' => ('Acknowledged', fy.success, fy.successSoft),
-      'pending' => ('Waiting', fy.pending, fy.pendingSoft),
-      _ => (status.replaceAll('_', ' '), fy.inkMuted, fy.surfaceSunken),
+      'partially_settled' => (
+        'Partly settled',
+        Icons.timelapse_rounded,
+        fy.outstanding,
+        fy.outstandingSoft,
+      ),
+      'settled' => (
+        'Settled',
+        Icons.done_all_rounded,
+        fy.reconciled,
+        fy.reconciledSoft,
+      ),
+      'acknowledged' => (
+        'Acknowledged',
+        Icons.check_rounded,
+        fy.success,
+        fy.successSoft,
+      ),
+      'pending' => (
+        'Waiting',
+        Icons.schedule_rounded,
+        fy.pending,
+        fy.pendingSoft,
+      ),
+      _ => (
+        status.replaceAll('_', ' '),
+        Icons.info_outline_rounded,
+        fy.inkMuted,
+        fy.surfaceSunken,
+      ),
     };
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -231,7 +276,20 @@ class StatusBadge extends StatelessWidget {
         color: bg,
         borderRadius: BorderRadius.circular(FyDims.radiusSm),
       ),
-      child: Text(label, style: context.text.labelMedium?.copyWith(color: fg)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: fg),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: context.text.labelMedium?.copyWith(color: fg),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -264,6 +322,30 @@ class SectionTitle extends StatelessWidget {
 }
 
 /// A message bar at the top of a form: what went wrong and what to do.
+/// A problem inside a form (for example choices that could not be loaded), with a way to try again — so a form never
+/// shows silently empty dropdowns.
+class RetryMessage extends StatelessWidget {
+  const RetryMessage(this.message, {super.key, required this.onRetry});
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      FormMessage(message),
+      Align(
+        alignment: Alignment.centerRight,
+        child: TextButton.icon(
+          onPressed: onRetry,
+          icon: const Icon(Icons.refresh_rounded),
+          label: const Text('Try again'),
+        ),
+      ),
+    ],
+  );
+}
+
 class FormMessage extends StatelessWidget {
   const FormMessage(this.message, {super.key, this.error = true});
   final String message;
@@ -308,6 +390,13 @@ void showMessage(BuildContext context, String message) {
 /// Today in the server's date format.
 String todayIso() {
   final d = DateTime.now();
+  return '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+}
+
+/// The local calendar date (yyyy-mm-dd) of a server timestamp, which is in UTC: a session used at 1 a.m. in India
+/// shows that day, not the day before.
+String localDateOf(String timestamp) {
+  final d = DateTime.parse(timestamp).toLocal();
   return '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
 

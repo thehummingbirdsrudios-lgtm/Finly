@@ -20,7 +20,7 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · 🔑 needs the o
 
 - [x] Hosted-runtime fix (Node globals), hosted-like `dev:api`, side-effect imports in the architecture graph (0c89369)
 - [~] ADDON-23, ADDON-24, GATE-RESPONSE-06 recorded; D-044…D-051; flags table; PLAN v3; REQUIREMENTS.md
-- [ ] App fixes: H1 refused-form key, M1 startup storage errors, M2 lookups retry, M3 unpostable give, M4 all save
+- [x] App fixes: H1 refused-form key, M1 startup storage errors, M2 lookups retry, M3 unpostable give, M4 all save
   errors, M5 list race + status badges, M6 device model, M7 debug build without key.properties, empty states,
   not-found exit, chip formatting, sessions double tap
 - [ ] L10n: ARB en/hi/gu for every string, Mukta + Mukta Vaani, language setting saved and sent to the server

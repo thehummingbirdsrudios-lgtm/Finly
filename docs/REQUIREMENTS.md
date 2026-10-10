@@ -27,7 +27,7 @@ Abbreviations: UMA = ADDON-23; DEC = DECISIONS.md; tests are under `backend/test
 | IAM-11 | Password reset without revealing accounts: admin one-time code + recovery codes | BP N7–N8 | ⬜ | M9 | `recovery_code` table only |
 | IAM-12 | TOTP MFA mandatory for Super Admin | BP N8, N13 | ⬜ | M9 | `mfa_factor` table only |
 | IAM-13 | Short access tokens, refresh rotation with reuse detection, session list, logout one/all, inactivity | BP N9, D-042 | ✅ | — | `IdentityService` · `app/identity_test.ts`; app sessions screen |
-| IAM-14 | Devices: register, trust, revoke, mark lost; new-device flow | BP N10 | 🟡 | M9 | auto-registered on sign-in; trust/revoke not built |
+| IAM-14 | Devices: register, trust, revoke, mark lost; new-device flow | BP N10 | 🟡 | M9 | auto-registered on sign-in with real make/model (`core/device.dart`); trust/revoke in M9 |
 | IAM-15 | Auto-lock in background; screen-capture protection | BP N11, V5 | 🟡 | M9 | FLAG_SECURE (`MainActivity.kt`); auto-lock missing |
 | IAM-16 | Step-up for high-risk actions | BP N12 | ⬜ | M9 | |
 | IAM-17 | RBAC + ABAC + record/field rules, server-side; one effective-permission source | BP L1, A-17 §10, D-038 | 🟡 | M1, M10 | `actor_has_permission`, RLS everywhere; scoped roles ignored in some policies (M1) |
@@ -455,7 +455,7 @@ Abbreviations: UMA = ADDON-23; DEC = DECISIONS.md; tests are under `backend/test
 | REL-04 | API as Edge Function, own auth, pinned CLI | D-043 | ✅ | — | production `/v1/health` ok (2026-10-10) |
 | REL-05 | Checksummed migrations; migrator off between deploys; fingerprints | D-027, D-036 | ✅ | — | `docs/operations/deployment.md` §4 |
 | REL-06 | PG17/18 verified locally; PGlite fast tests | D-024, D-028 | ✅ | — | `test:pg17`, `test:pg18` |
-| REL-07 | Signed APK; key outside Git | D-017 | ✅ | — | `apksigner verify` (CN=Finly) |
+| REL-07 | Signed APK; key outside Git; debug builds work without the key | D-017 | ✅ | — | `apksigner verify` (CN=Finly); `requireReleaseKey` task (M0) |
 | REL-08 | Installed and verified on a device | UMA §15 | ⬜ | owner | needs a phone |
 | REL-09 | Play Store guidance | UMA §15, D-051 | ⬜ | M16 | |
 | REL-10 | Deployment docs, runbooks, health checks | A-13 §9 | 🟡 | M16 | `docs/operations/*` |
@@ -472,11 +472,11 @@ Abbreviations: UMA = ADDON-23; DEC = DECISIONS.md; tests are under `backend/test
 | UX-01 | Token design system, premium light/dark theme | D-008, A-04, A-09 | 🟡 | M5 | `theme.dart` from tokens · `app/test/tokens_test.dart` |
 | UX-02 | Role-aware resumable setup wizard | A-07, BP UX7 | ⬜ | M10 | |
 | UX-03 | Every screen has loading/empty/error/offline states | BP K3 | 🟡 | each | `ErrorView` |
-| UX-04 | Bottom navigation, no dead ends | BP P2, UX1 | 🟡 | M0, M5 | not-found page has no exit (M0) |
+| UX-04 | Bottom navigation, no dead ends | BP P2, UX1 | 🟡 | M5 | not-found page offers the way home (M0); new navigation in M5 |
 | UX-05 | Tap/time budgets | BP UX2 | ⬜ | M16 | |
-| UX-06 | Never colour alone; amount dominant | BP K2 | 🟡 | M5 | badges lack glyphs |
+| UX-06 | Never colour alone; amount dominant | BP K2 | 🟡 | M5 | status badges have glyph + word + colour (M0, `widgets.dart`) |
 | UX-07 | WCAG 2.2 AA; role walkthroughs | BP UX8–9 | 🟡 | M16 | |
-| UX-08 | Success only after server confirms; double taps blocked | BP UX5 | 🟡 | M0 | sessions double tap (M0) |
+| UX-08 | Success only after server confirms; double taps blocked | BP UX5 | ✅ | — | busy guards on every save; refused forms renew their key · `app/test/entry_form_test.dart` |
 | UX-09 | Full page inventory | BP P4, UMA §9 | 🟡 | M4–M15 | |
 | PLT-01 | No AI anywhere (OCR exception D-046) | BP A2 | ✅ | — | |
 | PLT-02 | One DB, one backend, OpenAPI contract | BP A1, S2 | 🟡 | M16 | OpenAPI file missing |

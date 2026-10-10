@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/api/api_client.dart';
 import '../../core/design_system/theme.dart';
 import '../../core/design_system/tokens.g.dart';
 import '../../core/providers.dart';
@@ -87,8 +86,8 @@ class _AddPlaceScreenState extends ConsumerState<AddPlaceScreen> {
         'Added. Its balance is ₹0 until you record money there.',
       );
       context.pop();
-    } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+    } catch (e) {
+      if (mounted) setState(() => _error = messageOf(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -96,7 +95,8 @@ class _AddPlaceScreenState extends ConsumerState<AddPlaceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final placeTypes = ref.watch(lookupsProvider).value?.placeTypes ?? const [];
+    final lookups = ref.watch(lookupsProvider);
+    final placeTypes = lookups.value?.placeTypes ?? const [];
     final allowed = _kind == null ? const <String>[] : _typesByKind[_kind]!;
     final types = placeTypes.where((t) => allowed.contains(t.key)).toList();
     return Scaffold(
@@ -107,6 +107,13 @@ class _AddPlaceScreenState extends ConsumerState<AddPlaceScreen> {
           child: ListView(
             padding: const EdgeInsets.all(FyDims.space4),
             children: [
+              if (lookups.hasError) ...[
+                RetryMessage(
+                  messageOf(lookups.error!),
+                  onRetry: () => ref.invalidate(lookupsProvider),
+                ),
+                const SizedBox(height: FyDims.space4),
+              ],
               if (_error != null) ...[
                 FormMessage(_error!),
                 const SizedBox(height: FyDims.space4),

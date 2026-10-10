@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/api/models.dart';
 import '../../core/design_system/theme.dart';
 import '../../core/design_system/tokens.g.dart';
+import '../../core/money.dart';
 import '../../core/providers.dart';
 import '../../core/widgets.dart';
 import '../entries/entry_kinds.dart';
@@ -187,13 +188,17 @@ class _SummaryCards extends StatelessWidget {
                 runSpacing: FyDims.space2,
                 children: [
                   if (s.inTransit != BigInt.zero)
-                    Chip(label: Text('In transit ${_short(s.inTransit)}')),
+                    Chip(label: Text('In transit ${formatInr(s.inTransit)}')),
                   if (s.investments != BigInt.zero)
                     Chip(
-                      label: Text('Invested in firms ${_short(s.investments)}'),
+                      label: Text(
+                        'Invested in firms ${formatInr(s.investments)}',
+                      ),
                     ),
                   if (s.unidentified != BigInt.zero)
-                    Chip(label: Text('Unidentified ${_short(s.unidentified)}')),
+                    Chip(
+                      label: Text('Unidentified ${formatInr(s.unidentified)}'),
+                    ),
                 ],
               ),
             ),
@@ -248,8 +253,6 @@ class _SummaryCards extends StatelessWidget {
       ),
     );
   }
-
-  String _short(BigInt v) => '₹${v.abs()}';
 }
 
 class _PlaceTile extends StatelessWidget {
@@ -337,7 +340,9 @@ class _DueTile extends StatelessWidget {
     final receivable = o.direction == 'receivable';
     return ListTile(
       title: Text(o.counterparty),
-      subtitle: Text('${o.reason}\n${o.reference} · of ${formatOriginal(o)}'),
+      subtitle: Text(
+        '${o.reason}\n${o.reference} · of ${formatInr(o.original)}',
+      ),
       isThreeLine: true,
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -357,6 +362,4 @@ class _DueTile extends StatelessWidget {
           : null,
     );
   }
-
-  static String formatOriginal(OpenItem o) => '₹${o.original}';
 }

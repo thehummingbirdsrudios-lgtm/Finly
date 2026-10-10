@@ -1,6 +1,5 @@
 // Dependency wiring and server-backed state. Every data provider fetches from the API; after any change the affected
 // providers are invalidated so screens show the server's new truth, never a locally computed guess.
-import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,16 +8,22 @@ import 'api/finly_api.dart';
 import 'api/models.dart';
 import 'api/session_store.dart';
 import 'config.dart';
+import 'device.dart';
 
 final sessionStoreProvider = Provider<SessionStore>(
   (ref) => SecureSessionStore(),
+);
+
+/// Make, model, Android version and app version, read once in main(); tests use the generic fallback.
+final deviceFactsProvider = Provider<DeviceFacts>(
+  (ref) => DeviceFacts.fallback,
 );
 
 final apiClientProvider = Provider<ApiClient>(
   (ref) => ApiClient(
     baseUrl: apiBaseUrl,
     store: ref.watch(sessionStoreProvider),
-    appVersion: appVersion,
+    appVersion: ref.watch(deviceFactsProvider).appVersion,
   ),
 );
 
@@ -76,6 +81,12 @@ class AuthController extends Notifier<AuthState> {
       }
     } on ApiException catch (e) {
       state = e.isNetwork ? AuthOffline(e.message) : const SignedOut();
+    } catch (_) {
+      // The phone's secure storage failed (e.g. keys reset after a backup restore): start clean rather than hang on
+      // the splash screen. Nothing financial is lost — it all lives on the server.
+      state = const SignedOut(
+        'This phone could not read the saved sign-in. Please sign in again.',
+      );
     }
   }
 
@@ -83,10 +94,8 @@ class AuthController extends Notifier<AuthState> {
     await _client.signIn(
       username,
       password,
-      model: Platform.isAndroid ? 'Android phone' : Platform.operatingSystem,
-      osVersion: Platform.operatingSystemVersion.length > 40
-          ? Platform.operatingSystemVersion.substring(0, 40)
-          : Platform.operatingSystemVersion,
+      model: ref.read(deviceFactsProvider).model,
+      osVersion: ref.read(deviceFactsProvider).osVersion,
     );
     state = SignedIn(await _api.me());
   }
@@ -108,9 +117,13 @@ final authProvider = NotifierProvider<AuthController, AuthState>(
 
 // ---- Server data ---------------------------------------------------------------------------------------------
 
-final lookupsProvider = FutureProvider<Lookups>(
-  (ref) => ref.watch(apiProvider).lookups(),
-);
+/// Choice lists from the server. Kept for the session once loaded; a failed load is not kept, so the next screen that
+/// needs it (or "Try again") asks again.
+final lookupsProvider = FutureProvider.autoDispose<Lookups>((ref) async {
+  final lookups = await ref.watch(apiProvider).lookups();
+  ref.keepAlive();
+  return lookups;
+});
 
 final booksProvider = FutureProvider.autoDispose<List<Book>>(
   (ref) => ref.watch(apiProvider).books(),

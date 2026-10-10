@@ -63,6 +63,8 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
           }
         });
       }
+    } catch (e) {
+      if (mounted) setState(() => _error = messageOf(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

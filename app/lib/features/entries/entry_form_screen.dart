@@ -68,8 +68,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   final _amount = TextEditingController();
   final _reason = TextEditingController();
 
-  /// One key per form: a double tap, a retry or a lost answer can never post twice.
-  final String _requestKey = newRequestKey();
+  /// One key per attempt at this entry: a double tap, a retry or a lost answer can never post twice. It is renewed
+  /// only after a final refusal, which the server stores under the old key (see [outcomeUnknown]).
+  String _requestKey = newRequestKey();
   String _date = todayIso();
   String? _place;
   String? _toPlace;
@@ -97,6 +98,13 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     final books = ref.read(booksProvider).value ?? const <Book>[];
     return _party != null && books.any((b) => b.id == _party!.id && b.canPost);
   }
+
+  /// Money given to someone who keeps their own books, but not books this person may post to: their side can only be
+  /// recorded by them, so this form cannot record it (the server would refuse it).
+  bool get _cannotRecord =>
+      widget.kind == EntryKind.give &&
+      _party?.keepsBooks == true &&
+      !_receiverIsMyBook;
 
   bool get _giverKeeps =>
       _repayable == true ||
@@ -201,8 +209,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
       };
       showMessage(context, text);
       context.pop();
-    } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+    } catch (e) {
+      if (!outcomeUnknown(e)) _requestKey = newRequestKey();
+      if (mounted) setState(() => _error = messageOf(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -254,7 +263,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
               ),
               const SizedBox(height: FyDims.space4),
               FilledButton(
-                onPressed: _busy ? null : _submit,
+                onPressed: _busy || _cannotRecord ? null : _submit,
                 child: _busy
                     ? const SizedBox(
                         width: 22,

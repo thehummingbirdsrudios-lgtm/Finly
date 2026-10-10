@@ -100,11 +100,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const SessionsScreen(),
       ),
     ],
-    errorBuilder: (_, _) => const Scaffold(
+    // A wrong link never strands the person: the page offers the way home.
+    errorBuilder: (context, _) => Scaffold(
+      appBar: AppBar(),
       body: EmptyView(
         icon: Icons.explore_off_outlined,
         title: 'Not found',
         message: 'This page does not exist.',
+        action: FilledButton(
+          onPressed: () => context.go('/'),
+          child: const Text('Go to my books'),
+        ),
       ),
     ),
   );

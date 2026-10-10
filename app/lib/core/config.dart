@@ -15,5 +15,3 @@ String? get configurationProblem {
   }
   return null;
 }
-
-const String appVersion = '1.0.0';

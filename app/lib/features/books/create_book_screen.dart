@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/api/api_client.dart';
 import '../../core/design_system/theme.dart';
 import '../../core/design_system/tokens.g.dart';
 import '../../core/providers.dart';
@@ -57,8 +56,8 @@ class _CreateBookScreenState extends ConsumerState<CreateBookScreen> {
       if (!mounted) return;
       ref.invalidate(booksProvider);
       context.pushReplacement('/books/$id');
-    } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+    } catch (e) {
+      if (mounted) setState(() => _error = messageOf(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -66,7 +65,8 @@ class _CreateBookScreenState extends ConsumerState<CreateBookScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final types = ref.watch(lookupsProvider).value?.firmTypes ?? const [];
+    final lookups = ref.watch(lookupsProvider);
+    final types = lookups.value?.firmTypes ?? const [];
     return Scaffold(
       appBar: AppBar(title: const Text('New business')),
       body: SafeArea(
@@ -82,6 +82,13 @@ class _CreateBookScreenState extends ConsumerState<CreateBookScreen> {
                 ),
               ),
               const SizedBox(height: FyDims.space4),
+              if (lookups.hasError) ...[
+                RetryMessage(
+                  messageOf(lookups.error!),
+                  onRetry: () => ref.invalidate(lookupsProvider),
+                ),
+                const SizedBox(height: FyDims.space4),
+              ],
               if (_error != null) ...[
                 FormMessage(_error!),
                 const SizedBox(height: FyDims.space4),

@@ -1,20 +1,19 @@
 # Continuation record
 
-**A new session reads this file first**, then [PLAN.md](PLAN.md) (what and why), [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md)
-(how, in order) and [TASKS.md](../TASKS.md) (the checklist), and continues from "Next action". It does not repeat the
-audit or re-read the sources unless they change. Items are ticked only with evidence.
-
-Scope is frozen at ADDON-22 (D-041). The goal is the complete, deployable mobile app on the existing backend.
+**A new session reads this file first**, then [PLAN.md](PLAN.md) (revision 3: decisions and milestones),
+[REQUIREMENTS.md](REQUIREMENTS.md) (every requirement with status and proof) and [TASKS.md](../TASKS.md) (the
+milestone checklist), and continues from "Next action". Items are ticked only with evidence.
 
 ## State at the end of the last change
 
 | Area | State | Evidence |
 |---|---|---|
-| Database | Migrations 0001–0017 deployed to Supabase; `finly_app` login live; migrator login off | [deployment.md](operations/deployment.md) §4: fingerprint `4b71e286…` on three channels; `app_login_check.ts` |
-| Backend | Engine, posting, identity, books, activity, HTTP API v1; Edge Function bundle | `deno task verify` 185 passed / 7 ignored; `test:pg17` 106/106; `test:pg18` 106/106; local smoke of the bundle as `finly_app` |
-| API hosting | `deno task edge:deploy` (pinned Supabase CLI 2.118.0) runs up to the sign-in check | Waiting for the owner's `supabase login` and function secrets |
-| App | Core screens wired to the API; branding; signed release APK (52.4 MB, CN=Finly) | `flutter analyze` clean; `flutter test` 13/13; `apksigner verify` |
-| Plans | PLAN.md, IMPLEMENTATION-PLAN.md, TASKS.md | Commit "docs: consolidated plan…" |
+| Sources | BUILD_PROMPT, ADDON-01…24, GATE-RESPONSE-01…06, RULEBOOK-01…03 | `docs/source/README.md` |
+| Plan | Revision 3 after a full reassessment (ADDON-24); decisions D-044…D-051 | PLAN.md, DECISIONS.md (dd82c33) |
+| Database | 0001–0017 deployed; `finly_app` live; migrator login off | deployment.md §4, fingerprint `4b71e286…` |
+| API | Live as Edge Function `api` (`/v1/health` ok, 401 without token) | deployment.md §4 (2026-10-10) |
+| Backend | `deno task verify` 186 passed / 7 ignored | commit 0c89369 |
+| App | Core screens; `flutter analyze` clean, 13 tests (last run before revision 3) | — |
 
 ## Git
 
@@ -22,16 +21,16 @@ Branch `feat/database`; nothing pushed (the owner pushes: `git push -u origin fe
 
 ## Waiting for the owner
 
-1. `npx --yes supabase@2.118.0 login` once in a terminal. Then (by the owner or by Claude on request)
-   `deno task edge:secrets` and `deno task edge:deploy` (deploy-api.md §2–§3).
-2. Escrow `%USERPROFILE%\.finly\finly-kek-v1.txt` (created by `edge:secrets`) in two offline places
-   (key-recovery.md §1.3).
-3. Back up `%USERPROFILE%\.finly\finly-release.jks` and `app/android/key.properties` (release-signing.md).
-4. Go-ahead to create the initial accounts (deploy-api.md §4) once the function answers `{"status":"ok"}`.
-5. Install the release APK on the phones; push to GitHub (starts CI).
-6. Supabase CA certificate download and "Enforce SSL".
+1. Create the seven accounts (the permission system blocks Claude):
+   `cd backend` → `deno task user:create FINLY_SUPABASE_APP_URL krish "Krish" super_admin`, then `shaileshbhai`,
+   `savan` with `family_admin`, and `sujal`, `devanshu`, `heet`, `sagar` with `worker`. Temporary passwords land in the
+   git-ignored `backend/.first-login.txt`.
+2. Escrow `%USERPROFILE%\.finly\finly-kek-v1.txt` in two offline places; back up `finly-release.jks` and
+   `app/android/key.properties`.
+3. Push to GitHub; Supabase CA certificate + "Enforce SSL".
+4. Later: R2 credentials (backups, M16), Firebase project (push), a phone for device verification, review of the
+   Hindi/Gujarati text.
 
 ## Next action
 
-WP2.5 Reversal and correction (IMPLEMENTATION-PLAN.md, execution order step 4). The deployment steps above resume as
-soon as the owner has done their part.
+M0: the app fixes (H1, M1–M7) and the l10n infrastructure, then M1.

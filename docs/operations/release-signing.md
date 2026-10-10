@@ -27,7 +27,11 @@ cd app && flutter build apk --release --dart-define=FINLY_API_URL=https://joidjm
 
 - Output: `app/build/app/outputs/flutter-apk/app-release.apk` (all CPU types in one file).
 - `--split-per-abi` makes smaller per-phone files; most current phones use `app-arm64-v8a-release.apk`.
-- R8 shrinking is on. Without `key.properties` the release build stops instead of signing with the debug key.
+- R8 shrinking is on. Without `key.properties` the release build stops (task `requireReleaseKey`) instead of signing
+  with the debug key; debug builds work without it.
+- **Windows, if Gradle fails with "Unable to establish loopback connection"**: Java's Unix-domain socket cannot be
+  created under the user's temp folder (the 8.3 short name of a profile path with a space). Point it at a plain folder
+  for the build: `$env:JAVA_TOOL_OPTIONS = "-Djdk.net.unixdomain.tmpdir=D:\tmp\jdk"` (PowerShell; create the folder).
 - The app refuses to run a release build whose API address is not `https://`.
 
 ## Install

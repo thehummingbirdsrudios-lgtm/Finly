@@ -56,7 +56,8 @@ class BooksScreen extends ConsumerWidget {
                 ),
               ),
               for (final b in items) _BookTile(book: b),
-              if (items.length == 1)
+              // Shown until the person has a book other than their own personal one (whatever the list's length).
+              if (!items.any((b) => !b.personal))
                 const Padding(
                   padding: EdgeInsets.all(FyDims.space4),
                   child: EmptyView(

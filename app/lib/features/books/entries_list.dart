@@ -25,14 +25,20 @@ class _EntriesListState extends ConsumerState<EntriesList> {
   Object? _error;
   int _version = -1;
 
+  /// Bumped by every reload: an answer for an older generation arrives too late and is dropped, so a reload asked for
+  /// while a page is loading is never lost and never mixes old pages with new ones.
+  int _generation = 0;
+
   Future<void> _load({bool reset = false}) async {
-    if (_loading) return;
     if (reset) {
+      _generation++;
       _items.clear();
       _cursor = null;
       _done = false;
+      _loading = false;
     }
-    if (_done) return;
+    if (_loading || _done) return;
+    final generation = _generation;
     setState(() {
       _loading = true;
       _error = null;
@@ -41,16 +47,18 @@ class _EntriesListState extends ConsumerState<EntriesList> {
       final page = await ref
           .read(apiProvider)
           .entries(widget.bookId, cursor: _cursor);
-      if (!mounted) return;
+      if (!mounted || generation != _generation) return;
       setState(() {
         _items.addAll(page.items);
         _cursor = page.nextCursor;
         _done = page.nextCursor == null;
       });
     } catch (e) {
-      if (mounted) setState(() => _error = e);
+      if (mounted && generation == _generation) setState(() => _error = e);
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && generation == _generation) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -66,10 +74,21 @@ class _EntriesListState extends ConsumerState<EntriesList> {
     }
     if (_items.isEmpty && (_loading || !_done)) return const LoadingView();
     if (_items.isEmpty) {
-      return const EmptyView(
-        icon: Icons.receipt_long_outlined,
-        title: 'No entries yet',
-        message: 'Entries you record in these books appear here, newest first.',
+      return RefreshIndicator(
+        onRefresh: () => _load(reset: true),
+        child: const CustomScrollView(
+          physics: AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: EmptyView(
+                icon: Icons.receipt_long_outlined,
+                title: 'No entries yet',
+                message: 'Entries you record in these books appear here, newest first.',
+              ),
+            ),
+          ],
+        ),
       );
     }
     return RefreshIndicator(
@@ -152,7 +171,12 @@ class EntryTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          if (e.pending) ...[const SizedBox(width: 8), StatusBadge(e.status)],
+          // Anything not plainly posted says so: waiting, rejected, reversed or corrected entries never look like
+          // money that moved.
+          if (e.status != 'posted') ...[
+            const SizedBox(width: 8),
+            StatusBadge(e.status),
+          ],
         ],
       ),
       trailing: amount,

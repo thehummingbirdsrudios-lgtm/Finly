@@ -158,7 +158,14 @@ export class PostingService {
         [cmd.actorUserId, cmd.idempotencyKey],
       );
       if (!sameBytes(new Uint8Array(r.request_hash), hash)) {
-        fail('CONFLICT', 'This request key was already used for a different request.', { replayed: true });
+        // The key is the app's promise that this is the same entry; different details mean an earlier attempt of an
+        // entry reached Finly and the form changed since. The app starts a new key after this answer.
+        fail(
+          'DUPLICATE_REQUEST',
+          'An earlier attempt of this entry reached Finly with different details. Check the entries list before ' +
+            'recording it again.',
+          { replayed: true },
+        );
       }
       if (r.record_status === 'completed') return { replay: await this.result(tx, r.result_id!, true) };
       if (r.record_status === 'failed') {

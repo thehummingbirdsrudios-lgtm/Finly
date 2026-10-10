@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/api/api_client.dart';
 import '../../core/api/models.dart';
 import '../../core/config.dart';
 import '../../core/design_system/theme.dart';
@@ -48,7 +47,7 @@ class SettingsScreen extends ConsumerWidget {
           const SectionTitle('About'),
           ListTile(
             leading: const Icon(Icons.info_outline_rounded),
-            title: const Text('Finly $appVersion'),
+            title: Text('Finly ${ref.watch(deviceFactsProvider).appVersion}'),
             subtitle: Text(
               'Server: ${Uri.parse(apiBaseUrl).host}\nOnline only — nothing financial is stored on this phone.',
             ),
@@ -102,42 +101,85 @@ class SessionsScreen extends ConsumerWidget {
       body: AsyncView<List<SessionInfo>>(
         value: sessions,
         onRetry: () => ref.invalidate(sessionsProvider),
-        builder: (items) => ListView(
-          children: [
-            for (final s in items)
-              ListTile(
-                leading: Icon(
-                  Icons.smartphone_rounded,
-                  color: s.current ? context.fy.brand : null,
-                ),
-                title: Text(s.deviceLabel ?? s.model ?? s.platform),
-                subtitle: Text(
-                  s.current
-                      ? 'This phone'
-                      : 'Last used ${showDate(s.lastUsedAt)}',
-                ),
-                trailing: s.current
-                    ? null
-                    : TextButton(
-                        onPressed: () async {
-                          try {
-                            await ref.read(apiProvider).revokeSession(s.id);
-                            ref.invalidate(sessionsProvider);
-                            if (context.mounted) {
-                              showMessage(context, 'That phone is signed out.');
-                            }
-                          } on ApiException catch (e) {
-                            if (context.mounted) {
-                              showMessage(context, e.message);
-                            }
-                          }
-                        },
-                        child: const Text('Sign out'),
-                      ),
-              ),
-          ],
+        builder: (items) => RefreshIndicator(
+          onRefresh: () => ref.refresh(sessionsProvider.future),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [for (final s in items) _SessionTile(session: s)],
+          ),
         ),
       ),
+    );
+  }
+}
+
+/// One signed-in phone. Signing another phone out asks first and cannot be sent twice.
+class _SessionTile extends ConsumerStatefulWidget {
+  const _SessionTile({required this.session});
+  final SessionInfo session;
+
+  @override
+  ConsumerState<_SessionTile> createState() => _SessionTileState();
+}
+
+class _SessionTileState extends ConsumerState<_SessionTile> {
+  bool _busy = false;
+
+  Future<void> _signOut() async {
+    final s = widget.session;
+    final name = s.deviceLabel ?? s.model ?? s.platform;
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Sign out this phone?'),
+        content: Text(
+          '$name will need the password again to open Finly. Nothing recorded is lost.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
+    );
+    if (sure != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(apiProvider).revokeSession(s.id);
+      ref.invalidate(sessionsProvider);
+      if (mounted) showMessage(context, 'That phone is signed out.');
+    } catch (e) {
+      if (mounted) showMessage(context, messageOf(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.session;
+    return ListTile(
+      leading: Icon(
+        Icons.smartphone_rounded,
+        color: s.current ? context.fy.brand : null,
+      ),
+      title: Text(s.deviceLabel ?? s.model ?? s.platform),
+      subtitle: Text(
+        s.current
+            ? 'This phone'
+            : 'Last used ${showDate(localDateOf(s.lastUsedAt))}',
+      ),
+      trailing: s.current
+          ? null
+          : TextButton(
+              onPressed: _busy ? null : _signOut,
+              child: const Text('Sign out'),
+            ),
     );
   }
 }

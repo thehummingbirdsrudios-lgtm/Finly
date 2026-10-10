@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/api/api_client.dart';
 import '../../core/api/models.dart';
 import '../../core/design_system/theme.dart';
 import '../../core/design_system/tokens.g.dart';
@@ -82,8 +81,8 @@ class _WaitingTileState extends ConsumerState<_WaitingTile> {
             ? '${r.reference} accepted.'
             : '${r.reference} rejected; nothing was posted.',
       );
-    } on ApiException catch (e) {
-      if (mounted) showMessage(context, e.message);
+    } catch (e) {
+      if (mounted) showMessage(context, messageOf(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

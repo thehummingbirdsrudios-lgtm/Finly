@@ -76,6 +76,12 @@ String newRequestKey() {
   return '${h.substring(0, 8)}-${h.substring(8, 12)}-${h.substring(12, 16)}-${h.substring(16, 20)}-${h.substring(20)}';
 }
 
+/// Whether a failed submission's outcome is unknown — no answer, or a server fault — so a retry must reuse the same
+/// Idempotency-Key (the server may have recorded the entry). Any other answer is final and the server has stored it
+/// under that key, so a corrected entry needs a new one.
+bool outcomeUnknown(Object error) =>
+    error is ApiException && (error.isNetwork || error.status >= 500);
+
 /// Decodes a JSON object; anything else is a FormatException.
 Map<String, dynamic> jsonDecodeObject(String text) {
   final v = jsonDecode(text);
