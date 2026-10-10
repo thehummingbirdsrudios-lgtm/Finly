@@ -1,5 +1,7 @@
 # Finly — Software Requirements Specification
 
+> **Superseded in part (2026-10-10).** Master plan revision 3 ([PLAN.md](PLAN.md)) and the requirement catalogue ([REQUIREMENTS.md](REQUIREMENTS.md)) are now the plan of record. Where this document says online-only, whole rupees, scope frozen or bank import later, D-044, D-045, D-047 and ADDON-23 apply instead.
+
 ## 1. How to read this
 
 - **Every sentence of the [source documents](source/README.md) is a requirement.** They are incorporated here by

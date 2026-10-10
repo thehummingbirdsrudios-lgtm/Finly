@@ -1,5 +1,7 @@
 # Finly — Product Requirements (what and why)
 
+> **Superseded in part (2026-10-10).** Master plan revision 3 ([PLAN.md](PLAN.md)) and the requirement catalogue ([REQUIREMENTS.md](REQUIREMENTS.md)) are now the plan of record. Where this document says online-only, whole rupees, scope frozen or bank import later, D-044, D-045, D-047 and ADDON-23 apply instead.
+
 Source of truth: [BUILD_PROMPT.md](source/BUILD_PROMPT.md) and add-ons [01](source/ADDON-01-production-free-backend-git.md)–[09](source/ADDON-09-premium-theme.md).
 This document states the product; the [SRS](SRS.md) states the requirements in testable form.
 

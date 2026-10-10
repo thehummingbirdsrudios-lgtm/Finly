@@ -1,86 +1,102 @@
 # Tasks
 
-The checklist for [docs/PLAN.md](docs/PLAN.md) (the plan of record since 2026-10-09; scope frozen at ADDON-22,
-D-041). An item is ticked only with evidence: a passing test run, a build, or a verified deployment. Every item ends
-in its own commit. Where the last session stopped: [docs/CONTINUATION.md](docs/CONTINUATION.md).
+The milestone checklist for [docs/PLAN.md](docs/PLAN.md) (revision 3, 2026-10-10). Requirement-level status lives in
+[docs/REQUIREMENTS.md](docs/REQUIREMENTS.md). An item is ticked only with evidence: a passing test run, a build, or a
+verified deployment. Every item ends in its own commit. Where the last session stopped:
+[docs/CONTINUATION.md](docs/CONTINUATION.md).
 
 Legend: `[x]` done · `[~]` in progress · `[ ]` not started · 🔑 needs the owner
 
-## Done before this plan (evidence in git history and docs/MEMORY.md)
+## Done before revision 3 (evidence in git history)
 
-- [x] Specification, add-ons 01–22, gate responses 01–05 recorded verbatim (`docs/source/`)
-- [x] Design-system draft (tokens, components, logo); stack and accounting model records
-- [x] Database: migrations 0001–0017, RLS everywhere, guards, encryption map; data dictionary; catalog parity tests
-- [x] Supabase project `finly`; 0001–0017 deployed and fingerprint-verified (`4b71e286…`, three channels)
-- [x] Accounting engine: 17 intents, F8/F9 with purpose (D-039), invariants
-- [x] Posting service: idempotent, locked, encrypted, acknowledgement flow (D-029), outbox, monthly periods
-- [x] D-038: platform roles open no books; explicit scoped owner/admin roles
-- [x] Identity service: sign-in, temporary → own password, rotating refresh tokens, lockout, sessions
-- [x] HTTP API v1 with books and activity services; architecture rules (`src/main` composition root)
-- [x] Flutter app: theme from tokens, API client, sign-in, books, overview, places, entries, dues/settle, entry forms,
-  entry detail, inbox, new business, add place, settings/sessions
+- [x] Sources recorded verbatim (`docs/source/`); design-system draft; stack and accounting records
+- [x] Database 0001–0017 with RLS, guards, encryption map; deployed to Supabase, fingerprint `4b71e286…`
+- [x] Engine (17 intents, F8/F9 purposes), posting service, identity service, HTTP API v1, books and activity services
+- [x] Flutter app core: sign-in, books, overview, places, entries, dues/settle, 5 entry kinds, entry detail, inbox,
+  sessions; branding; signed release APK
+- [x] `finly_app` login; API live as Edge Function `api` (2026-10-10, `/v1/health` ok)
 
-## R1 — First usable app
+## M0 — Stabilise and record
 
-- [x] Branding: launcher icon (adaptive + monochrome), Android 12 splash, app name, from `design-system` assets (ee1a0d9)
-- [x] Splash/startup flow polish; error states for an unreachable server (`startup_test.dart`)
-- [x] Least-privilege API login role (`finly_app`): member of finly_api/finly_auth/finly_ledger only, script + docs;
-  live on Supabase, checked through the pooler (`db/tools/app_login_check.ts`)
-- [x] Release signing setup (key outside Git) and a release APK build against a configured `FINLY_API_URL` (32587be)
-- [x] Deploy migrations 0015–0017 to Supabase (fingerprint-verified; advisors INFO only; migrator login off)
-- [~] 🔑 Host the API (Supabase Edge Function): `deno task edge:deploy` ready and run up to sign-in; waiting for the
-  owner's one-time `supabase login` and the three function secrets
-- [ ] 🔑 Seed the initial users through the bootstrap (temporary passwords delivered only to the owner)
-- [ ] Device check: install, sign in, set password, create firm, add place, record entries
+- [x] Hosted-runtime fix (Node globals), hosted-like `dev:api`, side-effect imports in the architecture graph (0c89369)
+- [~] ADDON-23, ADDON-24, GATE-RESPONSE-06 recorded; D-044…D-051; flags table; PLAN v3; REQUIREMENTS.md
+- [ ] App fixes: H1 refused-form key, M1 startup storage errors, M2 lookups retry, M3 unpostable give, M4 all save
+  errors, M5 list race + status badges, M6 device model, M7 debug build without key.properties, empty states,
+  not-found exit, chip formatting, sessions double tap
+- [ ] L10n: ARB en/hi/gu for every string, Mukta + Mukta Vaani, language setting saved and sent to the server
+- [ ] 🔑 Seed accounts (owner runs `deno task user:create …`)
 
-## R2 — Safe daily use
+## M1 — Authorisation and integrity defects (0018)
 
-- [ ] App lock: auto-lock, M-PIN (create/confirm/change/reset/lockout), biometric unlock, step-up
-- [ ] Super Admin user management (add/edit/role/suspend/reset/revoke/archive), activation codes
-- [ ] Password reset by administrator code; recovery codes; TOTP MFA for Super Admin; devices (revoke, lost)
-- [ ] Approvals per entity policy (D-040) with self-approval prevention and single-owner alternative
-- [ ] Reversal and correction
-- [ ] Entry workflows: common expense with exact per-entity amounts, personal-from-firm, reimbursement, handover with
-  holder chain, advance give/account/return, loan given/taken with repayments, bill and payment, income on credit
-- [ ] Review sheet with impact preview; duplicate warning; repeat last / recents
-- [ ] Global search (server-side, permission-filtered)
-- [ ] First-time setup wizard; opening position with context; entity creation flow with owners and partners
-- [ ] Location access list (add/replace) and current holder; funds; categories per entity
-- [ ] In-app notification centre
+- [ ] Scoped permissions honoured in env-less RLS policies; IDOR tests at API level
+- [ ] No self-grants of `env_access` / `user_role`; `user_role_auth` limited
+- [ ] `approved`/`cancelled` only with a decided approval request
+- [ ] `ensure_periods` actor check; book-scoped `parties()`; wrong-current-password throttle; session settings read
+- [ ] Project, payment method, memo and holder written; transit ↔ custody event; handover-confirmation policy
 
-## R3 — Complete accounting
+## M2 — Paise (0019)
 
-- [ ] Period close and Month Close Assistant; reopening with privilege and audit
-- [ ] Integrity Verifier and deterministic exception engine
-- [ ] Cash and bank reconciliation with adjustment journals
-- [ ] Statements (TB, GL, place statement, P&L, balance sheet, cash flow, fund, aging, inter-entity, custody, expense
-  event) and Explain Balance
-- [ ] PDF and CSV generation; Photo Proof; share pipeline with content-hash verification; share history
-- [ ] Receipts and attachments (protected storage)
-- [ ] Audit viewer; login history; personal-finance owner grants; consented support sessions
-- [ ] Encrypted backups to Cloudflare R2 with a restore drill
-- [ ] Allocation adjustments, write-off/forgiveness, refunds, interest/EMI
+- [ ] Domain money, intents, checks, wire format, buckets/blind index in paise; migration guard
+- [ ] App amount input and display with paise
 
-## R4 — Configurable access
+## M3 — Reversal and correction
 
-- [ ] Permission registry, membership states, invitations, role versions (migration 0018+)
-- [ ] `effective_permissions` used by RLS, API and UI; amount and field visibility; confidentiality levels
-- [ ] Custom role builder, role holders, delegation, hierarchy grants, change requests
-- [ ] Entity switcher, hierarchy and administration screens; simulator / View-As; temporary access; break-glass
-- [ ] ADDON-18 scenarios A–X as tests
+- [ ] Engine reversal/correction intents (mirror), service unwinding, rules, routes
+- [ ] App reverse/correct with reason and preview
 
-## R5 — Flexible workspace
+## M4 — Reports and ledgers
 
-- [ ] Ledger templates, typed columns, dropdowns, row grid with drafts
-- [ ] Safe formula engine and composed functions
-- [ ] Rough-hisab workspace with clearing items, reconciliation and settlement
-- [ ] Asset register, rate-based sale and exchange; bank-account register with holders
-- [ ] Custom report builder; optional tax, inventory and fixed-asset accounts
+- [ ] Reports service: TB, ledgers (account/place/party), P&L, balance sheet, cash flow, aging, Explain Balance, CSV
+- [ ] App Reports hub with filters and date ranges
 
-## R6 — Whole financial life
+## M5 — Dashboard and net worth
 
-- [ ] Wealth dashboard, investments, loans with schedules, budgets, earmarks, recurring items
-- [ ] Bank statement PDF import with review grid, duplicate matching and reconciliation
-- [ ] Push notifications with lock-screen policy; Secure Viewer links
-- [ ] Hindi and Gujarati; custom labels
-- [ ] Performance benchmark on PostgreSQL 17; monitoring; incident runbook; device certification
+- [ ] Cross-book dashboard, net worth, trends, last-updated; new bottom navigation
+
+## M6 — Entry workflows, journal, attachments
+
+- [ ] Forms for every exposed intent; common expense; credit cards; deposits; reimbursement; handover; expense events
+- [ ] Manual journal (finance roles); review sheet with journal preview; duplicate warning; recents
+- [ ] Attachments: private storage, encryption, signed URLs, compression
+
+## M7 — Loans (0020)
+
+- [ ] Loan records, terms, schedules, repayments by component, accrual, overdue, restructure, write-off, statements
+
+## M8 — Assets and investments (0021)
+
+- [ ] Asset register, purchase, disposal, depreciation, revaluation, investments, deposits, book vs market
+
+## M9 — Users, activation, app lock, security, audit
+
+- [ ] Admin service and screens; activation codes; M-PIN; biometrics; auto-lock; step-up; recovery codes; TOTP;
+  devices; audit viewer; support sessions
+
+## M10 — Approvals, members, ownership
+
+- [ ] D-040 approval policies and inbox; members and grants; owners/partners; place access/holder; setup wizard
+
+## M11 — Documents and sharing
+
+- [ ] PDF receipts, vouchers, statements, reports; CSV/XLSX; verify-and-share; share history
+
+## M12 — Bank statement import
+
+- [ ] On-device parsing (CSV, XLSX, text PDF, OCR), mapping, review grid, duplicates, balance check, staged posting
+
+## M13 — Offline drafts and cache
+
+- [ ] Encrypted cache and draft outbox, auto-sync, review of refusals, policy switch
+
+## M14 — Search, notifications, close, verifier
+
+- [ ] Search; notification centre; month close; Integrity Verifier
+
+## M15 — Workspace and wealth
+
+- [ ] Hisab workspace, ledger templates, formulas; budgets, goals, recurring; custom role builder
+
+## M16 — Release and operations
+
+- [ ] App CI; 🔑 R2 backups + restore drill; update check; Play Store guidance; final APK; runbooks
+- [ ] 🔑 Device verification on a phone

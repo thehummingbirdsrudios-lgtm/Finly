@@ -1,5 +1,7 @@
 # Finly — implementation plan
 
+> **Superseded as the build order (2026-10-10).** Master plan revision 3 ([PLAN.md](PLAN.md)) and the requirement catalogue ([REQUIREMENTS.md](REQUIREMENTS.md)) are now the plan of record. Where this document says online-only, whole rupees, scope frozen or bank import later, D-044, D-045, D-047 and ADDON-23 apply instead.
+
 **Revision 1, 2026-10-09.** How the requirements in [PLAN.md](PLAN.md) get built, in the order they get built. Each
 work package (WP) names its database, backend, API, app and test work, and the check that proves it is done.
 [TASKS.md](../TASKS.md) ticks the packages off with evidence; [CONTINUATION.md](CONTINUATION.md) says which package is

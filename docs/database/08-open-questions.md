@@ -17,11 +17,13 @@ Nothing here changes an approved accounting rule.
 
 ## Waiting for the owner
 
+The F8/F9 rows below were answered on 2026-10-09 (GATE-RESPONSE-05); kept for history.
+
 | # | Question | Explained in | Applied meanwhile |
 |---|---|---|---|
-| F8/F9-1 | Scenarios 3 and 4: the owner's side of a firm Expense is recorded as personal income (e.g. remuneration) — confirm | [accounting/F8-F9-model.md §6](../accounting/F8-F9-model.md) | As described |
-| F8/F9-2 | Giver Own without repayment is valid only as drawings or capital; otherwise it is the giver's expense (e.g. a gift) — confirm | same | As described |
-| F8/F9-3 | Should a firm Expense for one owner's benefit need another owner's approval when the firm has several owners? | same | Not enforced (approval rules are configurable) |
+| F8/F9-1 | Scenarios 3 and 4: the owner's side of a firm Expense is recorded as personal income (e.g. remuneration) — confirm | [accounting/F8-F9-model.md §6](../accounting/F8-F9-model.md) | Answered by GATE-RESPONSE-05 §2–3 (D-039): the owner's side is never income by itself; the receiver's category is always chosen |
+| F8/F9-2 | Giver Own without repayment is valid only as drawings or capital; otherwise it is the giver's expense (e.g. a gift) — confirm | same | Answered by GATE-RESPONSE-05 §3 (D-039): a non-repayable transfer states its purpose and is never assumed to be the giver's expense |
+| F8/F9-3 | Should a firm Expense for one owner's benefit need another owner's approval when the firm has several owners? | same | Answered by GATE-RESPONSE-05 §4 (D-040): a configurable entity approval policy (built in M10) |
 
 ## Recommendations applied (the owner may change any of them later through a normal migration)
 
@@ -35,6 +37,6 @@ Nothing here changes an approved accounting rule.
 | Q9 | Financial year April–March, stored per firm | Applied |
 | Q10 | Reversing into an account deactivated since the original: refused until reactivated | Applied |
 | Q12 | Partial reversal = a linked adjustment or refund event, never a partial mirror | Applied |
-| Q13(a) | Full admin reaches firms only; pools such as a family fund by explicit grant | Applied in RLS |
+| Q13(a) | Full admin reaches firms only; pools such as a family fund by explicit grant | **Superseded** by D-038 (GR-05 §1): platform administration reaches no firm's books; owners act through explicit entity roles (migration 0016) |
 
 Sentry: not needed. Error reports stay in our own tables (D-016).
