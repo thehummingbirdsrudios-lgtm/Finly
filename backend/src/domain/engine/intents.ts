@@ -19,12 +19,17 @@ export interface TransferIntent {
   toLocationId: Id;
   amount: Rupees;
   fundId?: Id;
-  /** Only when the handover-confirmation policy is ON: the money waits in transit until the receiver confirms. */
+  /**
+   * The money waits in transit until the receiver confirms. Decided by the posting service from the place's
+   * handover-confirmation policy (F2: off by default), never by the client.
+   */
   viaTransit?: boolean;
 }
 
 export interface TransitConfirmIntent {
   type: 'transit_confirm';
+  /** The handover being confirmed (its custody event); only the person receiving it confirms. */
+  custodyEventId: Id;
   entityId: Id;
   toLocationId: Id;
   amount: Rupees;

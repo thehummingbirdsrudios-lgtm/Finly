@@ -182,7 +182,13 @@ Deno.test('handover with confirmation ON waits in transit until the receiver con
   });
   assertEquals(w.balance(e.mint, 'cash_in_transit'), 10000n);
   assertEquals(w.moneyAt(l.cashSujal, e.mint), 0n);
-  post(w, { type: 'transit_confirm', entityId: e.mint, toLocationId: l.cashSujal, amount: 10000n });
+  post(w, {
+    type: 'transit_confirm',
+    custodyEventId: '00000000-0000-7000-8000-000000000001',
+    entityId: e.mint,
+    toLocationId: l.cashSujal,
+    amount: 10000n,
+  });
   assertEquals(w.balance(e.mint, 'cash_in_transit'), 0n);
   assertEquals(w.moneyAt(l.cashSujal, e.mint), 10000n);
   assertLedgerSound(w);

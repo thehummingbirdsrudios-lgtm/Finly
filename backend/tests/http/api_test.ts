@@ -348,3 +348,38 @@ Deno.test('a book lists its own outside parties and Finly books, never a party r
   assert(!studioList.includes(supplier), 'not mixed into the studio');
   assert(studioList.includes(me.personId) && studioList.includes(shop), 'Finly books stay available');
 });
+
+Deno.test('cash added in a person’s hands records them as holder on every line', async () => {
+  const me = await person('Kiran');
+  const t = me.token;
+  const firm = (await call<{ id: string }>('POST', '/v1/books', {
+    token: t,
+    body: {
+      name: 'Kiran Stores',
+      typeKey: 'proprietorship',
+      openingDate: today,
+      creatorIsOwner: true,
+      sharePercent: 100,
+    },
+  })).body.id;
+  const place = (await call<{ id: string }>('POST', `/v1/books/${firm}/places`, {
+    token: t,
+    body: { name: 'Cash with Kiran', kind: 'cash', typeKey: 'hand_cash', custodyPersonId: me.personId },
+  })).body.id;
+  const opened = await call('POST', '/v1/entries', {
+    token: t,
+    key: crypto.randomUUID(),
+    body: {
+      typeKey: 'opening_balance',
+      bookId: firm,
+      valueDate: today,
+      intent: { type: 'opening_balance', entityId: firm, locationId: place, amount: '7000' },
+    },
+  });
+  assertEquals(opened.status, 201);
+  const holders = await db.query<{ holder: string | null }>(
+    `select holder_person_id as holder from finly.journal_line where location_id = $1`,
+    [place],
+  );
+  assertEquals(holders.rows.map((r) => r.holder), [me.personId]);
+});

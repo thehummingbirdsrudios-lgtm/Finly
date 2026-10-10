@@ -80,6 +80,20 @@ function validDate(s: string): boolean {
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
 }
 
+/**
+ * Whether money handed into a place waits for the receiver's confirmation is the place's policy (F2: off by default),
+ * applied here — the client's own flag is ignored. Only a handover to a different person can wait: moving money
+ * between places nobody holds, or that the same person holds, never does.
+ */
+export function withHandoverPolicy(intent: Intent, c: DbContext): Intent {
+  if (intent.type !== 'transfer') return intent;
+  const policy = c.policy(intent.toLocationId).handoverConfirmation;
+  const required = policy === 'required' || (policy === 'inherit' && c.handoverDefault);
+  const from = c.location(intent.fromLocationId).currentHolderId;
+  const to = c.location(intent.toLocationId).currentHolderId;
+  return { ...intent, viaTransit: required && to !== undefined && to !== from };
+}
+
 function journalEntities(plan: PostingPlan): Id[] {
   return [...new Set(plan.journals.map((j) => j.entityId))].sort();
 }
@@ -185,13 +199,15 @@ export class PostingService {
       fail('VALIDATION', 'Choose a transaction type that matches what happened.');
     }
     const c = await loadContext(tx, this.keys.cipher, cmd.intent, cmd.valueDate, { lockOpenItems: false });
-    const plan = planPosting(cmd.intent, c);
+    const intent = withHandoverPolicy(cmd.intent, c);
+    if (intent.type === 'transit_confirm') await this.checkConfirmation(tx, intent);
+    const plan = planPosting(intent, c);
     const entities = journalEntities(plan);
     if (!entities.includes(cmd.primaryEnvId)) fail('VALIDATION', 'Record the entry from one of the books it changes.');
     await authorize(tx, c, entities);
 
     const txnId = uuidv7();
-    const intentEnc = await this.keys.cipher.encryptText(encodeIntent(cmd.intent), ctx('txn', 'intent_enc', txnId));
+    const intentEnc = await this.keys.cipher.encryptText(encodeIntent(intent), ctx('txn', 'intent_enc', txnId));
     await tx.query(
       `insert into finly.txn (id, reference, txn_type_id, intent_type, primary_env_id, value_date, created_by_user_id,
          reason, device_id, intent_enc, key_version)
@@ -200,7 +216,7 @@ export class PostingService {
         txnId,
         cmd.valueDate,
         type.id,
-        cmd.intent.type,
+        intent.type,
         cmd.primaryEnvId,
         cmd.actorUserId,
         cmd.reason ?? null,
@@ -241,6 +257,41 @@ export class PostingService {
       txnId,
     }]);
     return { txnId };
+  }
+
+  /**
+   * A handover is confirmed by the person receiving it, for exactly the money that is waiting: same books, fund, place
+   * and amount as its custody event, which must still be waiting. The event itself is marked confirmed when the
+   * confirmation posts (writer), so it is confirmed once.
+   */
+  private async checkConfirmation(tx: Sql, it: Extract<Intent, { type: 'transit_confirm' }>): Promise<void> {
+    const [ev] = await tx.query<{
+      entity_id: string;
+      fund_id: string;
+      to_location_id: string;
+      to_holder_person_id: string | null;
+      custody_status: string;
+      amount_enc: Uint8Array;
+      receiver: boolean;
+    }>(
+      `select entity_id, fund_id, to_location_id, to_holder_person_id, custody_status, amount_enc,
+              to_holder_person_id = finly.actor_person_id() as receiver
+       from finly.custody_event where id = $1`,
+      [it.custodyEventId],
+    );
+    if (!ev) fail('NOT_FOUND', 'That handover was not found.');
+    if (ev.custody_status !== 'awaiting_confirmation') {
+      fail('CONFLICT', 'This handover is not waiting for confirmation.');
+    }
+    if (!ev.receiver) fail('FORBIDDEN', 'Only the person receiving the money confirms it.');
+    const amount = await this.keys.cipher.decryptAmount(
+      ev.amount_enc,
+      ctx('custody_event', 'amount_enc', it.custodyEventId),
+    );
+    const sameFund = it.fundId === undefined || it.fundId === ev.fund_id;
+    if (ev.entity_id !== it.entityId || ev.to_location_id !== it.toLocationId || !sameFund || amount !== it.amount) {
+      fail('VALIDATION', 'Confirm the handover exactly as it was sent: the same books, place and amount.');
+    }
   }
 
   private async writeLegs(tx: Sql, txnId: Id, plan: PostingPlan): Promise<void> {

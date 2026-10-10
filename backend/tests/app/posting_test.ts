@@ -393,3 +393,42 @@ Deno.test('a date outside any open month is refused under lock and recorded', as
   assertEquals(await count(w, `finly.txn where status = 'failed' and value_date = '2020-01-15'`), 1);
   assertEquals((await refusal(() => svc.submit(old))).code, 'PERIOD_CLOSED');
 });
+
+Deno.test('a handover waits for the receiver only when the place’s policy says so; the receiver confirms it once', async () => {
+  const { w, keys, svc, cmd, open, transfer } = await setup();
+  await open(50_000n);
+  await w.db.query(
+    `insert into finly.location_holder (location_id, person_entity_id, reason) values ($1, $2, 'test')`,
+    [
+      w.l.cashSujal,
+      w.e.sujal,
+    ],
+  );
+  // Off by default (F2): a client asking for transit still gets a direct handover — the policy decides, not the app.
+  const direct = transfer(5_000n, w.l.tijori, w.l.cashSujal);
+  (direct.intent as { viaTransit?: boolean }).viaTransit = true;
+  assertEquals((await svc.submit(direct)).status, 'posted');
+  assertEquals(await moneyAt(w, keys, w.e.mint, w.l.cashSujal), 5_000n);
+
+  await w.db.query(`update finly.location set handover_confirmation = 'required' where id = $1`, [w.l.cashSujal]);
+  await svc.submit(transfer(10_000n, w.l.tijori, w.l.cashSujal));
+  assertEquals(await moneyAt(w, keys, w.e.mint, w.l.cashSujal), 5_000n, 'not in Sujal’s hands until confirmed');
+  const [ev] = (await w.db.query<{ id: string }>(
+    `select id from finly.custody_event where custody_status = 'awaiting_confirmation'`,
+  )).rows;
+  const confirm = (actor: string, amount: bigint) =>
+    cmd(actor, 'transit_confirm', {
+      type: 'transit_confirm',
+      custodyEventId: ev.id,
+      entityId: w.e.mint,
+      toLocationId: w.l.cashSujal,
+      amount,
+    }, w.e.mint);
+  assertEquals((await refusal(() => svc.submit(confirm(w.u.krish, 10_000n)))).code, 'FORBIDDEN', 'only the receiver');
+  assertEquals((await refusal(() => svc.submit(confirm(w.u.sujal, 9_000n)))).code, 'VALIDATION', 'exactly as sent');
+  assertEquals((await svc.submit(confirm(w.u.sujal, 10_000n))).status, 'posted');
+  assertEquals(await moneyAt(w, keys, w.e.mint, w.l.cashSujal), 15_000n);
+  assertEquals(await count(w, `finly.custody_event where id = $1 and custody_status = 'confirmed'`, [ev.id]), 1);
+  assertEquals(await count(w, `finly.txn_link where kind = 'confirms'`), 1);
+  assertEquals((await refusal(() => svc.submit(confirm(w.u.sujal, 10_000n)))).code, 'CONFLICT', 'confirmed once');
+});

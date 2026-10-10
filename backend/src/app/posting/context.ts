@@ -23,10 +23,12 @@ import { isUuid } from '../../domain/ids.ts';
 import type { EntityKind } from '../../domain/ledger/coa.ts';
 import type { AccountClass, AccountRole, LedgerAccount, OpenItemKind } from '../../domain/ledger/types.ts';
 
-/** What the posting service needs about a place beyond the engine's view: its negative-balance policy. */
+/** What the posting service needs about a place beyond the engine's view: its negative-balance and handover policies. */
 export interface LocationPolicy {
   negativePolicy: 'forbid' | 'allow' | 'approval';
   overdraftLimit: bigint;
+  /** Whether money handed into this place waits for the receiver's confirmation; `inherit` = the system default. */
+  handoverConfirmation: 'inherit' | 'required' | 'off';
 }
 
 export class DbContext implements EngineContext {
@@ -38,6 +40,8 @@ export class DbContext implements EngineContext {
   readonly accounts = new Map<Id, LedgerAccount>();
   readonly owners = new Set<string>();
   readonly openItems = new Map<Id, OpenItemInfo>();
+  /** system_setting handover_confirmation_default (F2: off unless the owner turns it on). */
+  handoverDefault = false;
 
   entity(id: Id): EntityInfo {
     return this.entities.get(id) ?? fail('ENTITY_NOT_FOUND', 'That person or firm was not found.', { id });
@@ -165,9 +169,10 @@ export async function loadContext(
     status: string;
     holder: string | null;
     negative_policy: LocationPolicy['negativePolicy'];
+    handover_confirmation: LocationPolicy['handoverConfirmation'];
     overdraft_limit_enc: Uint8Array | null;
   }>(
-    `select l.id, l.kind, l.name, l.status, l.negative_policy, l.overdraft_limit_enc,
+    `select l.id, l.kind, l.name, l.status, l.negative_policy, l.handover_confirmation, l.overdraft_limit_enc,
             (select h.person_entity_id from finly.location_holder h
              where h.location_id = l.id and h.valid_to is null order by h.valid_from desc limit 1) as holder
      from finly.location l where l.id = any($1::uuid[])`,
@@ -186,8 +191,13 @@ export async function loadContext(
       overdraftLimit: l.overdraft_limit_enc
         ? await cipher.decryptAmount(l.overdraft_limit_enc, cryptoCtx('location', 'overdraft_limit_enc', l.id))
         : 0n,
+      handoverConfirmation: l.handover_confirmation,
     });
   }
+  const [setting] = await tx.query<{ value: unknown }>(
+    `select value from finly.system_setting where key = 'handover_confirmation_default'`,
+  );
+  c.handoverDefault = setting?.value === true;
 
   for (
     const k of await tx.query<

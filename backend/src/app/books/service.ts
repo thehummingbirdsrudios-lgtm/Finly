@@ -308,6 +308,14 @@ export class BooksService {
          values ($1, $2, $3, 'Added with the place')`,
         [l.id, bookId, actor],
       );
+      // Cash carried by a person: they are its first holder, so every cash line records who held the money (A3).
+      if (p.custodyPersonId) {
+        await tx.query(
+          `insert into finly.location_holder (location_id, person_entity_id, set_by, reason)
+           values ($1, $2, $3, 'Custodian when the place was added')`,
+          [l.id, p.custodyPersonId, actor],
+        );
+      }
       if (p.bank) {
         const enc = number
           ? await this.keys.cipher.encryptText(number, ctx('bank_account_detail', 'account_number_enc', l.id))

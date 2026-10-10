@@ -133,8 +133,8 @@ export async function writeLedger(
       await tx.query(
         `insert into finly.journal_line (id, journal_id, entity_id, value_date, line_no, ledger_account_id, fund_id,
            side, amount_enc, key_version, location_id, counterparty_entity_id, category_id, holder_person_id,
-           txn_leg_id)
-         values ($1, $2, $3, $4::date, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+           txn_leg_id, expense_event_id)
+         values ($1, $2, $3, $4::date, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
         [
           id,
           journalId,
@@ -151,6 +151,8 @@ export async function writeLedger(
           line.categoryId ?? null,
           line.holderPersonId ?? null,
           legRowId,
+          // The project, trip or event an expense line belongs to (BUILD_PROMPT H9); planned, now also kept.
+          line.projectId ?? null,
         ],
       );
       lineIds.set(line, id);
@@ -267,6 +269,21 @@ export async function writeLedger(
         t.viaTransit ? 'awaiting_confirmation' : 'recorded',
         input.actorUserId,
       ],
+    );
+  }
+  if (input.intent.type === 'transit_confirm') {
+    // Confirmed once: the update only matches a handover still waiting, and the confirmation links to its handover.
+    const confirmed = await tx.query<{ txn_id: string }>(
+      `update finly.custody_event
+       set custody_status = 'confirmed', confirmed_by = $2, confirmed_at = now()
+       where id = $1 and custody_status = 'awaiting_confirmation'
+       returning txn_id`,
+      [input.intent.custodyEventId, input.actorUserId],
+    );
+    if (confirmed.length === 0) fail('CONFLICT', 'This handover is not waiting for confirmation.');
+    await tx.query(
+      `insert into finly.txn_link (from_txn_id, to_txn_id, kind, created_by) values ($1, $2, 'confirms', $3)`,
+      [txnId, confirmed[0].txn_id, input.actorUserId],
     );
   }
   return { lastJournal, openItemIds };
