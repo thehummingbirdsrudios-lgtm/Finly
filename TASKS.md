@@ -29,11 +29,12 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · 🔑 needs the o
 
 ## M1 — Authorisation and integrity defects (0018)
 
-- [ ] Scoped permissions honoured in env-less RLS policies; IDOR tests at API level
-- [ ] No self-grants of `env_access` / `user_role`; `user_role_auth` limited
-- [ ] `approved`/`cancelled` only with a decided approval request
-- [ ] `ensure_periods` actor check; book-scoped `parties()`; wrong-current-password throttle; session settings read
-- [ ] Project, payment method, memo and holder written; transit ↔ custody event; handover-confirmation policy
+- [x] Scoped permissions honoured in grant/role/rule/approval/audit policies (0018, 325dd41); deployed, `ec6af2ea…`
+- [x] No self-grants of `env_access` / `user_role` / allow-rules; super_admin only from the bootstrap tool
+- [x] `approved` only with a complete approval; drafts invisible to others
+- [x] `ensure_periods` actor check; book-scoped `parties()`; wrong-current-password throttle; session settings read (de4d40f)
+- [x] Project and holder written; transit ↔ custody event; handover-confirmation policy decides (8ff2953)
+- [ ] Payment method and memo: written once the forms send them (M6)
 
 ## M2 — Paise (0019)
 

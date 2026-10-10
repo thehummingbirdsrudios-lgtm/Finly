@@ -30,7 +30,7 @@ Abbreviations: UMA = ADDON-23; DEC = DECISIONS.md; tests are under `backend/test
 | IAM-14 | Devices: register, trust, revoke, mark lost; new-device flow | BP N10 | 🟡 | M9 | auto-registered on sign-in with real make/model (`core/device.dart`); trust/revoke in M9 |
 | IAM-15 | Auto-lock in background; screen-capture protection | BP N11, V5 | 🟡 | M9 | FLAG_SECURE (`MainActivity.kt`); auto-lock missing |
 | IAM-16 | Step-up for high-risk actions | BP N12 | ⬜ | M9 | |
-| IAM-17 | RBAC + ABAC + record/field rules, server-side; one effective-permission source | BP L1, A-17 §10, D-038 | 🟡 | M1, M10 | `actor_has_permission`, RLS everywhere; scoped roles ignored in some policies (M1) |
+| IAM-17 | RBAC + ABAC + record/field rules, server-side; one effective-permission source | BP L1, A-17 §10, D-038 | 🟡 | M10 | `actor_has_permission(key, env)` scoped in every grant/role/rule/approval/audit policy (0018) · `db/authz_scoping_test.ts`; field rules M10 |
 | IAM-18 | Independent permissions (view, view amount, create, approve, reverse, export, share, …) | BP L2, A-17 §9 | 🟡 | M10 | 33 keys seeded; most unused |
 | IAM-19 | Hidden resources never appear (search, counts, errors) | BP L3 | 🟡 | M14 | RLS hides rows · `db/rls_privacy_test.ts` |
 | IAM-20 | Amount modes and detail levels; field visibility | BP L4–L6 | ⬜ | M10 | `access_rule` table only |
@@ -55,8 +55,8 @@ Abbreviations: UMA = ADDON-23; DEC = DECISIONS.md; tests are under `backend/test
 | ADM-02 | First credential via a one-time local bootstrap, never in Git/APK/docs/logs | A-06, D-010 | ✅ | — | `.first-login.txt` git-ignored |
 | ADM-03 | User management in the app (add, edit, role, suspend, reset, revoke, archive) | A-06, A-07, BP T2 | ⬜ | M9 | |
 | ADM-04 | Admin issues activation credentials; never sees passwords, PINs or keys | GR-03 Q3, UMA §10 | 🟡 | M9 | hashes only (`user_credential`) |
-| ADM-05 | No impersonation; admin acts as admin; support access consented, scoped, timed, audited | GR-03, GR-05 §1, D-030, D-038 | 🟡 | M9 | `support_session` guard · `db/decisions_test.ts`; no service |
-| ADM-06 | Platform administration ≠ access to books | D-038, GR-05 §1 | ✅ | — | 0016 · `db/d038_provisioning_test.ts` |
+| ADM-05 | No impersonation; admin acts as admin; support access consented, scoped, timed, audited | GR-03, GR-05 §1, D-030, D-038 | 🟡 | M9 | no self-grants, super_admin only via bootstrap (0018) · `db/authz_scoping_test.ts`; support service M9 |
+| ADM-06 | Platform administration ≠ access to books | D-038, GR-05 §1 | ✅ | — | 0016 + 0018 (platform access.manage opens no firm) · `db/d038_provisioning_test.ts`, `db/authz_scoping_test.ts` |
 | ADM-07 | Role families (platform, entity owner/admin, manager, accountant, cashier, worker, auditor, custom) | A-17 §4, A-18 §5 | 🟡 | M10, M15 | 9 roles seeded |
 | ADM-08 | Custom role builder with boundary validation and versions | A-17 §5 | ⬜ | M15 | |
 | ADM-09 | Role-holder management with scope, expiry, history | A-17 §6 | ⬜ | M10 | |
@@ -99,9 +99,9 @@ Abbreviations: UMA = ADDON-23; DEC = DECISIONS.md; tests are under `backend/test
 | LOC-01 | Place ≠ ledger account; one asset account per entity × place | BP AC1, AC4 | ✅ | — | `location`, balances · engine tests |
 | LOC-02 | Unlimited place types; overdraft; bank numbers encrypted and masked | BP H6 | 🟡 | M6 | types + encrypted numbers; overdraft config missing |
 | LOC-03 | Owner, access list, key holder — each with history | GR-02 §5 | 🟡 | M10 | tables; API never writes access/holder |
-| LOC-04 | Person carrying cash = custody place; holder on cash lines | GR-01 Gate 2 | 🟡 | M1 | holder not set for custodian places (M1 fix) |
-| LOC-05 | Handover is a custody event; ownership/fund unchanged | BP H10 | 🟡 | M1, M6 | transit not linked to custody_event (M1) |
-| LOC-06 | Receiver confirmation off by default; optional policy via transit | GR-02 §2 | 🟡 | M1 | policy not consulted (M1) |
+| LOC-04 | Person carrying cash = custody place; holder on cash lines | GR-01 Gate 2 | ✅ | — | custodian recorded as holder at creation; lines carry holder_person_id · `http/api_test.ts` |
+| LOC-05 | Handover is a custody event; ownership/fund unchanged | BP H10 | 🟡 | M6 | custody event per transfer; confirmation closes it once · `app/posting_test.ts`; handover form M6 |
+| LOC-06 | Receiver confirmation off by default; optional policy via transit | GR-02 §2 | ✅ | — | place policy (inherit/required/off) decides, not the client · `app/posting_test.ts` |
 | LOC-07 | Place disclosure levels | BP L11 | 🟡 | M10 | column exists |
 | LOC-08 | Holder disabled while holding cash → exception + reassignment | BP EC5 | ⬜ | M14 | |
 | LOC-09 | Custody ≠ ownership ≠ debt | GR-04 §5.6 | ✅ | — | engine custody legs · engine tests |
@@ -121,7 +121,7 @@ Abbreviations: UMA = ADDON-23; DEC = DECISIONS.md; tests are under `backend/test
 | ACC-06 | Monthly close with closing journals; reopen with privilege | GR-02 §4, BP AC12 | ⬜ | M14 | periods exist; no close |
 | ACC-07 | Exact money, no floats (paise since D-045) | BP H14 → D-045 | 🟡 | M2 | whole rupees today |
 | ACC-08 | Chart of accounts from templates; extend, never delete | BP AC4 | 🟡 | M4 | templates seeded; no management UI |
-| ACC-09 | Full dimension set on lines | BP AC5 | 🟡 | M1 | expense_event/payment method not written (M1) |
+| ACC-09 | Full dimension set on lines | BP AC5 | 🟡 | M6 | project/event and holder written (8ff2953); payment method and memo with the M6 forms |
 | ACC-10 | Explicit cross-entity classification; reciprocity | BP AC3 | ✅ | — | `give` · `engine/give_test.ts` |
 | ACC-11 | AES-256-GCM amounts, keys outside DB, hash-chained journals | BP AC7, D-026, D-033 | ✅ | — | `crypto/*` · `crypto/crypto_test.ts` |
 | ACC-12 | Separate transaction, posting, due, settlement dates | BP AC8, UMA §2 | 🟡 | M7 | due_date never set |
@@ -223,7 +223,7 @@ Abbreviations: UMA = ADDON-23; DEC = DECISIONS.md; tests are under `backend/test
 |---|---|---|---|---|---|
 | APR-01 | Maker/checker/approver per company, account, type | BP J6 | ⬜ | M10 | tables only |
 | APR-02 | Entity policy: owner-benefit, related-party, high-value | GR-05 §4, D-040 | ⬜ | M10 | |
-| APR-03 | No self-approval where independence is required | GR-05 §4 | 🟡 | M10 | `tg_approval_guard` · `db/lifecycle_test.ts` |
+| APR-03 | No self-approval where independence is required | GR-05 §4 | 🟡 | M10 | guard + decide policy excludes the requester (0018) · `db/lifecycle_test.ts` |
 | APR-04 | Single-owner audited alternative | D-040 | ⬜ | M10 | |
 | APR-05 | Material change → re-approval (content hash) | D-040 | ⬜ | M10 | |
 | APR-06 | Pending approval holds funds; rejection releases | BP AC9 | ⬜ | M10 | |
@@ -431,14 +431,14 @@ Abbreviations: UMA = ADDON-23; DEC = DECISIONS.md; tests are under `backend/test
 | SEC-03 | KEK outside DB, versioned, rotatable | D-026, D-033 | ✅ | — | `KeyRing` · `crypto/crypto_test.ts` |
 | SEC-04 | KEK escrow + production restore drill | GR-03 Q2 | 🟡 | owner | key created; escrow and drill pending |
 | SEC-05 | No decrypting secret on Android | BP M | ✅ | — | |
-| SEC-06 | Least-privilege roles, RLS, NOINHERIT login | D-025, D-043 | 🟡 | M1 | `db/api_login_test.ts`; RLS defects fixed in M1 |
+| SEC-06 | Least-privilege roles, RLS, NOINHERIT login | D-025, D-043 | ✅ | — | `db/api_login_test.ts`; RLS defects fixed in 0018 · `db/authz_scoping_test.ts` |
 | SEC-07 | Tamper-evident hash-chained audit | BP U2 | 🟡 | M9 | written; viewer + before/after in M9 |
 | SEC-08 | Audit separates admin, user, support actions | GR-03 Q3 | 🟡 | M9 | |
 | SEC-09 | Encrypted backups to R2, restore-tested | BP U3, D-015 | 🟡 | M16 | local drill `db/recovery_test.ts`; R2 needs owner credentials |
 | SEC-10 | Incident response; failures deny | BP U4 | 🟡 | M16 | |
 | SEC-11 | Safe user messages | BP U6 | ✅ | — | RFC 9457 problems · `http/api_test.ts` |
 | SEC-12 | Own error reporting, no secrets/amounts | GR-01 §4 | 🟡 | M16 | structured logs |
-| SEC-13 | Rate limits, data minimisation, IDOR tests | BP O | 🟡 | M1 | lockout only |
+| SEC-13 | Rate limits, data minimisation, IDOR tests | BP O | 🟡 | M14 | sign-in and password-change lockout; per-book party lists · `app/identity_test.ts`, `http/api_test.ts`; IP rate limits M14 |
 | SEC-14 | TLS verify-full; Enforce SSL | A-19 §6 | 🟡 | owner | sslmode=require |
 | SEC-15 | Retention periods | OQ Q8 | ⬜ | M16 | confirm with CA |
 | SEC-16 | No compliance claims | UMA §13 | ✅ | — | |

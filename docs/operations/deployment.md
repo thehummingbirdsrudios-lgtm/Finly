@@ -69,6 +69,7 @@ deno task test:pg17              # real PostgreSQL 17.11, incl. concurrency and 
 | 2026-10-09 | 0015–0017 (1.1 s) | `4b71e286792db817623b1f0062c922e5` (3195 items: 101 tables, 56 functions, 306 policies) | security: only the intentional INFO; performance: INFO only (217 unindexed audit/actor foreign keys, 77 unused indexes on an empty database) |
 | 2026-10-09 | `bootstrap/api_login.sql` + `finly_app` login (transaction pooler, 6543) | unchanged | `deno task db:app-check` through the pooler: connects as `finly_app`, reads nothing alone, enters `finly_api` (0 rows without an actor), cannot enter `finly_owner`. Migrator login off afterwards |
 | 2026-10-10 | API function `api` (secrets via `edge:secrets`) | unchanged | First deploy crashed at boot (`Buffer is not defined`, then `setImmediate is not defined` on connect: the hosted runtime lacks Node globals that local Deno has). Fixed by `src/db/node_globals.ts`; reproduced and verified locally with the globals removed (11/11 smoke steps); production `/v1/health` ok, 401 without a token, unknown-user sign-in 401 |
+| 2026-10-10 | 0018 (0.5 s) + API | `ec6af2ea658daa2a0531a4019e7a6082` (3198 items: 101 tables, 58 functions, 307 policies), three channels | security: the intentional INFO, and a new WARN "Leaked Password Protection Disabled" that concerns Supabase Auth, which Finly does not use (own identity service, D-023) — not applicable. Migrator login off afterwards. API redeployed after the hosted-like smoke (11/11); `/v1/health` ok |
 
 ## 5. Open items
 
