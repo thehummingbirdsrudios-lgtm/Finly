@@ -10,6 +10,7 @@ import '../../core/money.dart';
 import '../../core/providers.dart';
 import '../../core/widgets.dart';
 import 'form_fields.dart';
+import '../../l10n/l10n.dart';
 
 /// Pays, or receives, all or part of one amount that is owed. Never more than what is still owed; the rest stays
 /// open, and the original entry is never changed.
@@ -54,7 +55,7 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
     final amount = readAmount(_amount.text).value!;
     if (amount > item.remaining) {
       setState(
-        () => _error = 'Only ${formatInr(item.remaining)} is still owed.',
+        () => _error = context.l10n.settleOnlyOwed(formatInr(item.remaining)),
       );
       return;
     }
@@ -87,11 +88,11 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
           );
       if (!mounted) return;
       refreshMoney(ref);
-      showMessage(context, '${r.reference} recorded.');
+      showMessage(context, context.l10n.formRecorded(r.reference));
       context.pop();
     } catch (e) {
       if (!outcomeUnknown(e)) _requestKey = newRequestKey();
-      if (mounted) setState(() => _error = messageOf(e));
+      if (mounted) setState(() => _error = messageOf(context, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -101,18 +102,19 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
   Widget build(BuildContext context) {
     final items = ref.watch(openItemsProvider(widget.bookId));
     final books = ref.watch(booksProvider).value ?? const <Book>[];
+    final l = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: const Text('Settle')),
+      appBar: AppBar(title: Text(l.settleTitle)),
       body: AsyncView<List<OpenItem>>(
         value: items,
         onRetry: () => ref.invalidate(openItemsProvider(widget.bookId)),
         builder: (list) {
           final item = list.where((o) => o.id == widget.openItemId).firstOrNull;
           if (item == null) {
-            return const EmptyView(
+            return EmptyView(
               icon: Icons.check_circle_outline_rounded,
-              title: 'Already settled',
-              message: 'Nothing is owed on this any more.',
+              title: l.settleAlreadyTitle,
+              message: l.settleAlreadyMessage,
             );
           }
           if (!_prefilled) {
@@ -130,8 +132,8 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
               children: [
                 Text(
                   receivable
-                      ? '${item.counterparty} pays this book'
-                      : 'This book pays ${item.counterparty}',
+                      ? l.settleTheyPay(item.counterparty)
+                      : l.settleWePay(item.counterparty),
                   style: context.text.titleLarge,
                 ),
                 const SizedBox(height: FyDims.space1),
@@ -141,7 +143,10 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
                 ),
                 const SizedBox(height: FyDims.space2),
                 Text(
-                  'Originally ${formatInr(item.original)}; still owed ${formatInr(item.remaining)}.',
+                  l.settleOriginally(
+                    formatInr(item.original),
+                    formatInr(item.remaining),
+                  ),
                   style: context.text.bodyLarge?.copyWith(
                     color: context.fy.inkMuted,
                   ),
@@ -151,7 +156,7 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
                   FormMessage(_error!),
                   const SizedBox(height: FyDims.space4),
                 ],
-                AmountField(controller: _amount, label: 'Amount paid now (₹)'),
+                AmountField(controller: _amount, label: l.settleAmountNow),
                 const SizedBox(height: FyDims.space4),
                 DateField(
                   value: _date,
@@ -161,7 +166,7 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
                 PlaceField(
                   bookId: widget.bookId,
                   value: _myPlace,
-                  label: receivable ? 'Received into' : 'Paid from',
+                  label: receivable ? l.formReceivedInto : l.formPaidFrom,
                   onChanged: (v) => setState(() => _myPlace = v),
                 ),
                 if (counterpartyIsMine) ...[
@@ -170,8 +175,8 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
                     bookId: item.counterpartyId,
                     value: _theirPlace,
                     label: receivable
-                        ? 'Paid from (${item.counterparty})'
-                        : 'Received into (${item.counterparty})',
+                        ? l.settlePaidFromOf(item.counterparty)
+                        : l.settleReceivedIntoOf(item.counterparty),
                     onChanged: (v) => setState(() => _theirPlace = v),
                   ),
                 ],
@@ -179,9 +184,7 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
                 TextFormField(
                   controller: _reason,
                   maxLength: 500,
-                  decoration: const InputDecoration(
-                    labelText: 'Note (optional)',
-                  ),
+                  decoration: InputDecoration(labelText: l.commonNoteOptional),
                 ),
                 const SizedBox(height: FyDims.space4),
                 FilledButton(
@@ -194,7 +197,7 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
                           height: 22,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Record payment'),
+                      : Text(l.settleRecordPayment),
                 ),
               ],
             ),

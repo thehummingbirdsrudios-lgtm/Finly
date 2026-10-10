@@ -7,6 +7,7 @@ import '../../core/design_system/tokens.g.dart';
 import '../../core/providers.dart';
 import '../../core/widgets.dart';
 import '../entries/form_fields.dart';
+import '../../l10n/l10n.dart';
 
 /// Where money of a book is kept: a cash place, a bank account (with its exact holder) or a wallet. Account numbers
 /// are encrypted on the server at once; only the last four digits are ever shown again.
@@ -81,13 +82,10 @@ class _AddPlaceScreenState extends ConsumerState<AddPlaceScreen> {
       });
       if (!mounted) return;
       ref.invalidate(placesProvider(widget.bookId));
-      showMessage(
-        context,
-        'Added. Its balance is ₹0 until you record money there.',
-      );
+      showMessage(context, context.l10n.placeAdded);
       context.pop();
     } catch (e) {
-      if (mounted) setState(() => _error = messageOf(e));
+      if (mounted) setState(() => _error = messageOf(context, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -99,8 +97,9 @@ class _AddPlaceScreenState extends ConsumerState<AddPlaceScreen> {
     final placeTypes = lookups.value?.placeTypes ?? const [];
     final allowed = _kind == null ? const <String>[] : _typesByKind[_kind]!;
     final types = placeTypes.where((t) => allowed.contains(t.key)).toList();
+    final l = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: const Text('Add money place')),
+      appBar: AppBar(title: Text(l.placeAddTitle)),
       body: SafeArea(
         child: Form(
           key: _form,
@@ -109,7 +108,7 @@ class _AddPlaceScreenState extends ConsumerState<AddPlaceScreen> {
             children: [
               if (lookups.hasError) ...[
                 RetryMessage(
-                  messageOf(lookups.error!),
+                  messageOf(context, lookups.error!),
                   onRetry: () => ref.invalidate(lookupsProvider),
                 ),
                 const SizedBox(height: FyDims.space4),
@@ -119,11 +118,11 @@ class _AddPlaceScreenState extends ConsumerState<AddPlaceScreen> {
                 const SizedBox(height: FyDims.space4),
               ],
               ChoiceField<String>(
-                label: 'What is it?',
-                options: const [
-                  ('cash', 'Cash'),
-                  ('bank', 'Bank account'),
-                  ('wallet', 'Wallet / UPI'),
+                label: l.placeWhatIsIt,
+                options: [
+                  ('cash', l.placeKindCash),
+                  ('bank', l.placeKindBank),
+                  ('wallet', l.placeKindWallet),
                 ],
                 value: _kind,
                 onChanged: (v) => setState(() {
@@ -136,12 +135,12 @@ class _AddPlaceScreenState extends ConsumerState<AddPlaceScreen> {
                 controller: _name,
                 maxLength: 80,
                 textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  labelText: 'Name',
-                  hintText: 'Shop Tijori, HDFC savings…',
+                decoration: InputDecoration(
+                  labelText: l.commonName,
+                  hintText: l.placeNameHint,
                 ),
                 validator: (v) =>
-                    (v ?? '').trim().isEmpty ? 'Enter a name.' : null,
+                    (v ?? '').trim().isEmpty ? l.commonEnterName : null,
               ),
               if (_kind != null) ...[
                 const SizedBox(height: FyDims.space2),
@@ -149,19 +148,19 @@ class _AddPlaceScreenState extends ConsumerState<AddPlaceScreen> {
                   key: ValueKey(_kind),
                   initialValue: _type,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Type'),
+                  decoration: InputDecoration(labelText: l.placeType),
                   items: [
                     for (final t in types)
                       DropdownMenuItem(value: t.key, child: Text(t.label)),
                   ],
                   onChanged: (v) => setState(() => _type = v),
-                  validator: (v) => v == null ? 'Choose a type.' : null,
+                  validator: (v) => v == null ? l.placeChooseType : null,
                 ),
               ],
               if (_kind == 'bank' || _kind == 'wallet') ...[
-                const SectionTitle('Account details'),
+                SectionTitle(l.placeAccountDetails),
                 Text(
-                  'Who the bank says holds this account matters: it may be you, the business, or someone else.',
+                  l.placeHolderMatters,
                   style: context.text.bodySmall?.copyWith(
                     color: context.fy.inkMuted,
                   ),
@@ -169,57 +168,45 @@ class _AddPlaceScreenState extends ConsumerState<AddPlaceScreen> {
                 const SizedBox(height: FyDims.space3),
                 TextFormField(
                   controller: _bankName,
-                  decoration: const InputDecoration(
-                    labelText: 'Bank or provider',
-                  ),
+                  decoration: InputDecoration(labelText: l.placeBankName),
                 ),
                 const SizedBox(height: FyDims.space3),
                 TextFormField(
                   controller: _holder,
                   textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    labelText: 'Account holder (as the bank records it)',
-                  ),
+                  decoration: InputDecoration(labelText: l.placeAccountHolder),
                 ),
                 const SizedBox(height: FyDims.space3),
                 TextFormField(
                   controller: _number,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Account number (optional)',
-                    helperText:
-                        'Stored encrypted. Finly shows only the last 4 digits.',
+                  decoration: InputDecoration(
+                    labelText: l.placeAccountNumber,
+                    helperText: l.placeAccountNumberHelp,
                   ),
                 ),
                 const SizedBox(height: FyDims.space3),
                 TextFormField(
                   controller: _ifsc,
                   textCapitalization: TextCapitalization.characters,
-                  decoration: const InputDecoration(
-                    labelText: 'IFSC (optional)',
-                  ),
+                  decoration: InputDecoration(labelText: l.placeIfsc),
                 ),
                 const SizedBox(height: FyDims.space3),
                 DropdownButtonFormField<String>(
                   initialValue: _accountType,
                   isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Account type (optional)',
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'savings', child: Text('Savings')),
-                    DropdownMenuItem(value: 'current', child: Text('Current')),
-                    DropdownMenuItem(
-                      value: 'overdraft',
-                      child: Text('Overdraft'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'cash_credit',
-                      child: Text('Cash credit'),
-                    ),
-                    DropdownMenuItem(value: 'wallet', child: Text('Wallet')),
-                    DropdownMenuItem(value: 'upi', child: Text('UPI')),
-                    DropdownMenuItem(value: 'other', child: Text('Other')),
+                  decoration: InputDecoration(labelText: l.placeAccountType),
+                  items: [
+                    for (final (key, label) in [
+                      ('savings', l.placeAccountSavings),
+                      ('current', l.placeAccountCurrent),
+                      ('overdraft', l.placeAccountOverdraft),
+                      ('cash_credit', l.placeAccountCashCredit),
+                      ('wallet', l.placeAccountWallet),
+                      ('upi', l.placeAccountUpi),
+                      ('other', l.placeAccountOther),
+                    ])
+                      DropdownMenuItem(value: key, child: Text(label)),
                   ],
                   onChanged: (v) => setState(() => _accountType = v),
                 ),
@@ -233,7 +220,7 @@ class _AddPlaceScreenState extends ConsumerState<AddPlaceScreen> {
                         height: 22,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Add place'),
+                    : Text(l.bookAddPlace),
               ),
             ],
           ),

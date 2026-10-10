@@ -10,6 +10,11 @@ class FinlyApi {
 
   Future<Me> me() async => Me.fromJson(await client.get('/v1/me'));
 
+  /// Saves the person's language on their account, so every phone they use follows it.
+  Future<void> setLocale(String code) async {
+    await client.put('/v1/me/locale', {'locale': code});
+  }
+
   Future<Lookups> lookups() async =>
       Lookups.fromJson(await client.get('/v1/lookups'));
 

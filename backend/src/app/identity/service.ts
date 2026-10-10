@@ -54,7 +54,12 @@ export interface Actor {
   personEntityId: Id;
   displayName: string;
   mustChangePassword: boolean;
+  /** The language the person chose for Finly: en, hi or gu (ADDON-23 §9). */
+  locale: Locale;
 }
+
+export const LOCALES = ['en', 'hi', 'gu'] as const;
+export type Locale = typeof LOCALES[number];
 
 export interface SessionInfo {
   id: Id;
@@ -399,8 +404,8 @@ export class IdentityService {
     const claims = await this.signer.verify(accessToken, Math.floor(this.now().getTime() / 1000));
     if (!claims) fail('UNAUTHENTICATED', 'Please sign in again.');
     const rows = await this.asAuth((tx) =>
-      tx.query<{ person_entity_id: string; display_name: string; must_change: boolean }>(
-        `select u.person_entity_id, u.display_name,
+      tx.query<{ person_entity_id: string; display_name: string; must_change: boolean; locale: Locale }>(
+        `select u.person_entity_id, u.display_name, u.locale,
                 (u.must_change_password or coalesce(c.is_temporary, false)) as must_change
          from finly.auth_session s
          join finly.app_user u on u.id = s.user_id
@@ -419,7 +424,15 @@ export class IdentityService {
       personEntityId: rows[0].person_entity_id,
       displayName: rows[0].display_name,
       mustChangePassword: rows[0].must_change,
+      locale: rows[0].locale,
     };
+  }
+
+  /** Sets the language Finly uses for this person, on every phone they use. */
+  async setLocale(actor: Actor, locale: string): Promise<Locale> {
+    if (!(LOCALES as readonly string[]).includes(locale)) fail('VALIDATION', 'Choose English, Hindi or Gujarati.');
+    await this.asAuth((tx) => tx.query(`update finly.app_user set locale = $2 where id = $1`, [actor.userId, locale]));
+    return locale as Locale;
   }
 
   /** Ends this session. */

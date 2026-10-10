@@ -1,6 +1,7 @@
 // Dependency wiring and server-backed state. Every data provider fetches from the API; after any change the affected
 // providers are invalidated so screens show the server's new truth, never a locally computed guess.
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'api/api_client.dart';
@@ -41,15 +42,18 @@ class AuthLoading extends AuthState {
   const AuthLoading();
 }
 
-/// The server could not be reached while restoring the session (Finly is online only).
+/// The server could not be reached while restoring the session.
 class AuthOffline extends AuthState {
-  const AuthOffline(this.message);
-  final String message;
+  const AuthOffline(this.error);
+  final Object error;
 }
+
+/// Why the person is asked to sign in again; the sign-in screen says it in their language.
+enum SignInNotice { sessionEnded, storageReset }
 
 class SignedOut extends AuthState {
   const SignedOut([this.notice]);
-  final String? notice;
+  final SignInNotice? notice;
 }
 
 class SignedIn extends AuthState {
@@ -62,7 +66,7 @@ class AuthController extends Notifier<AuthState> {
   AuthState build() {
     final client = ref.read(apiClientProvider);
     client.onSessionEnded = () =>
-        state = const SignedOut('Your session ended. Please sign in again.');
+        state = const SignedOut(SignInNotice.sessionEnded);
     Future.microtask(restore);
     return const AuthLoading();
   }
@@ -75,18 +79,16 @@ class AuthController extends Notifier<AuthState> {
     state = const AuthLoading();
     try {
       if (await _client.resume()) {
-        state = SignedIn(await _api.me());
+        state = _signedIn(await _api.me());
       } else {
         state = const SignedOut();
       }
     } on ApiException catch (e) {
-      state = e.isNetwork ? AuthOffline(e.message) : const SignedOut();
+      state = e.isNetwork ? AuthOffline(e) : const SignedOut();
     } catch (_) {
       // The phone's secure storage failed (e.g. keys reset after a backup restore): start clean rather than hang on
       // the splash screen. Nothing financial is lost — it all lives on the server.
-      state = const SignedOut(
-        'This phone could not read the saved sign-in. Please sign in again.',
-      );
+      state = const SignedOut(SignInNotice.storageReset);
     }
   }
 
@@ -97,12 +99,18 @@ class AuthController extends Notifier<AuthState> {
       model: ref.read(deviceFactsProvider).model,
       osVersion: ref.read(deviceFactsProvider).osVersion,
     );
-    state = SignedIn(await _api.me());
+    state = _signedIn(await _api.me());
   }
 
   Future<void> changePassword(String current, String next) async {
     await _client.changePassword(current, next);
-    state = SignedIn(await _api.me());
+    state = _signedIn(await _api.me());
+  }
+
+  /// Signed in: the account's language follows the person onto this phone.
+  SignedIn _signedIn(Me me) {
+    ref.read(localeProvider.notifier).adopt(me.locale);
+    return SignedIn(me);
   }
 
   Future<void> signOut() async {
@@ -113,6 +121,48 @@ class AuthController extends Notifier<AuthState> {
 
 final authProvider = NotifierProvider<AuthController, AuthState>(
   AuthController.new,
+);
+
+// ---- Language ------------------------------------------------------------------------------------------------
+
+/// The language Finly shows. Null until known: the phone's system language is used. Before sign-in the phone's last
+/// choice applies; after sign-in the account's choice wins, so a person sees their language on any phone.
+class LocaleController extends Notifier<Locale?> {
+  @override
+  Locale? build() {
+    Future.microtask(_restore);
+    return null;
+  }
+
+  SessionStore get _store => ref.read(sessionStoreProvider);
+
+  Future<void> _restore() async {
+    try {
+      final code = await _store.locale();
+      if (code != null && state == null) state = Locale(code);
+    } catch (_) {
+      // A storage failure leaves the system language in place.
+    }
+  }
+
+  /// The person's choice from Settings: shown at once, kept on this phone and saved to their account.
+  Future<void> choose(String code) async {
+    state = Locale(code);
+    await _store.saveLocale(code);
+    if (ref.read(authProvider) is SignedIn) {
+      await ref.read(apiProvider).setLocale(code);
+    }
+  }
+
+  void adopt(String code) {
+    if (state?.languageCode == code) return;
+    state = Locale(code);
+    _store.saveLocale(code).ignore();
+  }
+}
+
+final localeProvider = NotifierProvider<LocaleController, Locale?>(
+  LocaleController.new,
 );
 
 // ---- Server data ---------------------------------------------------------------------------------------------

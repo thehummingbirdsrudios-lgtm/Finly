@@ -18,6 +18,7 @@ class ApiException implements Exception {
     this.question,
     this.field,
     this.requestId,
+    this.timedOut = false,
   });
 
   /// 0 when the server could not be reached.
@@ -31,6 +32,9 @@ class ApiException implements Exception {
   /// The request field the message is about, when the server named one.
   final String? field;
   final String? requestId;
+
+  /// The connection was made but no answer came in time (as opposed to no connection at all).
+  final bool timedOut;
 
   bool get isNetwork => code == 'NETWORK';
   bool get isAuth => status == 401;
@@ -236,6 +240,9 @@ class ApiClient {
     String? idempotencyKey,
   }) => _send('POST', path, body: body, idempotencyKey: idempotencyKey);
 
+  Future<Map<String, dynamic>> put(String path, Object body) =>
+      _send('PUT', path, body: body);
+
   Future<Map<String, dynamic>> delete(String path) => _send('DELETE', path);
 
   Future<Map<String, dynamic>> _send(
@@ -270,12 +277,14 @@ class ApiClient {
         ),
       );
     } on DioException catch (e) {
+      final timedOut =
+          e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout;
       throw ApiException(
         status: 0,
         code: 'NETWORK',
-        message:
-            e.type == DioExceptionType.connectionTimeout ||
-                e.type == DioExceptionType.receiveTimeout
+        timedOut: timedOut,
+        message: timedOut
             ? 'Finly is taking too long to answer. Check the internet and try again.'
             : 'No connection to Finly. Check the internet and try again.',
       );

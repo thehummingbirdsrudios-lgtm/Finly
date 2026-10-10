@@ -7,6 +7,7 @@ import '../../core/design_system/theme.dart';
 import '../../core/design_system/tokens.g.dart';
 import '../../core/providers.dart';
 import '../../core/widgets.dart';
+import '../../l10n/l10n.dart';
 
 /// Every book the person may enter: their own personal books first, then firms and pools with their access level.
 class BooksScreen extends ConsumerWidget {
@@ -17,12 +18,13 @@ class BooksScreen extends ConsumerWidget {
     final auth = ref.watch(authProvider);
     final name = auth is SignedIn ? auth.me.displayName : '';
     final books = ref.watch(booksProvider);
+    final l = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: const Text('Your books')),
+      appBar: AppBar(title: Text(l.booksTitle)),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/books/new'),
         icon: const Icon(Icons.add_business_rounded),
-        label: const Text('New business'),
+        label: Text(l.booksNewBusiness),
       ),
       body: RefreshIndicator(
         onRefresh: () => ref.refresh(booksProvider.future),
@@ -39,7 +41,10 @@ class BooksScreen extends ConsumerWidget {
                   FyDims.space4,
                   0,
                 ),
-                child: Text('Hello, $name', style: context.text.headlineMedium),
+                child: Text(
+                  l.booksHello(name),
+                  style: context.text.headlineMedium,
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(
@@ -49,7 +54,7 @@ class BooksScreen extends ConsumerWidget {
                   FyDims.space2,
                 ),
                 child: Text(
-                  'Each book is kept separately. You see only the books you were given access to.',
+                  l.booksIntro,
                   style: context.text.bodyMedium?.copyWith(
                     color: context.fy.inkMuted,
                   ),
@@ -58,12 +63,12 @@ class BooksScreen extends ConsumerWidget {
               for (final b in items) _BookTile(book: b),
               // Shown until the person has a book other than their own personal one (whatever the list's length).
               if (!items.any((b) => !b.personal))
-                const Padding(
-                  padding: EdgeInsets.all(FyDims.space4),
+                Padding(
+                  padding: const EdgeInsets.all(FyDims.space4),
                   child: EmptyView(
                     icon: Icons.storefront_outlined,
-                    title: 'No business books yet',
-                    message: 'Add a business, partnership or family pool to keep its books apart from your own.',
+                    title: l.booksNoBusinessTitle,
+                    message: l.booksNoBusinessMessage,
                   ),
                 ),
             ],
@@ -81,10 +86,11 @@ class _BookTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fy = context.fy;
+    final l = context.l10n;
     final access = switch (book.access) {
-      'manage' => 'You manage',
-      'write' => 'You record entries',
-      _ => 'View only',
+      'manage' => l.booksAccessManage,
+      'write' => l.booksAccessWrite,
+      _ => l.booksAccessRead,
     };
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -102,11 +108,13 @@ class _BookTile extends StatelessWidget {
             ),
           ),
           title: Text(
-            book.personal ? 'My personal books' : book.name,
+            book.personal ? l.booksMyPersonal : book.name,
             style: context.text.titleSmall,
           ),
           subtitle: Text(
-            book.personal ? 'Private to you' : '${book.typeLabel} · $access',
+            book.personal
+                ? l.booksPrivateToYou
+                : l.booksTypeAndAccess(book.typeLabel, access),
           ),
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: () => context.push('/books/${book.id}'),

@@ -5,6 +5,7 @@ import '../../core/providers.dart';
 import '../books/books_screen.dart';
 import '../inbox/inbox_screen.dart';
 import '../settings/settings_screen.dart';
+import '../../l10n/l10n.dart';
 
 /// The signed-in shell: books, things waiting for the person's answer, and settings.
 class HomeScreen extends ConsumerStatefulWidget {
@@ -20,6 +21,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final waiting = ref.watch(waitingProvider).value?.length ?? 0;
+    final l = context.l10n;
     return Scaffold(
       body: IndexedStack(
         index: _tab,
@@ -29,10 +31,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
         destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.menu_book_outlined),
-            selectedIcon: Icon(Icons.menu_book_rounded),
-            label: 'Books',
+          NavigationDestination(
+            icon: const Icon(Icons.menu_book_outlined),
+            selectedIcon: const Icon(Icons.menu_book_rounded),
+            label: l.navBooks,
           ),
           NavigationDestination(
             icon: Badge(
@@ -45,15 +47,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               label: Text('$waiting'),
               child: const Icon(Icons.inbox_rounded),
             ),
-            label: 'To answer',
-            tooltip: waiting > 0
-                ? '$waiting entries wait for your answer'
-                : 'Nothing waits for your answer',
+            label: l.navToAnswer,
+            tooltip: l.navWaitingTooltip(waiting),
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings_rounded),
-            label: 'Settings',
+          NavigationDestination(
+            icon: const Icon(Icons.settings_outlined),
+            selectedIcon: const Icon(Icons.settings_rounded),
+            label: l.navSettings,
           ),
         ],
       ),

@@ -23,8 +23,9 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · 🔑 needs the o
 - [x] App fixes: H1 refused-form key, M1 startup storage errors, M2 lookups retry, M3 unpostable give, M4 all save
   errors, M5 list race + status badges, M6 device model, M7 debug build without key.properties, empty states,
   not-found exit, chip formatting, sessions double tap
-- [ ] L10n: ARB en/hi/gu for every string, Mukta + Mukta Vaani, language setting saved and sent to the server
-- [ ] 🔑 Seed accounts (owner runs `deno task user:create …`)
+- [x] L10n: ARB en/hi/gu for every app string, language setting saved on the phone and the account
+- [ ] 🔑 Mukta + Mukta Vaani bundled (needs the go-ahead to download the OFL fonts); server messages in hi/gu (M14)
+- [~] 🔑 Seed accounts: `krish` created 2026-10-10 (temporary password in `backend/.first-login.txt`); six to go
 
 ## M1 — Authorisation and integrity defects (0018)
 

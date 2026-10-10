@@ -6,6 +6,7 @@ import '../../core/design_system/theme.dart';
 import '../../core/design_system/tokens.g.dart';
 import '../../core/providers.dart';
 import '../../core/widgets.dart';
+import '../../l10n/l10n.dart';
 
 /// Replaces the temporary password at first sign-in (forced) or the current one later (from Settings).
 class ChangePasswordScreen extends ConsumerStatefulWidget {
@@ -47,10 +48,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
           .changePassword(_current.text, _next.text);
       if (!mounted) return;
       if (!widget.forced) {
-        showMessage(
-          context,
-          'Your password is changed. Other phones were signed out.',
-        );
+        showMessage(context, context.l10n.passwordChanged);
         Navigator.of(context).pop();
       }
     } on ApiException catch (e) {
@@ -64,7 +62,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = messageOf(e));
+      if (mounted) setState(() => _error = messageOf(context, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -72,9 +70,12 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.forced ? 'Choose your password' : 'Change password'),
+        title: Text(
+          widget.forced ? l.passwordChooseTitle : l.passwordChangeTitle,
+        ),
         automaticallyImplyLeading: !widget.forced,
         actions: [
           if (widget.forced)
@@ -82,7 +83,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
               onPressed: _busy
                   ? null
                   : () => ref.read(authProvider.notifier).signOut(),
-              child: const Text('Sign out'),
+              child: Text(l.commonSignOut),
             ),
         ],
       ),
@@ -95,11 +96,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (widget.forced)
-                  Text(
-                    'You signed in with a temporary password. Choose your own to continue — nobody else, not even '
-                    'an administrator, will ever see it.',
-                    style: context.text.bodyLarge,
-                  ),
+                  Text(l.passwordTemporaryIntro, style: context.text.bodyLarge),
                 const SizedBox(height: FyDims.space4),
                 if (_error != null) ...[
                   FormMessage(_error!),
@@ -110,40 +107,34 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                   obscureText: true,
                   decoration: InputDecoration(
                     labelText: widget.forced
-                        ? 'Temporary password'
-                        : 'Current password',
+                        ? l.passwordTemporary
+                        : l.passwordCurrent,
                   ),
                   autofillHints: const [AutofillHints.password],
-                  validator: (v) => (v ?? '').isEmpty
-                      ? 'Enter it to confirm it is you.'
-                      : null,
+                  validator: (v) =>
+                      (v ?? '').isEmpty ? l.passwordConfirmItsYou : null,
                 ),
                 const SizedBox(height: FyDims.space4),
                 TextFormField(
                   controller: _next,
                   obscureText: true,
                   decoration: InputDecoration(
-                    labelText: 'New password',
-                    helperText: 'At least 10 characters. A short sentence is easy to remember and hard to guess.',
+                    labelText: l.passwordNew,
+                    helperText: l.passwordNewHelp,
                     helperMaxLines: 2,
                     errorText: _fieldError,
                     errorMaxLines: 2,
                   ),
                   autofillHints: const [AutofillHints.newPassword],
-                  validator: (v) => (v ?? '').length < 10
-                      ? 'Use at least 10 characters.'
-                      : null,
+                  validator: (v) =>
+                      (v ?? '').length < 10 ? l.passwordTooShort : null,
                 ),
                 const SizedBox(height: FyDims.space4),
                 TextFormField(
                   controller: _again,
                   obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'New password again',
-                  ),
-                  validator: (v) => v != _next.text
-                      ? 'The two passwords are not the same.'
-                      : null,
+                  decoration: InputDecoration(labelText: l.passwordAgain),
+                  validator: (v) => v != _next.text ? l.passwordMismatch : null,
                   onFieldSubmitted: (_) => _submit(),
                 ),
                 const SizedBox(height: FyDims.space8),
@@ -155,11 +146,11 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                           height: 22,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Save password'),
+                      : Text(l.passwordSave),
                 ),
                 const SizedBox(height: FyDims.space4),
                 Text(
-                  'Changing your password signs out every other phone using your account.',
+                  l.passwordSignsOutOthers,
                   style: context.text.bodySmall?.copyWith(
                     color: context.fy.inkMuted,
                   ),

@@ -6,6 +6,7 @@ import '../../core/api/models.dart';
 import '../../core/design_system/theme.dart';
 import '../../core/providers.dart';
 import '../../core/widgets.dart';
+import '../../l10n/l10n.dart';
 
 /// The entries of one book, newest first, loaded a page at a time as the person scrolls. Entries that are not yet
 /// posted say so — they are never shown as if the money had moved.
@@ -76,15 +77,15 @@ class _EntriesListState extends ConsumerState<EntriesList> {
     if (_items.isEmpty) {
       return RefreshIndicator(
         onRefresh: () => _load(reset: true),
-        child: const CustomScrollView(
-          physics: AlwaysScrollableScrollPhysics(),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverFillRemaining(
               hasScrollBody: false,
               child: EmptyView(
                 icon: Icons.receipt_long_outlined,
-                title: 'No entries yet',
-                message: 'Entries you record in these books appear here, newest first.',
+                title: context.l10n.entriesNoneTitle,
+                message: context.l10n.entriesNoneMessage,
               ),
             ),
           ],
@@ -107,7 +108,7 @@ class _EntriesListState extends ConsumerState<EntriesList> {
               if (_error != null) {
                 return TextButton(
                   onPressed: _load,
-                  child: const Text('Could not load more. Try again'),
+                  child: Text(context.l10n.entriesLoadMoreFailed),
                 );
               }
               return _done

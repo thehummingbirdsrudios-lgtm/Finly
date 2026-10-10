@@ -7,6 +7,7 @@ import '../../core/design_system/theme.dart';
 import '../../core/design_system/tokens.g.dart';
 import '../../core/providers.dart';
 import '../../core/widgets.dart';
+import '../../l10n/l10n.dart';
 
 /// Entries someone recorded that change this person's own books: nothing posts until they accept (D-029).
 class InboxScreen extends ConsumerWidget {
@@ -15,8 +16,9 @@ class InboxScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final waiting = ref.watch(waitingProvider);
+    final l = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: const Text('To answer')),
+      appBar: AppBar(title: Text(l.inboxTitle)),
       body: RefreshIndicator(
         onRefresh: () => ref.refresh(waitingProvider.future),
         child: AsyncView<List<WaitingAnswer>>(
@@ -24,12 +26,12 @@ class InboxScreen extends ConsumerWidget {
           onRetry: () => ref.invalidate(waitingProvider),
           builder: (items) => items.isEmpty
               ? ListView(
-                  children: const [
-                    SizedBox(height: 80),
+                  children: [
+                    const SizedBox(height: 80),
                     EmptyView(
                       icon: Icons.inbox_outlined,
-                      title: 'Nothing waits for you',
-                      message: 'When someone records an entry that changes your personal books, you accept or reject it here.',
+                      title: l.inboxNothingTitle,
+                      message: l.inboxNothingMessage,
                     ),
                   ],
                 )
@@ -78,11 +80,11 @@ class _WaitingTileState extends ConsumerState<_WaitingTile> {
       showMessage(
         context,
         accept
-            ? '${r.reference} accepted.'
-            : '${r.reference} rejected; nothing was posted.',
+            ? context.l10n.inboxAccepted(r.reference)
+            : context.l10n.inboxRejected(r.reference),
       );
     } catch (e) {
-      if (mounted) showMessage(context, messageOf(e));
+      if (mounted) showMessage(context, messageOf(context, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -91,6 +93,7 @@ class _WaitingTileState extends ConsumerState<_WaitingTile> {
   @override
   Widget build(BuildContext context) {
     final w = widget.item;
+    final l = context.l10n;
     return Padding(
       padding: const EdgeInsets.all(FyDims.space4),
       child: Column(
@@ -111,7 +114,11 @@ class _WaitingTileState extends ConsumerState<_WaitingTile> {
             ],
           ),
           Text(
-            '${w.reference} · ${showDate(w.valueDate)} · from ${w.from ?? 'someone'}',
+            l.inboxFrom(
+              w.reference,
+              showDate(w.valueDate),
+              w.from ?? l.inboxSomeone,
+            ),
             style: context.text.bodySmall,
           ),
           const SizedBox(height: FyDims.space2),
@@ -119,17 +126,17 @@ class _WaitingTileState extends ConsumerState<_WaitingTile> {
             children: [
               TextButton(
                 onPressed: () => context.push('/entries/${w.txnId}'),
-                child: const Text('Details'),
+                child: Text(l.commonDetails),
               ),
               const Spacer(),
               OutlinedButton(
                 onPressed: _busy ? null : () => _answer(false),
-                child: const Text('Reject'),
+                child: Text(l.inboxReject),
               ),
               const SizedBox(width: FyDims.space2),
               FilledButton(
                 onPressed: _busy ? null : () => _answer(true),
-                child: const Text('Accept'),
+                child: Text(l.inboxAccept),
               ),
             ],
           ),
@@ -159,16 +166,17 @@ class _AnswerDialogState extends State<_AnswerDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     return AlertDialog(
-      title: Text(widget.accept ? 'Accept this entry?' : 'Reject this entry?'),
+      title: Text(
+        widget.accept ? l.inboxAcceptQuestion : l.inboxRejectQuestion,
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            widget.accept
-                ? 'It will be posted in your personal books as recorded.'
-                : 'Nothing will be posted, and the money held for it is released.',
+            widget.accept ? l.inboxAcceptExplain : l.inboxRejectExplain,
             style: context.text.bodyMedium,
           ),
           const SizedBox(height: FyDims.space3),
@@ -176,7 +184,9 @@ class _AnswerDialogState extends State<_AnswerDialog> {
             controller: _note,
             maxLength: 500,
             decoration: InputDecoration(
-              labelText: widget.accept ? 'Note (optional)' : 'Why (optional)',
+              labelText: widget.accept
+                  ? l.commonNoteOptional
+                  : l.inboxWhyOptional,
             ),
           ),
         ],
@@ -184,11 +194,11 @@ class _AnswerDialogState extends State<_AnswerDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(l.commonCancel),
         ),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(_note.text.trim()),
-          child: Text(widget.accept ? 'Accept' : 'Reject'),
+          child: Text(widget.accept ? l.inboxAccept : l.inboxReject),
         ),
       ],
     );

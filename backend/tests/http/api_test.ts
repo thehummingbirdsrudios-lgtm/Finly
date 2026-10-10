@@ -311,3 +311,15 @@ Deno.test('signed-out and forged tokens are refused; unknown routes and methods 
   const text = JSON.stringify(logs);
   for (const secret of [me.token, TEMP, OWN, '100000']) assert(!text.includes(secret), 'secret in logs');
 });
+
+Deno.test('the language a person chooses is kept on the server and refused when unknown', async () => {
+  const p = await person('Bhavna');
+  const before = await call<{ locale: string }>('GET', '/v1/me', { token: p.token });
+  assertEquals(before.body.locale, 'en');
+  const set = await call<{ locale: string }>('PUT', '/v1/me/locale', { token: p.token, body: { locale: 'gu' } });
+  assertEquals([set.status, set.body.locale], [200, 'gu']);
+  assertEquals((await call<{ locale: string }>('GET', '/v1/me', { token: p.token })).body.locale, 'gu');
+  const bad = await call<{ code: string }>('PUT', '/v1/me/locale', { token: p.token, body: { locale: 'fr' } });
+  assertEquals([bad.status, bad.body.code], [422, 'VALIDATION']);
+  assertEquals((await call('PUT', '/v1/me/locale', { body: { locale: 'hi' } })).status, 401);
+});

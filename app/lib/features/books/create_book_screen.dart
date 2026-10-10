@@ -7,6 +7,7 @@ import '../../core/design_system/tokens.g.dart';
 import '../../core/providers.dart';
 import '../../core/widgets.dart';
 import '../entries/form_fields.dart';
+import '../../l10n/l10n.dart';
 
 /// A new business or pool with its own separate books. Creating it does not make you its owner: you say whether
 /// you are one (ADDON-18). It starts empty — no money, places or people are assumed.
@@ -57,7 +58,7 @@ class _CreateBookScreenState extends ConsumerState<CreateBookScreen> {
       ref.invalidate(booksProvider);
       context.pushReplacement('/books/$id');
     } catch (e) {
-      if (mounted) setState(() => _error = messageOf(e));
+      if (mounted) setState(() => _error = messageOf(context, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -67,8 +68,9 @@ class _CreateBookScreenState extends ConsumerState<CreateBookScreen> {
   Widget build(BuildContext context) {
     final lookups = ref.watch(lookupsProvider);
     final types = lookups.value?.firmTypes ?? const [];
+    final l = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: const Text('New business')),
+      appBar: AppBar(title: Text(l.createBookTitle)),
       body: SafeArea(
         child: Form(
           key: _form,
@@ -76,7 +78,7 @@ class _CreateBookScreenState extends ConsumerState<CreateBookScreen> {
             padding: const EdgeInsets.all(FyDims.space4),
             children: [
               Text(
-                'Its books are kept apart from yours and from every other business. It starts empty.',
+                l.createBookIntro,
                 style: context.text.bodyMedium?.copyWith(
                   color: context.fy.inkMuted,
                 ),
@@ -84,7 +86,7 @@ class _CreateBookScreenState extends ConsumerState<CreateBookScreen> {
               const SizedBox(height: FyDims.space4),
               if (lookups.hasError) ...[
                 RetryMessage(
-                  messageOf(lookups.error!),
+                  messageOf(context, lookups.error!),
                   onRetry: () => ref.invalidate(lookupsProvider),
                 ),
                 const SizedBox(height: FyDims.space4),
@@ -97,36 +99,35 @@ class _CreateBookScreenState extends ConsumerState<CreateBookScreen> {
                 controller: _name,
                 maxLength: 120,
                 textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'Name'),
+                decoration: InputDecoration(labelText: l.commonName),
                 validator: (v) =>
-                    (v ?? '').trim().isEmpty ? 'Enter a name.' : null,
+                    (v ?? '').trim().isEmpty ? l.commonEnterName : null,
               ),
               const SizedBox(height: FyDims.space2),
               DropdownButtonFormField<String>(
                 initialValue: _type,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Kind'),
+                decoration: InputDecoration(labelText: l.commonKind),
                 items: [
                   for (final t in types)
                     DropdownMenuItem(value: t.key, child: Text(t.label)),
                 ],
                 onChanged: (v) => setState(() => _type = v),
-                validator: (v) =>
-                    v == null ? 'Choose what kind of business this is.' : null,
+                validator: (v) => v == null ? l.createBookChooseKind : null,
               ),
               const SizedBox(height: FyDims.space4),
               DateField(
                 value: _opening,
-                label: 'Books start on',
+                label: l.createBookStartsOn,
                 onChanged: (v) => setState(() => _opening = v),
               ),
               const SizedBox(height: FyDims.space4),
               ChoiceField<bool>(
-                label: 'Are you an owner of it?',
-                help: 'Being the one who sets it up does not make you an owner. Say what is true.',
-                options: const [
-                  (true, 'Yes, I own it or part of it'),
-                  (false, 'No, I run it for others'),
+                label: l.createBookOwnerQuestion,
+                help: l.createBookOwnerHelp,
+                options: [
+                  (true, l.createBookOwnerYes),
+                  (false, l.createBookOwnerNo),
                 ],
                 value: _owner,
                 onChanged: (v) => setState(() => _owner = v),
@@ -138,15 +139,15 @@ class _CreateBookScreenState extends ConsumerState<CreateBookScreen> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
-                  decoration: const InputDecoration(
-                    labelText: 'Your share in % (optional)',
-                    helperText: 'Leave empty if you are not sure. It can be confirmed later.',
+                  decoration: InputDecoration(
+                    labelText: l.createBookShare,
+                    helperText: l.createBookShareHelp,
                   ),
                   validator: (v) {
                     if ((v ?? '').trim().isEmpty) return null;
                     final n = double.tryParse(v!.trim());
                     return n == null || n <= 0 || n > 100
-                        ? 'Enter a number above 0 and up to 100.'
+                        ? l.createBookShareInvalid
                         : null;
                   },
                 ),
@@ -160,7 +161,7 @@ class _CreateBookScreenState extends ConsumerState<CreateBookScreen> {
                         height: 22,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Create'),
+                    : Text(l.createBookCreate),
               ),
             ],
           ),

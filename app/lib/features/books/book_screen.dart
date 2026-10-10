@@ -10,6 +10,7 @@ import '../../core/providers.dart';
 import '../../core/widgets.dart';
 import '../entries/entry_kinds.dart';
 import 'entries_list.dart';
+import '../../l10n/l10n.dart';
 
 /// One book: what it has (money by place, and separately what is owed each way), what happened, and what is due.
 class BookScreen extends ConsumerWidget {
@@ -30,10 +31,10 @@ class BookScreen extends ConsumerWidget {
         if (book == null) {
           return Scaffold(
             appBar: AppBar(),
-            body: const EmptyView(
+            body: EmptyView(
               icon: Icons.lock_outline_rounded,
-              title: 'Not available to you',
-              message: 'These books do not exist, or you no longer have access to them.',
+              title: context.l10n.commonNotAvailable,
+              message: context.l10n.bookNotAvailableMessage,
             ),
           );
         }
@@ -41,12 +42,14 @@ class BookScreen extends ConsumerWidget {
           length: 3,
           child: Scaffold(
             appBar: AppBar(
-              title: Text(book.personal ? 'My personal books' : book.name),
-              bottom: const TabBar(
+              title: Text(
+                book.personal ? context.l10n.booksMyPersonal : book.name,
+              ),
+              bottom: TabBar(
                 tabs: [
-                  Tab(text: 'Overview'),
-                  Tab(text: 'Entries'),
-                  Tab(text: 'Dues'),
+                  Tab(text: context.l10n.bookTabOverview),
+                  Tab(text: context.l10n.bookTabEntries),
+                  Tab(text: context.l10n.bookTabDues),
                 ],
               ),
             ),
@@ -54,7 +57,7 @@ class BookScreen extends ConsumerWidget {
                 ? FloatingActionButton.extended(
                     onPressed: () => showEntryKinds(context, book),
                     icon: const Icon(Icons.add_rounded),
-                    label: const Text('Add entry'),
+                    label: Text(context.l10n.bookAddEntry),
                   )
                 : null,
             body: TabBarView(
@@ -94,13 +97,13 @@ class _Overview extends ConsumerWidget {
             builder: (s) => _SummaryCards(summary: s, personal: book.personal),
           ),
           SectionTitle(
-            'Money places',
+            context.l10n.bookMoneyPlaces,
             trailing: book.canManage
                 ? TextButton.icon(
                     onPressed: () =>
                         context.push('/books/${book.id}/places/new'),
                     icon: const Icon(Icons.add_rounded),
-                    label: const Text('Add place'),
+                    label: Text(context.l10n.bookAddPlace),
                   )
                 : null,
           ),
@@ -108,12 +111,10 @@ class _Overview extends ConsumerWidget {
             value: places,
             onRetry: () => ref.invalidate(placesProvider(book.id)),
             builder: (items) => items.isEmpty
-                ? const EmptyView(
+                ? EmptyView(
                     icon: Icons.savings_outlined,
-                    title: 'No money places yet',
-                    message:
-                        'Add where this money is kept: a Tijori, cash in hand, a bank account or a wallet. '
-                        'Nothing is assumed — balances start at zero until you record them.',
+                    title: context.l10n.bookNoPlacesTitle,
+                    message: context.l10n.bookNoPlacesMessage,
                   )
                 : Column(
                     children: [for (final p in items) _PlaceTile(place: p)],
@@ -133,14 +134,15 @@ class _SummaryCards extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = summary;
+    final l = context.l10n;
     final tiles = <(String, BigInt, String)>[
-      ('Money', s.money, 'Cash, bank and wallets'),
-      ('Others owe', s.receivables, 'Loans and dues to receive'),
-      ('Owed to others', s.payables, 'Loans and dues to pay'),
+      (l.bookMoney, s.money, l.bookMoneyHelp),
+      (l.bookOthersOwe, s.receivables, l.bookOthersOweHelp),
+      (l.bookOwedToOthers, s.payables, l.bookOwedToOthersHelp),
       (
-        personal ? 'Net worth' : 'Net position',
+        personal ? l.bookNetWorth : l.bookNetPosition,
         s.netPosition,
-        'What it has minus what it owes',
+        l.bookNetHelp,
       ),
     ];
     return Padding(
@@ -188,16 +190,18 @@ class _SummaryCards extends StatelessWidget {
                 runSpacing: FyDims.space2,
                 children: [
                   if (s.inTransit != BigInt.zero)
-                    Chip(label: Text('In transit ${formatInr(s.inTransit)}')),
+                    Chip(label: Text(l.bookInTransit(formatInr(s.inTransit)))),
                   if (s.investments != BigInt.zero)
                     Chip(
                       label: Text(
-                        'Invested in firms ${formatInr(s.investments)}',
+                        l.bookInvestedInFirms(formatInr(s.investments)),
                       ),
                     ),
                   if (s.unidentified != BigInt.zero)
                     Chip(
-                      label: Text('Unidentified ${formatInr(s.unidentified)}'),
+                      label: Text(
+                        l.bookUnidentified(formatInr(s.unidentified)),
+                      ),
                     ),
                 ],
               ),
@@ -213,7 +217,7 @@ class _SummaryCards extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Earned this month',
+                          l.bookEarnedThisMonth,
                           style: context.text.labelMedium,
                         ),
                         MoneyText(
@@ -228,7 +232,7 @@ class _SummaryCards extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Spent this month',
+                          l.bookSpentThisMonth,
                           style: context.text.labelMedium,
                         ),
                         MoneyText(
@@ -244,10 +248,7 @@ class _SummaryCards extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.only(top: FyDims.space2),
-            child: Text(
-              'Transfers between your own places, loans and their repayments are not income or spending.',
-              style: context.text.bodySmall,
-            ),
+            child: Text(l.bookNotIncomeNote, style: context.text.bodySmall),
           ),
         ],
       ),
@@ -262,6 +263,7 @@ class _PlaceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = place;
+    final l = context.l10n;
     final icon = switch (p.kind) {
       'bank' => Icons.account_balance_rounded,
       'wallet' => Icons.account_balance_wallet_rounded,
@@ -271,9 +273,9 @@ class _PlaceTile extends StatelessWidget {
       p.typeLabel,
       if (p.bank?.bankName != null) p.bank!.bankName!,
       if (p.bank?.last4 != null) '•••• ${p.bank!.last4}',
-      if (p.bank?.accountHolder != null) 'Holder: ${p.bank!.accountHolder}',
-      if (p.custodian != null) 'With ${p.custodian}',
-      if (!p.active) 'Closed',
+      if (p.bank?.accountHolder != null) l.placeHolder(p.bank!.accountHolder!),
+      if (p.custodian != null) l.placeWith(p.custodian!),
+      if (!p.active) l.placeClosed,
     ].join(' · ');
     return ListTile(
       leading: Icon(icon, color: context.fy.brand),
@@ -299,12 +301,12 @@ class _Dues extends ConsumerWidget {
         builder: (list) {
           if (list.isEmpty) {
             return ListView(
-              children: const [
-                SizedBox(height: 80),
+              children: [
+                const SizedBox(height: 80),
                 EmptyView(
                   icon: Icons.handshake_outlined,
-                  title: 'Nothing is owed',
-                  message: 'Loans, advances and unpaid bills appear here until they are settled.',
+                  title: context.l10n.duesNothingTitle,
+                  message: context.l10n.duesNothingMessage,
                 ),
               ],
             );
@@ -317,9 +319,10 @@ class _Dues extends ConsumerWidget {
             padding: const EdgeInsets.only(bottom: 96),
             children: [
               if (receivable.isNotEmpty)
-                const SectionTitle('Others owe this book'),
+                SectionTitle(context.l10n.duesOthersOweThisBook),
               for (final o in receivable) _DueTile(item: o, book: book),
-              if (payable.isNotEmpty) const SectionTitle('This book owes'),
+              if (payable.isNotEmpty)
+                SectionTitle(context.l10n.duesThisBookOwes),
               for (final o in payable) _DueTile(item: o, book: book),
             ],
           );
@@ -341,7 +344,11 @@ class _DueTile extends StatelessWidget {
     return ListTile(
       title: Text(o.counterparty),
       subtitle: Text(
-        '${o.reason}\n${o.reference} · of ${formatInr(o.original)}',
+        context.l10n.duesOfOriginal(
+          o.reason,
+          o.reference,
+          formatInr(o.original),
+        ),
       ),
       isThreeLine: true,
       trailing: Column(

@@ -151,10 +151,15 @@ export function createApi(deps: ApiDeps): (req: Request, remoteAddr?: string) =>
         displayName: a.displayName,
         deviceId: a.deviceId,
         mustChangePassword: a.mustChangePassword,
+        locale: a.locale,
       },
       200,
       c.requestId,
     ));
+  });
+  add('PUT', '/v1/me/locale', 'any', async (c) => {
+    const b = parse(z.object({ locale: z.string().min(2).max(5) }), await readJson(c.req));
+    return json({ locale: await deps.identity.setLocale(me(c), b.locale) }, 200, c.requestId);
   });
 
   // Books -------------------------------------------------------------------------------------------------------

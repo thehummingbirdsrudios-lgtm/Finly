@@ -8,6 +8,7 @@ import '../../core/design_system/theme.dart';
 import '../../core/design_system/tokens.g.dart';
 import '../../core/providers.dart';
 import '../../core/widgets.dart';
+import '../../l10n/l10n.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -16,8 +17,9 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authProvider);
     final me = auth is SignedIn ? auth.me : null;
+    final l = context.l10n;
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(title: Text(l.settingsTitle)),
       body: ListView(
         children: [
           if (me != null)
@@ -30,26 +32,35 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               title: Text(me.displayName),
-              subtitle: const Text('Signed in'),
+              subtitle: Text(l.settingsSignedIn),
             ),
-          const SectionTitle('Security'),
+          SectionTitle(l.settingsLanguage),
+          ListTile(
+            leading: const Icon(Icons.translate_rounded),
+            title: Text(l.languageName),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => _chooseLanguage(context, ref),
+          ),
+          SectionTitle(l.settingsSecurity),
           ListTile(
             leading: const Icon(Icons.password_rounded),
-            title: const Text('Change password'),
+            title: Text(l.passwordChangeTitle),
             onTap: () => context.push('/settings/password'),
           ),
           ListTile(
             leading: const Icon(Icons.devices_rounded),
-            title: const Text('Phones signed in'),
-            subtitle: const Text('Sign out a lost or old phone'),
+            title: Text(l.settingsPhones),
+            subtitle: Text(l.settingsPhonesHelp),
             onTap: () => context.push('/settings/sessions'),
           ),
-          const SectionTitle('About'),
+          SectionTitle(l.settingsAbout),
           ListTile(
             leading: const Icon(Icons.info_outline_rounded),
-            title: Text('Finly ${ref.watch(deviceFactsProvider).appVersion}'),
+            title: Text(
+              l.settingsVersion(ref.watch(deviceFactsProvider).appVersion),
+            ),
             subtitle: Text(
-              'Server: ${Uri.parse(apiBaseUrl).host}\nOnline only — nothing financial is stored on this phone.',
+              '${l.settingsServer(Uri.parse(apiBaseUrl).host)}\n${l.settingsOnlineOnly}',
             ),
             isThreeLine: true,
           ),
@@ -58,23 +69,21 @@ class SettingsScreen extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: FyDims.space4),
             child: OutlinedButton.icon(
               icon: const Icon(Icons.logout_rounded),
-              label: const Text('Sign out'),
+              label: Text(l.commonSignOut),
               onPressed: () async {
                 final ok = await showDialog<bool>(
                   context: context,
                   builder: (d) => AlertDialog(
-                    title: const Text('Sign out?'),
-                    content: const Text(
-                      'You will need your username and password to sign in again.',
-                    ),
+                    title: Text(l.settingsSignOutQuestion),
+                    content: Text(l.settingsSignOutExplain),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.of(d).pop(false),
-                        child: const Text('Cancel'),
+                        child: Text(l.commonCancel),
                       ),
                       FilledButton(
                         onPressed: () => Navigator.of(d).pop(true),
-                        child: const Text('Sign out'),
+                        child: Text(l.commonSignOut),
                       ),
                     ],
                   ),
@@ -88,6 +97,47 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
   }
+
+  /// Each language is named in its own script, so a person can find theirs whatever the screen shows now.
+  Future<void> _chooseLanguage(BuildContext context, WidgetRef ref) async {
+    final current = Localizations.localeOf(context).languageCode;
+    final chosen = await showDialog<String>(
+      context: context,
+      builder: (d) => SimpleDialog(
+        title: Text(context.l10n.settingsLanguage),
+        children: [
+          RadioGroup<String>(
+            groupValue: current,
+            onChanged: (v) => Navigator.of(d).pop(v),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final code in supportedLanguageCodes)
+                  RadioListTile<String>(
+                    value: code,
+                    title: Text(
+                      lookupAppLocalizations(Locale(code)).languageName,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    if (chosen == null || chosen == current || !context.mounted) return;
+    try {
+      await ref.read(localeProvider.notifier).choose(chosen);
+      if (context.mounted) {
+        showMessage(
+          context,
+          lookupAppLocalizations(Locale(chosen)).settingsLanguageSaved,
+        );
+      }
+    } catch (e) {
+      if (context.mounted) showMessage(context, messageOf(context, e));
+    }
+  }
 }
 
 class SessionsScreen extends ConsumerWidget {
@@ -97,7 +147,7 @@ class SessionsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final sessions = ref.watch(sessionsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Phones signed in')),
+      appBar: AppBar(title: Text(context.l10n.settingsPhones)),
       body: AsyncView<List<SessionInfo>>(
         value: sessions,
         onRetry: () => ref.invalidate(sessionsProvider),
@@ -127,22 +177,21 @@ class _SessionTileState extends ConsumerState<_SessionTile> {
 
   Future<void> _signOut() async {
     final s = widget.session;
+    final l = context.l10n;
     final name = s.deviceLabel ?? s.model ?? s.platform;
     final sure = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Sign out this phone?'),
-        content: Text(
-          '$name will need the password again to open Finly. Nothing recorded is lost.',
-        ),
+        title: Text(l.sessionsSignOutQuestion),
+        content: Text(l.sessionsSignOutExplain(name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c, false),
-            child: const Text('Cancel'),
+            child: Text(l.commonCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(c, true),
-            child: const Text('Sign out'),
+            child: Text(l.commonSignOut),
           ),
         ],
       ),
@@ -152,9 +201,9 @@ class _SessionTileState extends ConsumerState<_SessionTile> {
     try {
       await ref.read(apiProvider).revokeSession(s.id);
       ref.invalidate(sessionsProvider);
-      if (mounted) showMessage(context, 'That phone is signed out.');
+      if (mounted) showMessage(context, context.l10n.sessionsSignedOut);
     } catch (e) {
-      if (mounted) showMessage(context, messageOf(e));
+      if (mounted) showMessage(context, messageOf(context, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -163,6 +212,7 @@ class _SessionTileState extends ConsumerState<_SessionTile> {
   @override
   Widget build(BuildContext context) {
     final s = widget.session;
+    final l = context.l10n;
     return ListTile(
       leading: Icon(
         Icons.smartphone_rounded,
@@ -171,14 +221,14 @@ class _SessionTileState extends ConsumerState<_SessionTile> {
       title: Text(s.deviceLabel ?? s.model ?? s.platform),
       subtitle: Text(
         s.current
-            ? 'This phone'
-            : 'Last used ${showDate(localDateOf(s.lastUsedAt))}',
+            ? l.sessionsThisPhone
+            : l.sessionsLastUsed(showDate(localDateOf(s.lastUsedAt))),
       ),
       trailing: s.current
           ? null
           : TextButton(
               onPressed: _busy ? null : _signOut,
-              child: const Text('Sign out'),
+              child: Text(l.commonSignOut),
             ),
     );
   }

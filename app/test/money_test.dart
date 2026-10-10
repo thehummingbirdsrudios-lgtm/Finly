@@ -35,9 +35,20 @@ void main() {
       '9999999999999',
     ]) {
       expect(readAmount(bad).ok, isFalse, reason: bad);
-      expect(readAmount(bad).error, isNotNull, reason: bad);
+      expect(readAmount(bad).problem, isNotNull, reason: bad);
     }
   });
+
+  test(
+    'each refusal names its reason, so the field can say it in any language',
+    () {
+      expect(readAmount('').problem, AmountProblem.empty);
+      expect(readAmount('10.50').problem, AmountProblem.paise);
+      expect(readAmount('abc').problem, AmountProblem.notDigits);
+      expect(readAmount('0').problem, AmountProblem.notPositive);
+      expect(readAmount('9999999999999').problem, AmountProblem.tooLarge);
+    },
+  );
 
   test('server amounts are exact beyond double precision', () {
     expect(

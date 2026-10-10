@@ -18,6 +18,9 @@ import 'features/entries/entry_kinds.dart';
 import 'features/entries/settle_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/settings/settings_screen.dart';
+import 'l10n/l10n.dart';
+
+import 'package:intl/intl.dart';
 
 /// Re-runs the router's redirect whenever the session state changes.
 class _AuthListenable extends ChangeNotifier {
@@ -105,11 +108,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       appBar: AppBar(),
       body: EmptyView(
         icon: Icons.explore_off_outlined,
-        title: 'Not found',
-        message: 'This page does not exist.',
+        title: context.l10n.notFoundTitle,
+        message: context.l10n.notFoundMessage,
         action: FilledButton(
           onPressed: () => context.go('/'),
-          child: const Text('Go to my books'),
+          child: Text(context.l10n.notFoundGoHome),
         ),
       ),
     ),
@@ -121,24 +124,37 @@ class FinlyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final problem = configurationProblem;
-    if (problem != null) {
+    final locale = ref.watch(localeProvider);
+    if (hasConfigurationProblem) {
       return MaterialApp(
         theme: fyTheme(Brightness.light),
-        home: Scaffold(
-          body: EmptyView(
-            icon: Icons.gpp_bad_outlined,
-            title: 'Cannot start',
-            message: problem,
+        locale: locale,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: EmptyView(
+              icon: Icons.gpp_bad_outlined,
+              title: context.l10n.startCannotStart,
+              message: context.l10n.startNoSecureServer,
+            ),
           ),
         ),
       );
     }
     return MaterialApp.router(
-      title: 'Finly',
+      onGenerateTitle: (context) => context.l10n.appName,
       debugShowCheckedModeBanner: false,
       theme: fyTheme(Brightness.light),
       darkTheme: fyTheme(Brightness.dark),
+      locale: locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      // Dates and numbers follow the language on screen (intl reads the default locale).
+      builder: (context, child) {
+        Intl.defaultLocale = Localizations.localeOf(context).languageCode;
+        return child!;
+      },
       routerConfig: ref.watch(routerProvider),
     );
   }
@@ -159,7 +175,7 @@ class _Gate extends StatelessWidget {
             color: context.fy.brand,
           ),
           const SizedBox(height: FyDims.space4),
-          Text('Finly', style: context.text.displayLarge),
+          Text(context.l10n.appName, style: context.text.displayLarge),
           const SizedBox(height: FyDims.space6),
           const CircularProgressIndicator(),
         ],
@@ -178,14 +194,14 @@ class _Offline extends ConsumerWidget {
       body: SafeArea(
         child: EmptyView(
           icon: Icons.wifi_off_rounded,
-          title: 'You are offline',
+          title: context.l10n.commonYouAreOffline,
           message: auth is AuthOffline
-              ? '${auth.message}\nFinly works online only, so your books are always up to date.'
-              : 'Finly works online only.',
+              ? context.l10n.startOfflineMessage(messageOf(context, auth.error))
+              : context.l10n.startOfflineShort,
           action: FilledButton.icon(
             onPressed: () => ref.read(authProvider.notifier).restore(),
             icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Try again'),
+            label: Text(context.l10n.commonTryAgain),
           ),
         ),
       ),

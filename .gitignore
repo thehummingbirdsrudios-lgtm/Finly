@@ -74,3 +74,6 @@ desktop.ini
 
 # ---------- design-system local review pages (generated) ----------
 design-system/.review/
+
+# ---------- Flutter generated localisation (flutter gen-l10n / pub get) ----------
+app/lib/l10n/app_localizations*.dart

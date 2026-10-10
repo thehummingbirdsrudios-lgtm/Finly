@@ -8,6 +8,7 @@ import 'package:finly/core/design_system/theme.dart';
 import 'package:finly/core/providers.dart';
 import 'package:finly/features/entries/entry_form_screen.dart';
 import 'package:finly/features/entries/entry_kinds.dart';
+import 'package:finly/l10n/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -87,6 +88,8 @@ Future<List<String>> _submitTwice(
       overrides: [apiClientProvider.overrideWithValue(client)],
       child: MaterialApp(
         theme: fyTheme(Brightness.light),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: const EntryFormScreen(bookId: 'b1', kind: EntryKind.opening),
       ),
     ),

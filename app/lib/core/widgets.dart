@@ -2,11 +2,13 @@
 // and colour, loading, empty and error states, and status badges. Screens compose these; they never restyle them.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import 'api/api_client.dart';
 import 'design_system/theme.dart';
 import 'design_system/tokens.g.dart';
 import 'money.dart';
+import '../l10n/l10n.dart';
 
 enum MoneyDirection { incoming, outgoing, neutral }
 
@@ -36,13 +38,13 @@ class MoneyText extends StatelessWidget {
       MoneyDirection.outgoing => '−',
       MoneyDirection.neutral => '',
     };
-    final words = switch (direction) {
-      MoneyDirection.incoming => 'in',
-      MoneyDirection.outgoing => 'out',
-      MoneyDirection.neutral => '',
+    final spoken = switch (direction) {
+      MoneyDirection.incoming => context.l10n.moneyIn(formatInr(amount)),
+      MoneyDirection.outgoing => context.l10n.moneyOut(formatInr(amount)),
+      MoneyDirection.neutral => formatInr(amount),
     };
     return Semantics(
-      label: '${formatInr(amount)} $words'.trim(),
+      label: spoken,
       excludeSemantics: true,
       child: Text(
         '$prefix${formatInr(amount)}',
@@ -52,19 +54,30 @@ class MoneyText extends StatelessWidget {
   }
 }
 
-/// A plain-language message for any failure, with the action that helps.
-String messageOf(Object error) {
-  if (error is ApiException) return error.message;
-  return 'Something went wrong. Please try again.';
+/// A plain-language message for any failure: the server's own words, or a safe generic one (a bug or an unreadable
+/// answer never shows internals, and never shows nothing).
+String messageOf(BuildContext context, Object error) {
+  final l = context.l10n;
+  if (error is ApiException) {
+    if (error.isNetwork) {
+      return error.timedOut ? l.errTimeout : l.errNoConnection;
+    }
+    if (error.code == 'BAD_RESPONSE') return l.errBadResponse;
+    return error.message;
+  }
+  return l.commonSomethingWrong;
 }
 
 class LoadingView extends StatelessWidget {
-  const LoadingView({super.key, this.label = 'Loading…'});
-  final String label;
+  const LoadingView({super.key, this.label});
+  final String? label;
 
   @override
   Widget build(BuildContext context) => Center(
-    child: Semantics(label: label, child: const CircularProgressIndicator()),
+    child: Semantics(
+      label: label ?? context.l10n.commonLoading,
+      child: const CircularProgressIndicator(),
+    ),
   );
 }
 
@@ -98,14 +111,16 @@ class ErrorView extends StatelessWidget {
             const SizedBox(height: FyDims.space4),
             Text(
               network
-                  ? 'You are offline'
-                  : (denied ? 'Not available to you' : 'Could not load this'),
+                  ? context.l10n.commonYouAreOffline
+                  : (denied
+                        ? context.l10n.commonNotAvailable
+                        : context.l10n.commonCouldNotLoad),
               style: context.text.titleMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: FyDims.space2),
             Text(
-              messageOf(error),
+              messageOf(context, error),
               style: context.text.bodyMedium,
               textAlign: TextAlign.center,
             ),
@@ -114,7 +129,7 @@ class ErrorView extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Try again'),
+                label: Text(context.l10n.commonTryAgain),
               ),
             ],
           ],
@@ -198,64 +213,70 @@ class StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final fy = context.fy;
     // Glyph + word + colour: a status is never told by colour alone (design system, WCAG 1.4.1).
+    final l = context.l10n;
     final (label, icon, fg, bg) = switch (status) {
-      'posted' => ('Posted', Icons.check_rounded, fy.success, fy.successSoft),
+      'posted' => (
+        l.statusPosted,
+        Icons.check_rounded,
+        fy.success,
+        fy.successSoft,
+      ),
       'pending_acknowledgement' => (
-        'Waiting for acknowledgement',
+        l.statusPendingAck,
         Icons.schedule_rounded,
         fy.pending,
         fy.pendingSoft,
       ),
       'pending_approval' => (
-        'Waiting for approval',
+        l.statusPendingApproval,
         Icons.schedule_rounded,
         fy.pending,
         fy.pendingSoft,
       ),
       'rejected' => (
-        'Rejected',
+        l.statusRejected,
         Icons.block_rounded,
         fy.blocked,
         fy.blockedSoft,
       ),
       'reversed' => (
-        'Reversed',
+        l.statusReversed,
         Icons.undo_rounded,
         fy.reversed,
         fy.reversedSoft,
       ),
       'corrected' => (
-        'Corrected',
+        l.statusCorrected,
         Icons.edit_note_rounded,
         fy.reversed,
         fy.reversedSoft,
       ),
       'open' => (
-        'Open',
+        l.statusOpen,
         Icons.radio_button_unchecked_rounded,
         fy.outstanding,
         fy.outstandingSoft,
       ),
       'partially_settled' => (
-        'Partly settled',
+        l.statusPartlySettled,
         Icons.timelapse_rounded,
         fy.outstanding,
         fy.outstandingSoft,
       ),
       'settled' => (
-        'Settled',
+        l.statusSettled,
         Icons.done_all_rounded,
         fy.reconciled,
         fy.reconciledSoft,
       ),
       'acknowledged' => (
-        'Acknowledged',
+        l.statusAcknowledged,
         Icons.check_rounded,
         fy.success,
         fy.successSoft,
       ),
       'pending' => (
-        'Waiting',
+        l.statusWaiting,
         Icons.schedule_rounded,
         fy.pending,
         fy.pendingSoft,
@@ -339,7 +360,7 @@ class RetryMessage extends StatelessWidget {
         child: TextButton.icon(
           onPressed: onRetry,
           icon: const Icon(Icons.refresh_rounded),
-          label: const Text('Try again'),
+          label: Text(context.l10n.commonTryAgain),
         ),
       ),
     ],
@@ -400,23 +421,9 @@ String localDateOf(String timestamp) {
   return '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
 
-/// 2026-10-09 → 9 Oct 2026.
+/// 2026-10-09 → "9 Oct 2026" (or the same in Hindi or Gujarati), in the app's current language.
 String showDate(String iso) {
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-  final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(iso);
-  if (m == null) return iso;
-  return '${int.parse(m.group(3)!)} ${months[int.parse(m.group(2)!) - 1]} ${m.group(1)}';
+  final d = DateTime.tryParse(iso);
+  if (d == null) return iso;
+  return DateFormat('d MMM y', Intl.getCurrentLocale()).format(d);
 }

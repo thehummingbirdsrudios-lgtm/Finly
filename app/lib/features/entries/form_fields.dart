@@ -8,16 +8,23 @@ import '../../core/design_system/tokens.g.dart';
 import '../../core/money.dart';
 import '../../core/providers.dart';
 import '../../core/widgets.dart';
+import '../../l10n/l10n.dart';
 
 /// Whole rupees, typed with the number pad; shows the amount as Finly will read it.
 class AmountField extends StatelessWidget {
-  const AmountField({
-    super.key,
-    required this.controller,
-    this.label = 'Amount (₹)',
-  });
+  const AmountField({super.key, required this.controller, this.label});
   final TextEditingController controller;
-  final String label;
+  final String? label;
+
+  static String? problemText(AppLocalizations l, AmountProblem? p) =>
+      switch (p) {
+        AmountProblem.empty => l.amountEnter,
+        AmountProblem.paise => l.amountNoPaise,
+        AmountProblem.notDigits => l.amountDigitsOnly,
+        AmountProblem.notPositive => l.amountPositive,
+        AmountProblem.tooLarge => l.amountTooLarge,
+        null => null,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +32,7 @@ class AmountField extends StatelessWidget {
       valueListenable: controller,
       builder: (context, value, _) {
         final read = readAmount(value.text);
+        final l = context.l10n;
         return TextFormField(
           controller: controller,
           keyboardType: TextInputType.number,
@@ -32,12 +40,12 @@ class AmountField extends StatelessWidget {
             FilteringTextInputFormatter.allow(RegExp(r'[0-9,]')),
           ],
           decoration: InputDecoration(
-            labelText: label,
+            labelText: label ?? l.amountLabel,
             prefixText: '₹ ',
-            helperText: read.ok ? formatInr(read.value!) : 'Whole rupees',
+            helperText: read.ok ? formatInr(read.value!) : l.amountWholeRupees,
           ),
           style: context.text.titleLarge,
-          validator: (v) => readAmount(v ?? '').error,
+          validator: (v) => problemText(l, readAmount(v ?? '').problem),
         );
       },
     );
@@ -50,11 +58,11 @@ class DateField extends StatelessWidget {
     super.key,
     required this.value,
     required this.onChanged,
-    this.label = 'Date',
+    this.label,
   });
   final String value;
   final ValueChanged<String> onChanged;
-  final String label;
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +76,7 @@ class DateField extends StatelessWidget {
           initialDate: current.isAfter(now) ? now : current,
           firstDate: DateTime(2000),
           lastDate: now,
-          helpText: 'When did the money move?',
+          helpText: context.l10n.dateWhenMoved,
         );
         if (picked != null) {
           onChanged(
@@ -79,7 +87,7 @@ class DateField extends StatelessWidget {
       },
       child: InputDecorator(
         decoration: InputDecoration(
-          labelText: label,
+          labelText: label ?? context.l10n.commonDate,
           suffixIcon: const Icon(Icons.calendar_today_rounded),
         ),
         child: Text(showDate(value)),
@@ -95,13 +103,13 @@ class PlaceField extends ConsumerWidget {
     required this.bookId,
     required this.value,
     required this.onChanged,
-    this.label = 'Money place',
+    this.label,
     this.exclude,
   });
   final String bookId;
   final String? value;
   final ValueChanged<String?> onChanged;
-  final String label;
+  final String? label;
   final String? exclude;
 
   @override
@@ -109,19 +117,17 @@ class PlaceField extends ConsumerWidget {
     final places = ref.watch(placesProvider(bookId));
     return places.when(
       loading: () => const LinearProgressIndicator(),
-      error: (e, _) => FormMessage(messageOf(e)),
+      error: (e, _) => FormMessage(messageOf(context, e)),
       data: (items) {
         final usable = items.where((p) => p.active && p.id != exclude).toList();
-        if (usable.isEmpty) {
-          return const FormMessage(
-            'These books have no money place yet. Add one from the book\'s Overview first.',
-          );
-        }
+        if (usable.isEmpty) return FormMessage(context.l10n.fieldNoPlaces);
         return DropdownButtonFormField<String>(
           key: ValueKey('$label$value'),
           initialValue: usable.any((p) => p.id == value) ? value : null,
           isExpanded: true,
-          decoration: InputDecoration(labelText: label),
+          decoration: InputDecoration(
+            labelText: label ?? context.l10n.fieldMoneyPlace,
+          ),
           items: [
             for (final p in usable)
               DropdownMenuItem(
@@ -133,7 +139,7 @@ class PlaceField extends ConsumerWidget {
               ),
           ],
           onChanged: onChanged,
-          validator: (v) => v == null ? 'Choose a place.' : null,
+          validator: (v) => v == null ? context.l10n.fieldChoosePlace : null,
         );
       },
     );
@@ -162,7 +168,7 @@ class CategoryField extends ConsumerWidget {
     return lookups.when(
       loading: () => const LinearProgressIndicator(),
       error: (e, _) => RetryMessage(
-        messageOf(e),
+        messageOf(context, e),
         onRetry: () => ref.invalidate(lookupsProvider),
       ),
       data: (l) {
@@ -181,7 +187,7 @@ class CategoryField extends ConsumerWidget {
               DropdownMenuItem(value: c.id, child: Text(c.name)),
           ],
           onChanged: onChanged,
-          validator: (v) => v == null ? 'Choose a category.' : null,
+          validator: (v) => v == null ? context.l10n.fieldChooseCategory : null,
         );
       },
     );
@@ -196,19 +202,19 @@ class PartyField extends ConsumerWidget {
     required this.bookId,
     required this.value,
     required this.onChanged,
-    this.label = 'To whom',
+    this.label,
   });
   final String bookId;
   final Party? value;
   final ValueChanged<Party?> onChanged;
-  final String label;
+  final String? label;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final parties = ref.watch(partiesProvider(bookId));
     return parties.when(
       loading: () => const LinearProgressIndicator(),
-      error: (e, _) => FormMessage(messageOf(e)),
+      error: (e, _) => FormMessage(messageOf(context, e)),
       data: (items) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -218,26 +224,31 @@ class PartyField extends ConsumerWidget {
                 ? value!.id
                 : null,
             isExpanded: true,
-            decoration: InputDecoration(labelText: label),
+            decoration: InputDecoration(
+              labelText: label ?? context.l10n.fieldToWhom,
+            ),
             items: [
               for (final p in items)
                 DropdownMenuItem(
                   value: p.id,
                   child: Text(
-                    '${p.name} · ${p.keepsBooks ? 'keeps books in Finly' : p.typeLabel}',
+                    context.l10n.fieldPartyOption(
+                      p.name,
+                      p.keepsBooks ? context.l10n.fieldKeepsBooks : p.typeLabel,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
             ],
             onChanged: (id) =>
                 onChanged(items.where((p) => p.id == id).firstOrNull),
-            validator: (v) => v == null ? 'Choose who.' : null,
+            validator: (v) => v == null ? context.l10n.fieldChooseWho : null,
           ),
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
               icon: const Icon(Icons.person_add_alt_1_rounded),
-              label: const Text('Someone new'),
+              label: Text(context.l10n.fieldSomeoneNew),
               onPressed: () async {
                 final created = await showDialog<String>(
                   context: context,
@@ -278,10 +289,7 @@ class _AddPartyDialogState extends ConsumerState<AddPartyDialog> {
 
   Future<void> _save() async {
     if (_name.text.trim().isEmpty || _type == null) {
-      setState(
-        () => _error =
-            'Enter a name and choose what kind of person or business this is.',
-      );
+      setState(() => _error = context.l10n.partyNewMissing);
       return;
     }
     setState(() => _busy = true);
@@ -291,7 +299,7 @@ class _AddPartyDialogState extends ConsumerState<AddPartyDialog> {
           .addParty(widget.bookId, name: _name.text.trim(), typeKey: _type!);
       if (mounted) Navigator.of(context).pop(id);
     } catch (e) {
-      if (mounted) setState(() => _error = messageOf(e));
+      if (mounted) setState(() => _error = messageOf(context, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -301,21 +309,19 @@ class _AddPartyDialogState extends ConsumerState<AddPartyDialog> {
   Widget build(BuildContext context) {
     final lookups = ref.watch(lookupsProvider);
     final types = lookups.value?.partyTypes ?? const [];
+    final l = context.l10n;
     return AlertDialog(
-      title: const Text('Someone new'),
+      title: Text(l.fieldSomeoneNew),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'A person or business outside Finly. They keep no books here; only these books record what happens with them.',
-              style: context.text.bodySmall,
-            ),
+            Text(l.partyNewIntro, style: context.text.bodySmall),
             const SizedBox(height: FyDims.space3),
             if (lookups.hasError) ...[
               RetryMessage(
-                messageOf(lookups.error!),
+                messageOf(context, lookups.error!),
                 onRetry: () => ref.invalidate(lookupsProvider),
               ),
               const SizedBox(height: FyDims.space3),
@@ -326,14 +332,14 @@ class _AddPartyDialogState extends ConsumerState<AddPartyDialog> {
             ],
             TextField(
               controller: _name,
-              decoration: const InputDecoration(labelText: 'Name'),
+              decoration: InputDecoration(labelText: l.commonName),
               textCapitalization: TextCapitalization.words,
             ),
             const SizedBox(height: FyDims.space3),
             DropdownButtonFormField<String>(
               initialValue: _type,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Kind'),
+              decoration: InputDecoration(labelText: l.commonKind),
               items: [
                 for (final t in types)
                   DropdownMenuItem(value: t.key, child: Text(t.label)),
@@ -346,9 +352,9 @@ class _AddPartyDialogState extends ConsumerState<AddPartyDialog> {
       actions: [
         TextButton(
           onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(l.commonCancel),
         ),
-        FilledButton(onPressed: _busy ? null : _save, child: const Text('Add')),
+        FilledButton(onPressed: _busy ? null : _save, child: Text(l.commonAdd)),
       ],
     );
   }
@@ -374,7 +380,7 @@ class ChoiceField<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return FormField<T>(
       initialValue: value,
-      validator: (_) => value == null ? 'Choose one.' : null,
+      validator: (_) => value == null ? context.l10n.commonChooseOne : null,
       builder: (state) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

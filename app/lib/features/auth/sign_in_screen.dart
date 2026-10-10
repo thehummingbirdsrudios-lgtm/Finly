@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/api_client.dart';
 import '../../core/design_system/theme.dart';
 import '../../core/design_system/tokens.g.dart';
 import '../../core/providers.dart';
 import '../../core/widgets.dart';
+import '../../l10n/l10n.dart';
 
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key, this.notice});
-  final String? notice;
+  final SignInNotice? notice;
 
   @override
   ConsumerState<SignInScreen> createState() => _SignInScreenState();
@@ -40,12 +40,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       await ref
           .read(authProvider.notifier)
           .signIn(_username.text, _password.text);
-    } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
-    } catch (_) {
-      if (mounted) {
-        setState(() => _error = 'Something went wrong. Please try again.');
-      }
+    } catch (e) {
+      if (mounted) setState(() => _error = messageOf(context, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -54,7 +50,14 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   @override
   Widget build(BuildContext context) {
     final fy = context.fy;
-    final notice = _error ?? widget.notice;
+    final l = context.l10n;
+    final notice =
+        _error ??
+        switch (widget.notice) {
+          SignInNotice.sessionEnded => l.signInSessionEnded,
+          SignInNotice.storageReset => l.signInStorageReset,
+          null => null,
+        };
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -75,13 +78,13 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       ),
                       const SizedBox(height: FyDims.space4),
                       Text(
-                        'Finly',
+                        l.appName,
                         style: context.text.displayLarge,
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: FyDims.space2),
                       Text(
-                        'Every rupee, explained.',
+                        l.appTagline,
                         style: context.text.bodyLarge?.copyWith(
                           color: fy.inkMuted,
                         ),
@@ -97,15 +100,15 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       ],
                       TextFormField(
                         controller: _username,
-                        decoration: const InputDecoration(
-                          labelText: 'Username',
+                        decoration: InputDecoration(
+                          labelText: l.signInUsername,
                         ),
                         autofillHints: const [AutofillHints.username],
                         textInputAction: TextInputAction.next,
                         autocorrect: false,
                         enableSuggestions: false,
                         validator: (v) => (v ?? '').trim().isEmpty
-                            ? 'Enter your username.'
+                            ? l.signInEnterUsername
                             : null,
                       ),
                       const SizedBox(height: FyDims.space4),
@@ -113,11 +116,11 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         controller: _password,
                         obscureText: _hidden,
                         decoration: InputDecoration(
-                          labelText: 'Password',
+                          labelText: l.signInPassword,
                           suffixIcon: IconButton(
                             tooltip: _hidden
-                                ? 'Show password'
-                                : 'Hide password',
+                                ? l.signInShowPassword
+                                : l.signInHidePassword,
                             icon: Icon(
                               _hidden
                                   ? Icons.visibility_rounded
@@ -130,7 +133,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         textInputAction: TextInputAction.done,
                         onFieldSubmitted: (_) => _submit(),
                         validator: (v) =>
-                            (v ?? '').isEmpty ? 'Enter your password.' : null,
+                            (v ?? '').isEmpty ? l.signInEnterPassword : null,
                       ),
                       const SizedBox(height: FyDims.space8),
                       FilledButton(
@@ -143,12 +146,11 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Text('Sign in'),
+                            : Text(l.signInButton),
                       ),
                       const SizedBox(height: FyDims.space6),
                       Text(
-                        'Your administrator gives you a username and a temporary password. '
-                        'Finly asks you to choose your own password the first time.',
+                        l.signInHelp,
                         style: context.text.bodySmall,
                         textAlign: TextAlign.center,
                       ),

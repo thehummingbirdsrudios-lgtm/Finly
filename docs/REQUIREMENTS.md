@@ -415,12 +415,12 @@ Abbreviations: UMA = ADDON-23; DEC = DECISIONS.md; tests are under `backend/test
 
 | ID | Requirement | Source | Status | M | Implementation · proof |
 |---|---|---|---|---|---|
-| L10N-01 | English, Hindi, Gujarati with in-app switching | BP P8, UMA §9 | ⬜ | M0 | |
+| L10N-01 | English, Hindi, Gujarati with in-app switching | BP P8, UMA §9 | 🟡 | M0, M14 | every app string in `app/lib/l10n/app_{en,hi,gu}.arb` (Hindi/Gujarati drafted, owner review); language kept on the account (`PUT /v1/me/locale`) · `app/test/l10n_test.dart`, `http/api_test.ts`; server messages and master-data labels still English |
 | L10N-02 | Indian grouping; no ".00" | BP H14 | ✅ | — | `money.dart` · `app/test/money_test.dart` |
 | L10N-03 | Custom labels with translation keys never change behaviour | BP A7, P8 | ⬜ | M15 | |
-| L10N-04 | Mukta + Mukta Vaani bundled | D-009 | ⬜ | M0 | |
+| L10N-04 | Mukta + Mukta Vaani bundled | D-009 | ⬜ | owner | system fonts render hi/gu today; bundling needs the owner's go-ahead to download the OFL fonts |
 | L10N-05 | Screen readers speak amounts; 200 % text | BP UX8 | 🟡 | M5 | amounts announced; large-text overflow risk |
-| L10N-06 | Language of generated documents | D-051 | 🟡 | M11 | English first |
+| L10N-06 | Language of generated documents | D-051 | 🟡 | M11 | English first (D-051) |
 
 ## SEC — security, audit, backups
 

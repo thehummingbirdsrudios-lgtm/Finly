@@ -1,0 +1,9 @@
+# Every word the app shows comes from lib/l10n/app_<locale>.arb (ADDON-23 §9, BUILD_PROMPT P8).
+# English is the template; Hindi and Gujarati must carry every key (flutter gen-l10n reports any gap).
+arb-dir: lib/l10n
+template-arb-file: app_en.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+nullable-getter: false
+required-resource-attributes: false
+untranslated-messages-file: build/untranslated-messages.json

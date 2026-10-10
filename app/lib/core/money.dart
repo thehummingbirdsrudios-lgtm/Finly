@@ -40,11 +40,14 @@ BigInt parseServerAmount(Object? raw) {
   throw FormatException('Not an amount: $raw');
 }
 
+/// Why a typed amount cannot be used; the amount field says it in the person's language.
+enum AmountProblem { empty, paise, notDigits, notPositive, tooLarge }
+
 /// Result of reading what a person typed in an amount field.
 class AmountInput {
-  const AmountInput._(this.value, this.error);
+  const AmountInput._(this.value, this.problem);
   final BigInt? value;
-  final String? error;
+  final AmountProblem? problem;
   bool get ok => value != null;
 }
 
@@ -55,19 +58,17 @@ AmountInput readAmount(String text) {
       .replaceAll(',', '')
       .replaceAll('₹', '')
       .replaceAll(' ', '');
-  if (t.isEmpty) return const AmountInput._(null, 'Enter the amount.');
+  if (t.isEmpty) return const AmountInput._(null, AmountProblem.empty);
   if (RegExp(r'^[0-9]+[.][0-9]*$').hasMatch(t)) {
-    return const AmountInput._(null, 'Enter whole rupees, without paise.');
+    return const AmountInput._(null, AmountProblem.paise);
   }
   if (!RegExp(r'^[0-9]{1,13}$').hasMatch(t)) {
-    return const AmountInput._(null, 'Use digits only.');
+    return const AmountInput._(null, AmountProblem.notDigits);
   }
   final v = BigInt.parse(t);
   if (v <= BigInt.zero) {
-    return const AmountInput._(null, 'The amount must be more than zero.');
+    return const AmountInput._(null, AmountProblem.notPositive);
   }
-  if (v > maxAmount) {
-    return const AmountInput._(null, 'That is larger than Finly accepts.');
-  }
+  if (v > maxAmount) return const AmountInput._(null, AmountProblem.tooLarge);
   return AmountInput._(v, null);
 }

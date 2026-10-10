@@ -11,47 +11,20 @@ import '../../core/providers.dart';
 import '../../core/widgets.dart';
 import 'entry_kinds.dart';
 import 'form_fields.dart';
+import '../../l10n/l10n.dart';
 
 /// What money given is (D-039): every purpose the engine accepts, in words a person uses.
-const givePurposes = <(String, String, String)>[
-  ('loan', 'A loan', 'They will pay it back.'),
-  ('gift', 'A gift', 'Given freely; nothing comes back.'),
-  ('donation', 'A donation', 'To a temple, trust or cause.'),
-  (
-    'remuneration',
-    'Salary or payment for work',
-    'Wages, fees, commission to a person.',
-  ),
-  (
-    'business_expense',
-    'Payment for goods or services',
-    'Rent, a purchase, a service from a business or person.',
-  ),
-  (
-    'reimbursement',
-    'Paying back what they spent for us',
-    'They paid a cost of these books from their own money.',
-  ),
-  (
-    'drawings',
-    'Owner drawing',
-    'A business gives one of its owners money for their own use.',
-  ),
-  (
-    'distribution',
-    'Profit share to an owner',
-    'A business shares its profit with an owner.',
-  ),
-  (
-    'capital',
-    'Capital into a business I own',
-    'An owner puts money into their business.',
-  ),
-  (
-    'personal_benefit',
-    'Owner\'s personal expense paid by the business',
-    'The business pays something for an owner personally.',
-  ),
+List<(String, String, String)> givePurposes(AppLocalizations l) => [
+  ('loan', l.purposeLoan, l.purposeLoanHelp),
+  ('gift', l.purposeGift, l.purposeGiftHelp),
+  ('donation', l.purposeDonation, l.purposeDonationHelp),
+  ('remuneration', l.purposeRemuneration, l.purposeRemunerationHelp),
+  ('business_expense', l.purposeBusinessExpense, l.purposeBusinessExpenseHelp),
+  ('reimbursement', l.purposeReimbursement, l.purposeReimbursementHelp),
+  ('drawings', l.purposeDrawings, l.purposeDrawingsHelp),
+  ('distribution', l.purposeDistribution, l.purposeDistributionHelp),
+  ('capital', l.purposeCapital, l.purposeCapitalHelp),
+  ('personal_benefit', l.purposePersonalBenefit, l.purposePersonalBenefitHelp),
 ];
 
 class EntryFormScreen extends ConsumerStatefulWidget {
@@ -201,17 +174,17 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
           );
       if (!mounted) return;
       refreshMoney(ref);
+      final l = context.l10n;
       final text = switch (r.status) {
-        'posted' => '${r.reference} recorded.',
-        'pending_acknowledgement' =>
-          '${r.reference} is waiting for the other person to acknowledge it.',
-        _ => '${r.reference}: ${r.status}.',
+        'posted' => l.formRecorded(r.reference),
+        'pending_acknowledgement' => l.formWaitingAck(r.reference),
+        _ => l.formOtherStatus(r.reference, r.status),
       };
       showMessage(context, text);
       context.pop();
     } catch (e) {
       if (!outcomeUnknown(e)) _requestKey = newRequestKey();
-      if (mounted) setState(() => _error = messageOf(e));
+      if (mounted) setState(() => _error = messageOf(context, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -222,11 +195,12 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     final book = (ref.watch(booksProvider).value ?? const <Book>[])
         .where((b) => b.id == widget.bookId)
         .firstOrNull;
+    final l = context.l10n;
     final bookName = book == null
-        ? 'these books'
-        : (book.personal ? 'your personal books' : book.name);
+        ? l.formTheseBooks
+        : (book.personal ? l.formYourPersonalBooks : book.name);
     return Scaffold(
-      appBar: AppBar(title: Text(widget.kind.title)),
+      appBar: AppBar(title: Text(widget.kind.title(l))),
       body: SafeArea(
         child: Form(
           key: _form,
@@ -234,7 +208,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
             padding: const EdgeInsets.all(FyDims.space4),
             children: [
               Text(
-                widget.kind.help,
+                widget.kind.help(l),
                 style: context.text.bodyMedium?.copyWith(
                   color: context.fy.inkMuted,
                 ),
@@ -256,9 +230,9 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
               TextFormField(
                 controller: _reason,
                 maxLength: 500,
-                decoration: const InputDecoration(
-                  labelText: 'Note (optional)',
-                  hintText: 'What was it for?',
+                decoration: InputDecoration(
+                  labelText: l.commonNoteOptional,
+                  hintText: l.commonNoteHint,
                 ),
               ),
               const SizedBox(height: FyDims.space4),
@@ -270,12 +244,11 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                         height: 22,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Record'),
+                    : Text(l.formRecord),
               ),
               const SizedBox(height: FyDims.space2),
               Text(
-                'Finly checks the entry before anything is recorded. If something is missing or does not fit, '
-                'it tells you what to change.',
+                l.formChecksNote,
                 style: context.text.bodySmall,
                 textAlign: TextAlign.center,
               ),
@@ -288,20 +261,21 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
 
   List<Widget> _fields(String bookName) {
     const gap = SizedBox(height: FyDims.space4);
+    final l = context.l10n;
     switch (widget.kind) {
       case EntryKind.expense:
         return [
           PlaceField(
             bookId: widget.bookId,
             value: _place,
-            label: 'Paid from',
+            label: l.formPaidFrom,
             onChanged: (v) => setState(() => _place = v),
           ),
           gap,
           CategoryField(
             kind: 'expense',
             value: _category,
-            label: 'What kind of expense',
+            label: l.formExpenseKind,
             onChanged: (v) => setState(() => _category = v),
           ),
         ];
@@ -310,14 +284,14 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
           PlaceField(
             bookId: widget.bookId,
             value: _place,
-            label: 'Received into',
+            label: l.formReceivedInto,
             onChanged: (v) => setState(() => _place = v),
           ),
           gap,
           CategoryField(
             kind: 'income',
             value: _category,
-            label: 'What kind of income',
+            label: l.formIncomeKind,
             onChanged: (v) => setState(() => _category = v),
           ),
         ];
@@ -326,14 +300,14 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
           PlaceField(
             bookId: widget.bookId,
             value: _place,
-            label: 'From',
+            label: l.formFrom,
             onChanged: (v) => setState(() => _place = v),
           ),
           gap,
           PlaceField(
             bookId: widget.bookId,
             value: _toPlace,
-            label: 'To',
+            label: l.formTo,
             exclude: _place,
             onChanged: (v) => setState(() => _toPlace = v),
           ),
@@ -343,15 +317,11 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
           PlaceField(
             bookId: widget.bookId,
             value: _place,
-            label: 'Where the money is',
+            label: l.formWhereMoneyIs,
             onChanged: (v) => setState(() => _place = v),
           ),
           gap,
-          Text(
-            'Record only money that really is there today. Its owner is these books; if you are unsure, leave it out '
-            'and add it when you know.',
-            style: context.text.bodySmall,
-          ),
+          Text(l.formOpeningNote, style: context.text.bodySmall),
         ];
       case EntryKind.give:
         return _giveFields(bookName);
@@ -360,13 +330,15 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
 
   List<Widget> _giveFields(String bookName) {
     const gap = SizedBox(height: FyDims.space4);
-    final purpose = givePurposes.where((p) => p.$1 == _purpose).firstOrNull;
+    final l = context.l10n;
+    final purposes = givePurposes(l);
+    final purpose = purposes.where((p) => p.$1 == _purpose).firstOrNull;
     final receiverBooks = _party?.keepsBooks == true;
     final fields = <Widget>[
       PlaceField(
         bookId: widget.bookId,
         value: _place,
-        label: 'Given from',
+        label: l.giveGivenFrom,
         onChanged: (v) => setState(() => _place = v),
       ),
       gap,
@@ -384,34 +356,33 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
         initialValue: _purpose,
         isExpanded: true,
         decoration: InputDecoration(
-          labelText: 'What is this money?',
-          helperText:
-              purpose?.$3 ?? 'Say what it really is; Finly never guesses.',
+          labelText: l.giveWhatIsIt,
+          helperText: purpose?.$3 ?? l.giveNeverGuesses,
           helperMaxLines: 2,
         ),
         items: [
-          for (final p in givePurposes)
+          for (final p in purposes)
             DropdownMenuItem(value: p.$1, child: Text(p.$2)),
         ],
         onChanged: (v) => setState(() => _purpose = v),
-        validator: (v) => v == null ? 'Choose what this money is.' : null,
+        validator: (v) => v == null ? l.giveChoosePurpose : null,
       ),
       gap,
       ChoiceField<bool>(
-        label: 'Does it have to be paid back?',
-        options: const [(true, 'Yes, it is owed back'), (false, 'No')],
+        label: l.givePaidBack,
+        options: [(true, l.giveOwedBack), (false, l.giveNo)],
         value: _repayable,
         onChanged: (v) => setState(() => _repayable = v),
       ),
       gap,
       ChoiceField<String>(
-        label: 'How $bookName record it',
+        label: l.giveHowRecorded(bookName),
         help: _purpose == null || _repayable == null
             ? null
             : (_giverKeeps
-                  ? 'For this, the value stays with $bookName (owed back, a drawing, capital or a profit share): choose Own.'
-                  : 'This money leaves $bookName for good: choose Expense.'),
-        options: const [('own', 'Own'), ('expense', 'Expense')],
+                  ? l.giveValueStays(bookName)
+                  : l.giveLeaves(bookName)),
+        options: [('own', l.giveOwn), ('expense', l.giveExpense)],
         value: _giverSide,
         onChanged: (v) => setState(() => _giverSide = v),
       ),
@@ -422,27 +393,21 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
         CategoryField(
           kind: 'expense',
           value: _giverCategory,
-          label: 'Which expense of $bookName',
+          label: l.giveWhichExpense(bookName),
           onChanged: (v) => setState(() => _giverCategory = v),
         ),
       ]);
     }
     if (receiverBooks) {
       if (!_receiverIsMyBook) {
-        fields.addAll([
-          gap,
-          FormMessage(
-            '${_party!.name} keeps their own books in Finly. Their side needs a money place in their books, which '
-            'only they can choose — ask them to record it, or choose someone outside Finly.',
-          ),
-        ]);
+        fields.addAll([gap, FormMessage(l.giveOtherKeepsBooks(_party!.name))]);
       } else {
         fields.addAll([
           gap,
           ChoiceField<String>(
-            label: 'How ${_party!.name} records it',
-            help: 'Own: the money arrives in one of their places. Expense: it paid one of their costs directly.',
-            options: const [('own', 'Own'), ('expense', 'Expense')],
+            label: l.giveHowRecorded(_party!.name),
+            help: l.giveReceiverSideHelp,
+            options: [('own', l.giveOwn), ('expense', l.giveExpense)],
             value: _receiverSide,
             onChanged: (v) => setState(() => _receiverSide = v),
           ),
@@ -453,7 +418,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
             PlaceField(
               bookId: _party!.id,
               value: _receiverPlace,
-              label: 'Received into (${_party!.name})',
+              label: l.giveReceivedIntoOf(_party!.name),
               onChanged: (v) => setState(() => _receiverPlace = v),
             ),
           ]);
@@ -464,7 +429,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
             CategoryField(
               kind: 'expense',
               value: _receiverExpenseCategory,
-              label: 'Which expense of ${_party!.name}',
+              label: l.giveWhichExpenseOf(_party!.name),
               onChanged: (v) => setState(() => _receiverExpenseCategory = v),
             ),
           ]);
@@ -476,11 +441,11 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
               kind: _receiverCredit == 'recovery' ? 'expense' : 'income',
               value: _receiverIncomeCategory,
               label: _receiverCredit == 'recovery'
-                  ? 'Which of ${_party!.name}\'s expenses this pays back'
-                  : 'How ${_party!.name} records receiving it',
+                  ? l.giveWhichPaysBack(_party!.name)
+                  : l.giveHowReceives(_party!.name),
               helper: _receiverCredit == 'recovery'
-                  ? 'A reimbursement is never income.'
-                  : 'Chosen by you — Finly never turns one book\'s expense into another\'s income by itself.',
+                  ? l.giveReimbursementNeverIncome
+                  : l.giveChosenByYou,
               onChanged: (v) => setState(() => _receiverIncomeCategory = v),
             ),
           ]);

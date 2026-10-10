@@ -9,6 +9,10 @@ abstract class SessionStore {
 
   /// Signs this phone out: the refresh token goes; the device id stays so the phone is recognised next time.
   Future<void> clearSession();
+
+  /// The language last used on this phone (en, hi, gu), shown before sign-in. Not sensitive; kept across sign-outs.
+  Future<String?> locale();
+  Future<void> saveLocale(String code);
 }
 
 class SecureSessionStore implements SessionStore {
@@ -18,6 +22,7 @@ class SecureSessionStore implements SessionStore {
   final FlutterSecureStorage _s;
   static const _refresh = 'finly.refresh_token';
   static const _device = 'finly.device_id';
+  static const _locale = 'finly.locale';
 
   @override
   Future<String?> refreshToken() => _s.read(key: _refresh);
@@ -36,6 +41,12 @@ class SecureSessionStore implements SessionStore {
 
   @override
   Future<void> clearSession() => _s.delete(key: _refresh);
+
+  @override
+  Future<String?> locale() => _s.read(key: _locale);
+
+  @override
+  Future<void> saveLocale(String code) => _s.write(key: _locale, value: code);
 }
 
 /// For tests and previews: the same contract, held in memory.
@@ -60,4 +71,12 @@ class MemorySessionStore implements SessionStore {
 
   @override
   Future<void> clearSession() async => _refreshToken = null;
+
+  String? _locale;
+
+  @override
+  Future<String?> locale() async => _locale;
+
+  @override
+  Future<void> saveLocale(String code) async => _locale = code;
 }

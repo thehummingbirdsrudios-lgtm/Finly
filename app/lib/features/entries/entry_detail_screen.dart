@@ -8,6 +8,7 @@ import '../../core/design_system/tokens.g.dart';
 import '../../core/money.dart';
 import '../../core/providers.dart';
 import '../../core/widgets.dart';
+import '../../l10n/l10n.dart';
 
 /// One entry in full, limited to the books the person may see: each book's journal lines (or its legs while the
 /// entry waits), who still has to acknowledge it, what it continues, and what it left owing.
@@ -18,13 +19,14 @@ class EntryDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final entry = ref.watch(entryProvider(txnId));
+    final l = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Entry'),
+        title: Text(l.entryTitle),
         actions: [
           if (entry.hasValue)
             IconButton(
-              tooltip: 'Share a summary',
+              tooltip: l.entryShareTooltip,
               icon: const Icon(Icons.share_rounded),
               onPressed: () => _share(context, entry.value!),
             ),
@@ -57,22 +59,18 @@ class EntryDetailScreen extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.only(top: FyDims.space1),
                 child: Text(
-                  'Recorded by ${e.createdBy}',
+                  l.entryRecordedBy(e.createdBy!),
                   style: context.text.bodySmall,
                 ),
               ),
             if (e.pending)
-              const Padding(
-                padding: EdgeInsets.only(top: FyDims.space3),
-                child: FormMessage(
-                  'Not posted yet: no balance has changed. The money is held until everyone who must acknowledge '
-                  'it has answered.',
-                  error: false,
-                ),
+              Padding(
+                padding: const EdgeInsets.only(top: FyDims.space3),
+                child: FormMessage(l.entryNotPosted, error: false),
               ),
             for (final b in e.books) _BookPart(book: b, pending: e.pending),
             if (e.acknowledgements.isNotEmpty) ...[
-              const SectionTitle('Acknowledgement'),
+              SectionTitle(l.entryAcknowledgement),
               for (final a in e.acknowledgements)
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -82,26 +80,26 @@ class EntryDetailScreen extends ConsumerWidget {
                 ),
             ],
             if (e.openItems.isNotEmpty) ...[
-              const SectionTitle('What it left owing'),
+              SectionTitle(l.entryLeftOwing),
               for (final o in e.openItems)
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(o.reference),
-                  subtitle: Text('Still owed ${formatInr(o.remaining)}'),
+                  subtitle: Text(l.entryStillOwed(formatInr(o.remaining))),
                   trailing: StatusBadge(o.status),
                 ),
             ],
             if (e.links.isNotEmpty) ...[
-              const SectionTitle('Linked entries'),
-              for (final l in e.links)
+              SectionTitle(l.entryLinked),
+              for (final link in e.links)
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.link_rounded),
-                  title: Text(l.reference ?? 'An entry you cannot see'),
+                  title: Text(link.reference ?? l.entryHiddenLink),
                   subtitle: Text(
-                    l.direction == 'to'
-                        ? 'This ${l.kind.replaceAll('_', ' ')} it'
-                        : 'It ${l.kind.replaceAll('_', ' ')} this',
+                    link.direction == 'to'
+                        ? l.entryLinkTo(link.kind.replaceAll('_', ' '))
+                        : l.entryLinkFrom(link.kind.replaceAll('_', ' ')),
                   ),
                 ),
             ],
@@ -114,14 +112,15 @@ class EntryDetailScreen extends ConsumerWidget {
   /// A plain-text summary through the Android share sheet (WhatsApp or anything else the person picks). Only what
   /// this person may see is in it; nothing is sent until they choose a recipient and send it themselves.
   Future<void> _share(BuildContext context, EntryDetail e) async {
+    final l = context.l10n;
     final lines = <String>[
       'Finly · ${e.reference}',
       '${e.typeLabel} · ${showDate(e.valueDate)}',
       if (e.reason?.isNotEmpty == true) e.reason!,
       if (e.pending)
-        'Status: not posted yet (waiting)'
+        l.entryShareStatusWaiting
       else
-        'Status: ${e.status}',
+        l.entryShareStatus(e.status),
     ];
     for (final b in e.books) {
       final debits = b.lines
@@ -134,16 +133,16 @@ class EntryDetailScreen extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (d) => AlertDialog(
-        title: const Text('Share this summary?'),
+        title: Text(l.entryShareQuestion),
         content: Text(lines.join('\n')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(d).pop(false),
-            child: const Text('Cancel'),
+            child: Text(l.commonCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(d).pop(true),
-            child: const Text('Choose app'),
+            child: Text(l.commonChooseApp),
           ),
         ],
       ),
@@ -164,6 +163,7 @@ class _BookPart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fy = context.fy;
+    final l = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -173,9 +173,9 @@ class _BookPart extends StatelessWidget {
             ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text(switch (g.kind) {
-                'source' => 'Out of ${g.place ?? 'these books'}',
-                'destination' => 'Into ${g.place ?? 'these books'}',
-                _ => 'Allocated',
+                'source' => l.entryOutOf(g.place ?? l.formTheseBooks),
+                'destination' => l.entryInto(g.place ?? l.formTheseBooks),
+                _ => l.entryAllocated,
               }),
               trailing: MoneyText(g.amount),
             ),
@@ -183,15 +183,15 @@ class _BookPart extends StatelessWidget {
           Card(
             child: Column(
               children: [
-                for (final l in book.lines)
+                for (final line in book.lines)
                   ListTile(
                     dense: true,
-                    title: Text('${l.accountName} (${l.accountCode})'),
+                    title: Text('${line.accountName} (${line.accountCode})'),
                     subtitle: Text(
                       [
-                        l.place,
-                        l.counterparty,
-                        l.category,
+                        line.place,
+                        line.counterparty,
+                        line.category,
                       ].whereType<String>().join(' · '),
                       style: context.text.bodySmall,
                     ),
@@ -199,13 +199,13 @@ class _BookPart extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          l.side == 'Dr' ? 'Debit ' : 'Credit ',
+                          '${line.side == 'Dr' ? l.entryDebit : l.entryCredit} ',
                           style: context.text.labelSmall?.copyWith(
                             color: fy.inkMuted,
                           ),
                         ),
                         Text(
-                          formatInr(l.amount),
+                          formatInr(line.amount),
                           style: context.text.titleSmall,
                         ),
                       ],

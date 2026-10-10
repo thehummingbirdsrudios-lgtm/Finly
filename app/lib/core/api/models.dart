@@ -14,17 +14,22 @@ class Me {
     required this.personEntityId,
     required this.displayName,
     required this.mustChangePassword,
+    this.locale = 'en',
   });
   factory Me.fromJson(Json j) => Me(
     userId: j['userId'] as String,
     personEntityId: j['personEntityId'] as String,
     displayName: j['displayName'] as String,
     mustChangePassword: j['mustChangePassword'] as bool,
+    locale: (j['locale'] as String?) ?? 'en',
   );
   final String userId;
   final String personEntityId;
   final String displayName;
   final bool mustChangePassword;
+
+  /// The language this person chose for Finly, kept on their account (en, hi, gu).
+  final String locale;
 }
 
 class Book {
