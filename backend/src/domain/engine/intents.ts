@@ -3,7 +3,7 @@
  * amount). The engine turns an intent into balanced journals (ACCOUNTING-ENGINE.md §5). Amounts are whole rupees.
  */
 import type { Id } from '../ids.ts';
-import type { Rupees } from '../money.ts';
+import type { Paise } from '../money.ts';
 
 /** Money leaving or entering a place in some entity's books. */
 export interface MoneyAt {
@@ -17,7 +17,7 @@ export interface TransferIntent {
   entityId: Id;
   fromLocationId: Id;
   toLocationId: Id;
-  amount: Rupees;
+  amount: Paise;
   fundId?: Id;
   /**
    * The money waits in transit until the receiver confirms. Decided by the posting service from the place's
@@ -32,19 +32,19 @@ export interface TransitConfirmIntent {
   custodyEventId: Id;
   entityId: Id;
   toLocationId: Id;
-  amount: Rupees;
+  amount: Paise;
   fundId?: Id;
 }
 
 export interface ExpenseSource extends MoneyAt {
-  amount: Rupees;
+  amount: Paise;
 }
 
 export interface ExpenseAllocation {
   /** Who the expense belongs to: personal (a person), a firm, or any other entity with books. */
   ownerId: Id;
   categoryId: Id;
-  amount: Rupees;
+  amount: Paise;
   fundId?: Id;
   projectId?: Id;
   /** F8: required when a firm's money pays a personal expense of one of its owners. */
@@ -61,7 +61,7 @@ export interface BillIntent {
   type: 'bill';
   ownerId: Id;
   supplierId: Id;
-  lines: { categoryId: Id; amount: Rupees; fundId?: Id; projectId?: Id }[];
+  lines: { categoryId: Id; amount: Paise; fundId?: Id; projectId?: Id }[];
 }
 
 /**
@@ -113,14 +113,14 @@ export interface GiveIntent {
   receiverIncomeCategoryId?: Id;
   /** Reimbursement: the receiver's own expense category that the reimbursement recovers. */
   receiverRecoveryCategoryId?: Id;
-  amount: Rupees;
+  amount: Paise;
 }
 
 export interface IncomeIntent {
   type: 'income';
   ownerId: Id;
   categoryId: Id;
-  amount: Rupees;
+  amount: Paise;
   fundId?: Id;
   /** Where the money landed — possibly in someone else's books — or on credit from a customer. */
   receivedAt?: MoneyAt;
@@ -131,7 +131,7 @@ export interface UnidentifiedReceiptIntent {
   type: 'unidentified_receipt';
   entityId: Id;
   locationId: Id;
-  amount: Rupees;
+  amount: Paise;
 }
 
 export interface AdvanceGiveIntent {
@@ -139,15 +139,15 @@ export interface AdvanceGiveIntent {
   giverId: Id;
   fromLocationId: Id;
   holderId: Id;
-  amount: Rupees;
+  amount: Paise;
   fundId?: Id;
 }
 
 export interface AdvanceAccountIntent {
   type: 'advance_account';
   advanceOpenItemId: Id;
-  uses: { categoryId: Id; amount: Rupees }[];
-  returned?: { amount: Rupees; toLocationId: Id };
+  uses: { categoryId: Id; amount: Paise }[];
+  returned?: { amount: Paise; toLocationId: Id };
   /** When the holder spent more than the advance from their own money. */
   overspendFromLocationId?: Id;
 }
@@ -156,7 +156,7 @@ export interface LoanIntent {
   type: 'loan';
   lenderId: Id;
   borrowerId: Id;
-  amount: Rupees;
+  amount: Paise;
   lenderLocationId?: Id;
   borrowerLocationId?: Id;
 }
@@ -164,8 +164,8 @@ export interface LoanIntent {
 export interface LoanRepaymentIntent {
   type: 'loan_repayment';
   loanOpenItemId: Id;
-  principal: Rupees;
-  interest: Rupees;
+  principal: Paise;
+  interest: Paise;
   payerLocationId?: Id;
   payeeLocationId?: Id;
 }
@@ -174,7 +174,7 @@ export interface CapitalIntent {
   type: 'capital_contribution';
   personId: Id;
   firmId: Id;
-  amount: Rupees;
+  amount: Paise;
   personLocationId: Id;
   firmLocationId: Id;
 }
@@ -183,7 +183,7 @@ export interface WithdrawalIntent {
   type: 'withdrawal';
   firmId: Id;
   personId: Id;
-  amount: Rupees;
+  amount: Paise;
   firmLocationId: Id;
   personLocationId: Id;
 }
@@ -194,21 +194,21 @@ export interface SettlementIntent {
   payeeId: Id;
   payerLocationId?: Id;
   payeeLocationId?: Id;
-  allocations: { openItemId: Id; amount: Rupees }[];
+  allocations: { openItemId: Id; amount: Paise }[];
 }
 
 export interface OffsetIntent {
   type: 'offset';
   itemAId: Id;
   itemBId: Id;
-  amount: Rupees;
+  amount: Paise;
 }
 
 export interface OpeningBalanceIntent {
   type: 'opening_balance';
   entityId: Id;
   locationId: Id;
-  amount: Rupees;
+  amount: Paise;
   fundId?: Id;
 }
 
@@ -216,7 +216,7 @@ export interface CashAdjustmentIntent {
   type: 'cash_adjustment';
   entityId: Id;
   locationId: Id;
-  amount: Rupees;
+  amount: Paise;
   direction: 'short' | 'over';
   categoryId: Id;
 }

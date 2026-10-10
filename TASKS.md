@@ -38,8 +38,8 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · 🔑 needs the o
 
 ## M2 — Paise (0019)
 
-- [ ] Domain money, intents, checks, wire format, buckets/blind index in paise; migration guard
-- [ ] App amount input and display with paise
+- [x] Domain money, intents, checks, wire format, buckets/blind index in paise; legacy rupee values read ×100; 0019
+- [x] App amount input and display with paise
 
 ## M3 — Reversal and correction
 

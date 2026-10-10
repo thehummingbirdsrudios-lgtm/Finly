@@ -4,7 +4,7 @@
  */
 import { fail } from '../errors.ts';
 import type { Id } from '../ids.ts';
-import { checkRupees, formatInr, type Rupees, sum } from '../money.ts';
+import { checkMoney, formatInr, type Paise, sum } from '../money.ts';
 import { checkPlan } from '../ledger/invariants.ts';
 import type {
   AccountRole,
@@ -50,7 +50,7 @@ class PlanBuilder {
   }
 
   /** A cash/bank/wallet line at a location, with the location's current holder recorded. */
-  money(entityId: Id, locationId: Id, side: Side, amount: Rupees, fundId?: Id, step = 1): void {
+  money(entityId: Id, locationId: Id, side: Side, amount: Paise, fundId?: Id, step = 1): void {
     const loc = this.ctx.location(locationId);
     if (!loc.active) fail('LOCATION_INACTIVE', `"${loc.name}" is no longer in use.`, { locationId });
     const account = this.ctx.accountByRole(entityId, MONEY_ROLE[loc.kind]);
@@ -65,7 +65,7 @@ class PlanBuilder {
     });
   }
 
-  party(entityId: Id, role: AccountRole, counterpartyId: Id, side: Side, amount: Rupees, fundId?: Id, step = 1): void {
+  party(entityId: Id, role: AccountRole, counterpartyId: Id, side: Side, amount: Paise, fundId?: Id, step = 1): void {
     const account = this.ctx.accountByRole(entityId, role);
     this.push(entityId, step, {
       entityId,
@@ -77,7 +77,7 @@ class PlanBuilder {
     });
   }
 
-  plain(entityId: Id, role: AccountRole, side: Side, amount: Rupees, fundId?: Id, step = 1): void {
+  plain(entityId: Id, role: AccountRole, side: Side, amount: Paise, fundId?: Id, step = 1): void {
     const account = this.ctx.accountByRole(entityId, role);
     this.push(entityId, step, { entityId, accountId: account.id, side, amount, fundId: this.fund(entityId, fundId) });
   }
@@ -87,7 +87,7 @@ class PlanBuilder {
     categoryId: Id,
     expected: 'expense' | 'income',
     side: Side,
-    amount: Rupees,
+    amount: Paise,
     fundId?: Id,
     projectId?: Id,
     step = 1,
@@ -121,7 +121,7 @@ class PlanBuilder {
     kind: OpenItemKind,
     debtorId: Id,
     creditorId: Id,
-    amount: Rupees,
+    amount: Paise,
     reason: string,
     debtorRole?: AccountRole,
     creditorRole?: AccountRole,
@@ -147,7 +147,7 @@ class PlanBuilder {
     }
   }
 
-  settle(openItemId: Id, amount: Rupees, kind: SettlementKind): void {
+  settle(openItemId: Id, amount: Paise, kind: SettlementKind): void {
     this.settlements.push({ openItemId, amount, kind });
   }
 
@@ -179,7 +179,7 @@ function hasBooks(e: EntityInfo): boolean {
 // ---------------------------------------------------------------------------------------------- intents
 
 function transfer(ctx: EngineContext, it: I.TransferIntent): PostingPlan {
-  checkRupees(it.amount);
+  checkMoney(it.amount);
   withBooks(ctx, it.entityId);
   if (it.fromLocationId === it.toLocationId) {
     fail('SAME_SOURCE_DESTINATION', 'Choose a different place to move the money to.');
@@ -192,7 +192,7 @@ function transfer(ctx: EngineContext, it: I.TransferIntent): PostingPlan {
 }
 
 function transitConfirm(ctx: EngineContext, it: I.TransitConfirmIntent): PostingPlan {
-  checkRupees(it.amount);
+  checkMoney(it.amount);
   withBooks(ctx, it.entityId);
   const b = new PlanBuilder(ctx, 'transfer');
   b.money(it.entityId, it.toLocationId, 'Dr', it.amount, it.fundId);
@@ -203,8 +203,8 @@ function transitConfirm(ctx: EngineContext, it: I.TransitConfirmIntent): Posting
 function expense(ctx: EngineContext, it: I.ExpenseIntent): PostingPlan {
   if (it.sources.length === 0) fail('VALIDATION', 'Choose where the money came from.');
   if (it.allocations.length === 0) fail('VALIDATION', 'Choose who this expense belongs to.');
-  it.sources.forEach((s) => checkRupees(s.amount));
-  it.allocations.forEach((a) => checkRupees(a.amount));
+  it.sources.forEach((s) => checkMoney(s.amount));
+  it.allocations.forEach((a) => checkMoney(a.amount));
   const paid = sum(it.sources.map((s) => s.amount));
   const allocated = sum(it.allocations.map((a) => a.amount));
   if (paid !== allocated) {
@@ -246,7 +246,7 @@ function expensePortion(
   payer: EntityInfo,
   src: I.ExpenseSource & { index: number },
   alloc: I.ExpenseAllocation & { index: number },
-  amount: Rupees,
+  amount: Paise,
 ): void {
   const ownerSide: LegRef = { kind: 'allocation', index: alloc.index };
   const payerSide: LegRef = { kind: 'source', index: src.index };
@@ -314,9 +314,9 @@ function bill(ctx: EngineContext, it: I.BillIntent): PostingPlan {
     fail('VALIDATION', 'A bill from an entity with books is an inter-entity expense; record it as an expense.');
   }
   if (it.lines.length === 0) fail('VALIDATION', 'Add at least one line to the bill.');
-  it.lines.forEach((l) => checkRupees(l.amount));
+  it.lines.forEach((l) => checkMoney(l.amount));
   const b = new PlanBuilder(ctx);
-  const byFund = new Map<Id, Rupees>();
+  const byFund = new Map<Id, Paise>();
   for (const [index, l] of it.lines.entries()) {
     b.leg = { kind: 'allocation', index };
     b.category(owner.id, l.categoryId, 'expense', 'Dr', l.amount, l.fundId, l.projectId);
@@ -368,7 +368,7 @@ const GIVER_KEEPS: ReadonlySet<I.GivePurpose> = new Set(['drawings', 'capital', 
  * and the receiver's income is always a category the user chose, never a mirror of the giver's expense.
  */
 function give(ctx: EngineContext, it: I.GiveIntent): PostingPlan {
-  checkRupees(it.amount);
+  checkMoney(it.amount);
   const giver = withBooks(ctx, it.giverId);
   const receiver = active(ctx, it.receiverId);
   if (giver.id === receiver.id) fail('SAME_SOURCE_DESTINATION', 'Money is given to someone else.');
@@ -585,7 +585,7 @@ function checkGivePurpose(
 }
 
 function income(ctx: EngineContext, it: I.IncomeIntent): PostingPlan {
-  checkRupees(it.amount);
+  checkMoney(it.amount);
   const owner = withBooks(ctx, it.ownerId);
   if (!!it.receivedAt === !!it.customerId) {
     fail('VALIDATION', 'Choose where the money was received, or the customer who owes it.');
@@ -630,7 +630,7 @@ function income(ctx: EngineContext, it: I.IncomeIntent): PostingPlan {
 }
 
 function unidentifiedReceipt(ctx: EngineContext, it: I.UnidentifiedReceiptIntent): PostingPlan {
-  checkRupees(it.amount);
+  checkMoney(it.amount);
   withBooks(ctx, it.entityId);
   const b = new PlanBuilder(ctx);
   b.money(it.entityId, it.locationId, 'Dr', it.amount);
@@ -639,7 +639,7 @@ function unidentifiedReceipt(ctx: EngineContext, it: I.UnidentifiedReceiptIntent
 }
 
 function advanceGive(ctx: EngineContext, it: I.AdvanceGiveIntent): PostingPlan {
-  checkRupees(it.amount);
+  checkMoney(it.amount);
   const giver = withBooks(ctx, it.giverId);
   const holder = active(ctx, it.holderId);
   if (giver.id === holder.id) fail('SAME_SOURCE_DESTINATION', 'An advance must go to someone else.');
@@ -660,9 +660,9 @@ function advanceAccount(ctx: EngineContext, it: I.AdvanceAccountIntent): Posting
   }
   const giver = withBooks(ctx, item.creditorId);
   const holder = active(ctx, item.debtorId);
-  it.uses.forEach((u) => checkRupees(u.amount));
+  it.uses.forEach((u) => checkMoney(u.amount));
   const used = sum(it.uses.map((u) => u.amount));
-  const returned = it.returned ? checkRupees(it.returned.amount) : 0n;
+  const returned = it.returned ? checkMoney(it.returned.amount) : 0n;
   if (used === 0n && returned === 0n) fail('VALIDATION', 'Enter what was spent or returned.');
   const b = new PlanBuilder(ctx);
   const gf = item.creditorFundId; // the giver's fund the advance was given from
@@ -712,7 +712,7 @@ function advanceAccount(ctx: EngineContext, it: I.AdvanceAccountIntent): Posting
 }
 
 function loan(ctx: EngineContext, it: I.LoanIntent): PostingPlan {
-  checkRupees(it.amount);
+  checkMoney(it.amount);
   const lender = active(ctx, it.lenderId);
   const borrower = active(ctx, it.borrowerId);
   if (lender.id === borrower.id) fail('SAME_SOURCE_DESTINATION', 'A loan must be between two different parties.');
@@ -819,10 +819,10 @@ function settlement(ctx: EngineContext, it: I.SettlementIntent): PostingPlan {
   const b = new PlanBuilder(ctx, 'settlement');
   const seen = new Set<Id>();
   // Money moves in the fund each item is carried in, so every fund balances on its own.
-  const payerByFund = new Map<Id, Rupees>();
-  const payeeByFund = new Map<Id, Rupees>();
+  const payerByFund = new Map<Id, Paise>();
+  const payeeByFund = new Map<Id, Paise>();
   for (const a of it.allocations) {
-    checkRupees(a.amount);
+    checkMoney(a.amount);
     if (seen.has(a.openItemId)) fail('VALIDATION', 'The same item is listed twice.');
     seen.add(a.openItemId);
     const item = ctx.openItem(a.openItemId);
@@ -863,7 +863,7 @@ function settlement(ctx: EngineContext, it: I.SettlementIntent): PostingPlan {
 }
 
 function offset(ctx: EngineContext, it: I.OffsetIntent): PostingPlan {
-  checkRupees(it.amount);
+  checkMoney(it.amount);
   const a = ctx.openItem(it.itemAId);
   const c = ctx.openItem(it.itemBId);
   if (a.kind !== 'interentity' || c.kind !== 'interentity') {
@@ -893,7 +893,7 @@ function offset(ctx: EngineContext, it: I.OffsetIntent): PostingPlan {
 }
 
 function openingBalance(ctx: EngineContext, it: I.OpeningBalanceIntent): PostingPlan {
-  checkRupees(it.amount);
+  checkMoney(it.amount);
   withBooks(ctx, it.entityId);
   const b = new PlanBuilder(ctx, 'opening');
   b.money(it.entityId, it.locationId, 'Dr', it.amount, it.fundId);
@@ -902,7 +902,7 @@ function openingBalance(ctx: EngineContext, it: I.OpeningBalanceIntent): Posting
 }
 
 function cashAdjustment(ctx: EngineContext, it: I.CashAdjustmentIntent): PostingPlan {
-  checkRupees(it.amount);
+  checkMoney(it.amount);
   withBooks(ctx, it.entityId);
   const b = new PlanBuilder(ctx, 'adjusting');
   if (it.direction === 'short') {

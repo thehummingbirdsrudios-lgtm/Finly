@@ -3,11 +3,13 @@
  * precision above 2^53), errors as RFC 9457 problem details with a stable `code` and the request id, and no caching.
  */
 import { FinlyError } from '../domain/errors.ts';
+import { toWire } from '../domain/money.ts';
 import { httpStatus } from '../app/status.ts';
 
 /** JSON with every bigint written as a decimal string. */
 export function toJson(value: unknown): string {
-  return JSON.stringify(value, (_k, v) => (typeof v === 'bigint' ? v.toString() : v));
+  // Every bigint the API returns is an amount in paise; clients receive its decimal text ("1050", "1050.50").
+  return JSON.stringify(value, (_k, v) => (typeof v === 'bigint' ? toWire(v) : v));
 }
 
 export function json(body: unknown, status = 200, requestId?: string): Response {

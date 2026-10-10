@@ -3,7 +3,7 @@
  * nothing is ever auto-fixed.
  */
 import { fail } from '../errors.ts';
-import { MAX_AMOUNT, type Rupees } from '../money.ts';
+import { MAX_AMOUNT, type Paise } from '../money.ts';
 import type { EngineContext } from '../engine/context.ts';
 import { type PlannedJournal, type PostingPlan, ROLE_REQUIRES } from './types.ts';
 
@@ -13,7 +13,7 @@ export function checkJournal(journal: PlannedJournal, ctx: EngineContext): void 
   if (journal.lines.length < 2) fail('UNBALANCED_JOURNAL', 'This entry could not be balanced.', { reason: 'lines' });
   let dr = 0n;
   let cr = 0n;
-  const perFund = new Map<string, Rupees>();
+  const perFund = new Map<string, Paise>();
   for (const line of journal.lines) {
     if (typeof line.amount !== 'bigint' || line.amount <= 0n || line.amount > MAX_AMOUNT) {
       fail('AMOUNT_INVALID', 'Every amount must be a whole number of rupees above zero.');

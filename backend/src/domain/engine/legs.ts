@@ -9,7 +9,7 @@
  * - a plan with neither (an offset, a loan on account): one allocation per journal from its first debit line.
  */
 import type { Id } from '../ids.ts';
-import type { Rupees } from '../money.ts';
+import type { Paise } from '../money.ts';
 import type { PlannedLine, PostingPlan } from '../ledger/types.ts';
 
 export type LegKind = 'source' | 'destination' | 'allocation';
@@ -23,7 +23,7 @@ export interface PlannedLeg {
   locationId?: Id;
   categoryId?: Id;
   counterpartyId?: Id;
-  amount: Rupees;
+  amount: Paise;
 }
 
 export interface Legs {

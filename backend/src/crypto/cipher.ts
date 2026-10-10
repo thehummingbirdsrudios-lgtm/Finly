@@ -18,6 +18,8 @@ const FORMAT = 1;
 const HEADER = 3;
 const NONCE = 12;
 const TAG = 16;
+/** First plaintext byte of an amount written in paise (D-045); older amounts are a bare 8-byte rupee value. */
+const UNIT_PAISE = 2;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8', { fatal: true });
 
@@ -94,16 +96,24 @@ export class Cipher {
   }
 
   /** Encrypts a signed whole-rupee amount (balances may be negative; line amounts are always positive). */
+  /**
+   * An amount in paise (D-045): a unit byte (2 = paise) followed by the signed 64-bit value. Amounts written before the
+   * switch are the bare 8-byte value in whole rupees; they are read as rupees × 100, so no stored row — and no hash
+   * chain over it — ever had to be rewritten.
+   */
   encryptAmount(value: bigint, context: string, version?: number): Promise<Uint8Array> {
-    const buf = new Uint8Array(8);
-    new DataView(buf.buffer).setBigInt64(0, value);
+    const buf = new Uint8Array(9);
+    buf[0] = UNIT_PAISE;
+    new DataView(buf.buffer).setBigInt64(1, value);
     return this.encryptBytes(buf, context, version);
   }
 
   async decryptAmount(ciphertext: Uint8Array, context: string): Promise<bigint> {
     const plain = await this.decryptBytes(ciphertext, context);
-    if (plain.length !== 8) fail('INTEGRITY', 'A stored amount has the wrong length.');
-    return new DataView(plain.buffer, plain.byteOffset, 8).getBigInt64(0);
+    const view = new DataView(plain.buffer, plain.byteOffset, plain.length);
+    if (plain.length === 9 && plain[0] === UNIT_PAISE) return view.getBigInt64(1);
+    if (plain.length === 8) return view.getBigInt64(0) * 100n; // written in whole rupees, before D-045
+    return fail('INTEGRITY', 'A stored amount has the wrong format.');
   }
 
   encryptText(value: string, context: string, version?: number): Promise<Uint8Array> {

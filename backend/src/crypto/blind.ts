@@ -3,6 +3,7 @@
  * phone or account-number lookup. HMAC-SHA-256 truncated to 16 bytes; amount indexes are keyed per environment, so
  * equal amounts in different environments do not share an index value.
  */
+import { toWire } from '../domain/money.ts';
 import type { KeyRing } from './keys.ts';
 
 const encoder = new TextEncoder();
@@ -21,14 +22,15 @@ export const AMOUNT_BANDS: readonly bigint[] = [
   1_00_00_000n,
 ];
 
+/** The band of an amount in paise (bands are whole-rupee limits, so amounts from before D-045 keep their band). */
 export function bandOf(amount: bigint): number {
-  const a = amount < 0n ? -amount : amount;
+  const a = (amount < 0n ? -amount : amount) / 100n;
   let band = 0;
   for (let i = 0; i < AMOUNT_BANDS.length; i++) if (a >= AMOUNT_BANDS[i]) band = i;
   return band;
 }
 
-/** Bands that overlap the inclusive range [min, max] (both whole rupees). */
+/** Bands that overlap the inclusive range [min, max] (both in paise). */
 export function bandsFor(min: bigint, max: bigint): number[] {
   const from = bandOf(min);
   const to = bandOf(max);
@@ -43,8 +45,12 @@ export class BlindIndex {
     return new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(text))).slice(0, 16);
   }
 
+  /**
+   * Exact-amount index of an amount in paise, over its decimal text: whole rupees give the same text ("5000") as the
+   * rupee index written before D-045, so older entries stay findable by amount.
+   */
   amount(envId: string, amount: bigint): Promise<Uint8Array> {
-    return this.mac(`amount:${envId}:${amount}`);
+    return this.mac(`amount:${envId}:${toWire(amount)}`);
   }
 
   band(envId: string, band: number): Promise<Uint8Array> {

@@ -1,5 +1,5 @@
 import type { Id } from '../ids.ts';
-import type { Rupees } from '../money.ts';
+import type { Paise } from '../money.ts';
 
 export type Side = 'Dr' | 'Cr';
 
@@ -97,7 +97,7 @@ export interface PlannedLine {
   entityId: Id;
   accountId: Id;
   side: Side;
-  amount: Rupees;
+  amount: Paise;
   fundId: Id;
   locationId?: Id;
   counterpartyId?: Id;
@@ -146,7 +146,7 @@ export interface PlannedOpenItem {
   kind: OpenItemKind;
   debtorId: Id;
   creditorId: Id;
-  amount: Rupees;
+  amount: Paise;
   /** Which account each side carries it on, so a settlement can post the right lines later. */
   debtorRole?: AccountRole;
   creditorRole?: AccountRole;
@@ -161,7 +161,7 @@ export type SettlementKind = typeof SETTLEMENT_KINDS[number];
 
 export interface PlannedSettlement {
   openItemId: Id;
-  amount: Rupees;
+  amount: Paise;
   kind: SettlementKind;
 }
 

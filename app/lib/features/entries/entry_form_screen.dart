@@ -92,7 +92,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   }
 
   Map<String, Object?> _intent(BigInt amount) {
-    final a = amount.toString();
+    final a = toWire(amount);
     final book = widget.bookId;
     return switch (widget.kind) {
       EntryKind.expense => {

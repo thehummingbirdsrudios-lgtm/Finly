@@ -327,7 +327,7 @@ Who must approve what (J6): scope, threshold in whole rupees (policy, not a fina
 | env_entity_id | uuid | yes |  | → entity |  |  |
 | txn_type_id | uuid | yes |  | → txn_type |  |  |
 | location_id | uuid | yes |  | → location |  |  |
-| min_amount | bigint | yes |  |  |  |  |
+| min_amount | bigint | yes |  | Threshold in paise (D-045) from which the rule applies; null = every amount. Policy, not a financial record, so plaintext. |  |  |
 | steps | jsonb | no |  |  |  |  |
 | segregation | boolean | no | true |  |  |  |
 | priority | integer | no | 0 |  |  |  |
@@ -340,7 +340,7 @@ Who must approve what (J6): scope, threshold in whole rupees (policy, not a fina
 
 **Keys and constraints**
 
-- Check: `CHECK (((min_amount > 0) AND (min_amount <= '999999999999'::bigint)))`
+- Check: `CHECK (((min_amount > 0) AND (min_amount <= '99999999999999'::bigint)))`
 - Check: `CHECK (((length(name) >= 1) AND (length(name) <= 120)))`
 - Check: `CHECK (((jsonb_typeof(steps) = 'array'::text) AND (jsonb_array_length(steps) >= 1)))`
 - Foreign key: `FOREIGN KEY (created_by) REFERENCES finly.app_user(id)`

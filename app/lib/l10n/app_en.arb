@@ -177,9 +177,9 @@
   "kindSheetTitle": "What happened?",
 
   "amountLabel": "Amount (₹)",
-  "amountWholeRupees": "Whole rupees",
+  "amountHelp": "Rupees; paise after a point if needed",
   "amountEnter": "Enter the amount.",
-  "amountNoPaise": "Enter whole rupees, without paise.",
+  "amountTwoDecimals": "Use at most two digits after the point.",
   "amountDigitsOnly": "Use digits only.",
   "amountPositive": "The amount must be more than zero.",
   "amountTooLarge": "That is larger than Finly accepts.",

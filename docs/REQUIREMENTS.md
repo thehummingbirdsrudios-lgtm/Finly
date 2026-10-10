@@ -119,7 +119,7 @@ Abbreviations: UMA = ADDON-23; DEC = DECISIONS.md; tests are under `backend/test
 | ACC-04 | Accrual basis | GR-02 §4 | ✅ | — | `bill` intent · `engine/obligations_test.ts` |
 | ACC-05 | Fund balancing | GR-02 §4 | ✅ | — | `engine/funds_legs_test.ts` |
 | ACC-06 | Monthly close with closing journals; reopen with privilege | GR-02 §4, BP AC12 | ⬜ | M14 | periods exist; no close |
-| ACC-07 | Exact money, no floats (paise since D-045) | BP H14 → D-045 | 🟡 | M2 | whole rupees today |
+| ACC-07 | Exact money, no floats (paise since D-045) | BP H14 → D-045 | ✅ | — | integer paise end to end; legacy rupee ciphertexts read ×100 · `engine/money_invariants_test.ts`, `crypto/crypto_test.ts`, `http/api_test.ts`, `app/test/money_test.dart` |
 | ACC-08 | Chart of accounts from templates; extend, never delete | BP AC4 | 🟡 | M4 | templates seeded; no management UI |
 | ACC-09 | Full dimension set on lines | BP AC5 | 🟡 | M6 | project/event and holder written (8ff2953); payment method and memo with the M6 forms |
 | ACC-10 | Explicit cross-entity classification; reciprocity | BP AC3 | ✅ | — | `give` · `engine/give_test.ts` |

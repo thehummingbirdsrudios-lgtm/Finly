@@ -1,10 +1,10 @@
 /**
  * Turns a client's entry request into an engine intent. Only the intents a person may record directly are accepted
- * (cash adjustments go through their own approval route); amounts arrive as strings of whole rupees and become exact
- * integers; everything else about meaning is decided by the engine and the posting service, never here.
+ * (cash adjustments go through their own approval route); amounts arrive as decimal strings of rupees ("1050.50") and
+ * become exact integer paise (D-045); everything else about meaning is decided by the engine and the posting service.
  */
 import { fail } from '../domain/errors.ts';
-import { parseRupees } from '../domain/money.ts';
+import { parseMoney } from '../domain/money.ts';
 import type { Intent } from '../app/posting/service.ts';
 
 export const CLIENT_INTENTS = new Set([
@@ -34,8 +34,8 @@ const MAX_ITEMS = 200;
 function convert(value: unknown, key: string | undefined, depth: number): unknown {
   if (depth > MAX_DEPTH) fail('VALIDATION', 'The entry is nested too deeply.');
   if (key !== undefined && AMOUNT_KEYS.has(key)) {
-    if (key === 'interest' && (value === '0' || value === 0)) return 0n;
-    return parseRupees(value);
+    if (key === 'interest' && (value === '0' || value === '0.00' || value === 0)) return 0n;
+    return parseMoney(value);
   }
   if (Array.isArray(value)) {
     if (value.length > MAX_ITEMS) fail('VALIDATION', 'The entry has too many lines.');

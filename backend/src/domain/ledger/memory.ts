@@ -4,7 +4,7 @@
  */
 import { fail } from '../errors.ts';
 import { type Id, uuidv7 } from '../ids.ts';
-import type { Rupees } from '../money.ts';
+import type { Paise } from '../money.ts';
 import type {
   CategoryInfo,
   EngineContext,
@@ -21,7 +21,7 @@ export interface PostedLine {
   entityId: Id;
   accountId: Id;
   side: 'Dr' | 'Cr';
-  amount: Rupees;
+  amount: Paise;
   fundId: Id;
   locationId?: Id;
   counterpartyId?: Id;
@@ -117,7 +117,7 @@ export class MemoryLedger implements EngineContext {
 
   /** Applies a checked plan; returns the ids of open items it created, in plan order. */
   apply(plan: PostingPlan): Id[] {
-    const settling = new Map<Id, Rupees>();
+    const settling = new Map<Id, Paise>();
     for (const s of plan.settlements) settling.set(s.openItemId, (settling.get(s.openItemId) ?? 0n) + s.amount);
     for (const [id, amount] of settling) {
       if (amount > this.openItem(id).remaining) {
@@ -159,7 +159,7 @@ export class MemoryLedger implements EngineContext {
     entityId: Id,
     role: AccountRole,
     slice: { locationId?: Id; counterpartyId?: Id; categoryId?: Id; fundId?: Id; code?: string } = {},
-  ): Rupees {
+  ): Paise {
     let net = 0n;
     for (const l of this.lines) {
       if (l.entityId !== entityId) continue;
@@ -177,7 +177,7 @@ export class MemoryLedger implements EngineContext {
   }
 
   /** Total money at a location across every owner, or for one owner. */
-  moneyAt(locationId: Id, entityId?: Id): Rupees {
+  moneyAt(locationId: Id, entityId?: Id): Paise {
     let net = 0n;
     for (const l of this.lines) {
       if (l.locationId !== locationId) continue;
@@ -187,7 +187,7 @@ export class MemoryLedger implements EngineContext {
     return net;
   }
 
-  trialBalance(entityId: Id): { debits: Rupees; credits: Rupees } {
+  trialBalance(entityId: Id): { debits: Paise; credits: Paise } {
     let debits = 0n;
     let credits = 0n;
     for (const l of this.lines) {
@@ -216,7 +216,7 @@ export class MemoryLedger implements EngineContext {
   }
 
   /** Sum of every open item's remaining amount by (debtor, creditor). */
-  owed(debtorId: Id, creditorId: Id): Rupees {
+  owed(debtorId: Id, creditorId: Id): Paise {
     let total = 0n;
     for (const o of this.openItems.values()) {
       if (o.debtorId === debtorId && o.creditorId === creditorId && o.status !== 'reversed') total += o.remaining;

@@ -7,7 +7,7 @@ of date, when any import cycle appears, or when a layer imports what its rule do
 | Layer | Path | Files | Purpose | May import | Packages |
 |---|---|---|---|---|---|
 | domain | `src/domain/` | 12 | Accounting model and posting engine — pure and deterministic: no I/O, no keys; clock and randomness only in ids.ts (new ids) | — | — |
-| crypto | `src/crypto/` | 6 | Encryption, blind indexes, hash chains, key ring, password hashing, session tokens (D-026, D-033, D-042) | `src/domain/errors.ts` | `hash-wasm` |
+| crypto | `src/crypto/` | 6 | Encryption, blind indexes, hash chains, key ring, password hashing, session tokens (D-026, D-033, D-042) | `src/domain/errors.ts`, `src/domain/money.ts` | `hash-wasm` |
 | db | `src/db/` | 6 | PostgreSQL adapters, migration runner, SCRAM verifiers | — | `postgres`, `node:buffer`, `node:process`, `node:timers`, `@electric-sql/pglite` |
 | app | `src/app/` | 13 | Application services (posting, identity, policy): one use case per transaction, through ports | `src/domain/`, `src/crypto/`, `src/db/sql.ts` | — |
 | main | `src/main/` | 4 | Composition root: configuration, connections, keys and the services wired together; process entry points | `src/app/`, `src/crypto/`, `src/db/`, `src/domain/`, `src/http/` | `postgres` |

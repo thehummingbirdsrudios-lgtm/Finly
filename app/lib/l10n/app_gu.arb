@@ -167,9 +167,9 @@
   "kindSheetTitle": "શું થયું?",
 
   "amountLabel": "રકમ (₹)",
-  "amountWholeRupees": "પૂરા રૂપિયા",
+  "amountHelp": "રૂપિયા; જરૂર હોય તો દશાંશ પછી પૈસા",
   "amountEnter": "રકમ લખો.",
-  "amountNoPaise": "પૈસા વગર, પૂરા રૂપિયા લખો.",
+  "amountTwoDecimals": "દશાંશ પછી વધુમાં વધુ બે આંકડા રાખો.",
   "amountDigitsOnly": "ફક્ત આંકડા લખો.",
   "amountPositive": "રકમ શૂન્યથી વધુ હોવી જોઈએ.",
   "amountTooLarge": "આ Finly ની મર્યાદા કરતાં વધુ છે.",

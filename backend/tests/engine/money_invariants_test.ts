@@ -1,24 +1,36 @@
 import { assertEquals, assertThrows } from '@std/assert';
-import { formatInr, groupIndian, parseRupees } from '../../src/domain/money.ts';
+import { formatInr, groupIndian, parseMoney, toWire } from '../../src/domain/money.ts';
+import { decodeIntent, encodeIntent } from '../../src/domain/engine/codec.ts';
 import { FinlyError } from '../../src/domain/errors.ts';
 import { checkJournal } from '../../src/domain/ledger/invariants.ts';
 import { exampleWorld } from '../support/world.ts';
 
-Deno.test('money: Indian grouping and the rupee sign', () => {
+Deno.test('money: Indian grouping, the rupee sign, and paise only when there are any', () => {
   assertEquals(groupIndian(500n), '500');
   assertEquals(groupIndian(20000n), '20,000');
   assertEquals(groupIndian(500000n), '5,00,000');
   assertEquals(groupIndian(10000000n), '1,00,00,000');
-  assertEquals(formatInr(1200000n), '₹12,00,000');
-  assertEquals(formatInr(-5000n), '−₹5,000');
+  assertEquals(formatInr(120000000n), '₹12,00,000');
+  assertEquals(formatInr(-500000n), '−₹5,000');
+  assertEquals(formatInr(105050n), '₹1,050.50');
+  assertEquals(formatInr(5n), '₹0.05');
 });
 
-Deno.test('money: only whole positive rupees are accepted', () => {
-  assertEquals(parseRupees('45000'), 45000n);
-  assertEquals(parseRupees(45000), 45000n);
-  for (const bad of ['45000.50', '-5', '0', '1,000', '', ' 5', 1.5, -1, 0, null, undefined, 'abc', '9999999999999']) {
-    assertThrows(() => parseRupees(bad), FinlyError);
+Deno.test('money: amounts are rupees with at most two decimals, held as exact paise (D-045)', () => {
+  assertEquals(parseMoney('45000'), 4500000n);
+  assertEquals(parseMoney('45000.5'), 4500050n);
+  assertEquals(parseMoney('45000.05'), 4500005n);
+  assertEquals(parseMoney('0.01'), 1n);
+  assertEquals(parseMoney(4500050n), 4500050n, 'an engine value is already paise');
+  for (
+    const bad of ['45000.505', '-5', '0', '0.00', '1,000', '', ' 5', '.5', '5.', '1e5', 45000, 1.5, -1, null, 'abc']
+  ) {
+    assertThrows(() => parseMoney(bad), FinlyError, undefined, String(bad));
   }
+  assertThrows(() => parseMoney('9999999999999'), FinlyError, undefined, 'thirteen rupee digits');
+  assertEquals(toWire(4500000n), '45000');
+  assertEquals(toWire(4500050n), '45000.50');
+  assertEquals(toWire(-250n), '-2.50');
 });
 
 Deno.test('invariants: an unbalanced journal is refused', () => {
@@ -110,4 +122,12 @@ Deno.test('invariants: an inactive account cannot be posted to', () => {
       ],
     }, w), FinlyError);
   assertEquals(err.code, 'ACCOUNT_INACTIVE');
+});
+
+Deno.test('money: a request stored before D-045 (whole rupees) reads back in paise; new ones round-trip', () => {
+  const legacy =
+    '{"type":"transfer","entityId":"e","fromLocationId":"a","toLocationId":"b","amount":{"$rupees":"7000"}}';
+  assertEquals((decodeIntent(legacy) as { amount: bigint }).amount, 700000n);
+  const intent = { type: 'transfer', entityId: 'e', fromLocationId: 'a', toLocationId: 'b', amount: 700050n } as const;
+  assertEquals((decodeIntent(encodeIntent(intent)) as { amount: bigint }).amount, 700050n);
 });

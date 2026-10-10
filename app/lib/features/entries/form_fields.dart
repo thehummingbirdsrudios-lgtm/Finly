@@ -10,7 +10,7 @@ import '../../core/providers.dart';
 import '../../core/widgets.dart';
 import '../../l10n/l10n.dart';
 
-/// Whole rupees, typed with the number pad; shows the amount as Finly will read it.
+/// Rupees, with paise after a point when needed, typed with the number pad; shows the amount as Finly will read it.
 class AmountField extends StatelessWidget {
   const AmountField({super.key, required this.controller, this.label});
   final TextEditingController controller;
@@ -19,7 +19,7 @@ class AmountField extends StatelessWidget {
   static String? problemText(AppLocalizations l, AmountProblem? p) =>
       switch (p) {
         AmountProblem.empty => l.amountEnter,
-        AmountProblem.paise => l.amountNoPaise,
+        AmountProblem.tooManyDecimals => l.amountTwoDecimals,
         AmountProblem.notDigits => l.amountDigitsOnly,
         AmountProblem.notPositive => l.amountPositive,
         AmountProblem.tooLarge => l.amountTooLarge,
@@ -35,14 +35,14 @@ class AmountField extends StatelessWidget {
         final l = context.l10n;
         return TextFormField(
           controller: controller,
-          keyboardType: TextInputType.number,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
           inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'[0-9,]')),
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]')),
           ],
           decoration: InputDecoration(
             labelText: label ?? l.amountLabel,
             prefixText: '₹ ',
-            helperText: read.ok ? formatInr(read.value!) : l.amountWholeRupees,
+            helperText: read.ok ? formatInr(read.value!) : l.amountHelp,
           ),
           style: context.text.titleLarge,
           validator: (v) => problemText(l, readAmount(v ?? '').problem),

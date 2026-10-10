@@ -19,8 +19,20 @@ Deno.test('amounts round-trip, including negative balances and the largest allow
 Deno.test('every amount ciphertext has the same length, whatever the amount', async () => {
   const c = new Cipher(ring());
   const lengths = new Set<number>();
-  for (const v of [1n, 9n, 45000n, 999_999_999_999n]) lengths.add((await c.encryptAmount(v, 'x')).length);
-  assertEquals([...lengths], [39]);
+  for (const v of [1n, 9n, 4500050n, 99_999_999_999_999n]) lengths.add((await c.encryptAmount(v, 'x')).length);
+  assertEquals([...lengths], [40]);
+});
+
+Deno.test('amounts written before D-045 (bare 8 bytes, whole rupees) read as paise', async () => {
+  const c = new Cipher(ring());
+  const rupees = new Uint8Array(8);
+  new DataView(rupees.buffer).setBigInt64(0, 7000n);
+  // The private byte-level sealer is what encryptAmount used before D-045.
+  const legacy = await (c as unknown as {
+    encryptBytes(b: Uint8Array, context: string): Promise<Uint8Array>;
+  }).encryptBytes(rupees, 'x');
+  assertEquals(await c.decryptAmount(legacy, 'x'), 700000n);
+  assertEquals(await c.decryptAmount(await c.encryptAmount(700050n, 'x'), 'x'), 700050n);
 });
 
 Deno.test('the same amount encrypts differently each time (random nonce)', async () => {
@@ -95,9 +107,10 @@ Deno.test('blind indexes: equal within an environment, different across environm
 });
 
 Deno.test('amount bands cover a range filter', () => {
-  assertEquals(bandOf(45000n), 4);
-  assertEquals(bandOf(-45000n), 4);
-  assertEquals(bandsFor(10000n, 50000n), [3, 4, 5]);
+  // Bands are whole-rupee limits; amounts are paise (₹45,000 = 4500000 paise).
+  assertEquals(bandOf(4500000n), 4);
+  assertEquals(bandOf(-4500050n), 4);
+  assertEquals(bandsFor(1000000n, 5000000n), [3, 4, 5]);
 });
 
 Deno.test('hash chain: verifies its own links; any change to content, order or previous hash breaks it', async () => {

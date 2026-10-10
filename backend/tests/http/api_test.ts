@@ -242,7 +242,7 @@ Deno.test('another person cannot see, list or post into someone else’s books',
   assert([403, 404].includes(post.status), `got ${post.status}`);
 });
 
-Deno.test('the API explains what is missing or wrong, and never accepts a fractional or disguised amount', async () => {
+Deno.test('the API explains what is missing or wrong, and never accepts a disguised or over-precise amount', async () => {
   const me = await person('Dev');
   const t = me.token;
   const place = (await call<{ id: string }>('POST', `/v1/books/${me.personId}/places`, {
@@ -277,8 +277,11 @@ Deno.test('the API explains what is missing or wrong, and never accepts a fracti
     'CLASSIFICATION_REQUIRED',
     'purpose',
   ]);
-  const fractional = await give({ purpose: 'gift', repayable: false, amount: '10.50' });
-  assertEquals([fractional.status, fractional.body.code], [422, 'AMOUNT_INVALID']);
+  // Paise are exact (D-045); a third decimal, an exponent or a JSON number is not an amount.
+  for (const amount of ['10.505', '1e3', 10.5]) {
+    const bad = await give({ purpose: 'gift', repayable: false, amount });
+    assertEquals([bad.status, bad.body.code], [422, 'AMOUNT_INVALID'], String(amount));
+  }
   const adjust = await call<{ code: string }>('POST', '/v1/entries', {
     token: t,
     key: crypto.randomUUID(),
@@ -382,4 +385,30 @@ Deno.test('cash added in a person’s hands records them as holder on every line
     [place],
   );
   assertEquals(holders.rows.map((r) => r.holder), [me.personId]);
+});
+
+Deno.test('an amount with paise posts exactly and comes back exactly (D-045)', async () => {
+  const me = await person('Nisha');
+  const t = me.token;
+  const place = (await call<{ id: string }>('POST', `/v1/books/${me.personId}/places`, {
+    token: t,
+    body: { name: 'Purse', kind: 'cash', typeKey: 'hand_cash' },
+  })).body.id;
+  const posted = await call('POST', '/v1/entries', {
+    token: t,
+    key: crypto.randomUUID(),
+    body: {
+      typeKey: 'opening_balance',
+      bookId: me.personId,
+      valueDate: today,
+      intent: { type: 'opening_balance', entityId: me.personId, locationId: place, amount: '1050.50' },
+    },
+  });
+  assertEquals(posted.status, 201);
+  const places = await call<{ items: { id: string; balance: string }[] }>('GET', `/v1/books/${me.personId}/places`, {
+    token: t,
+  });
+  assertEquals(places.body.items.find((p) => p.id === place)?.balance, '1050.50');
+  const summary = await call<{ money: string }>('GET', `/v1/books/${me.personId}/summary`, { token: t });
+  assertEquals(summary.body.money, '1050.50');
 });

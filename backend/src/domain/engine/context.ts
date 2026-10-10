@@ -3,7 +3,7 @@
  * from the database (or a test builds it in memory) and passes it in.
  */
 import type { Id } from '../ids.ts';
-import type { Rupees } from '../money.ts';
+import type { Paise } from '../money.ts';
 import type { EntityKind } from '../ledger/coa.ts';
 import type { AccountRole, LedgerAccount, OpenItemKind } from '../ledger/types.ts';
 
@@ -41,8 +41,8 @@ export interface OpenItemInfo {
   kind: OpenItemKind;
   debtorId: Id;
   creditorId: Id;
-  original: Rupees;
-  remaining: Rupees;
+  original: Paise;
+  remaining: Paise;
   debtorRole?: AccountRole;
   creditorRole?: AccountRole;
   debtorFundId?: Id;

@@ -71,7 +71,7 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
       if (counterpartyIsMine && receivable) 'payerLocationId': _theirPlace,
       if (counterpartyIsMine && !receivable) 'payeeLocationId': _theirPlace,
       'allocations': [
-        {'openItemId': item.id, 'amount': amount.toString()},
+        {'openItemId': item.id, 'amount': toWire(amount)},
       ],
     };
     setState(() => _busy = true);
@@ -119,7 +119,7 @@ class _SettleScreenState extends ConsumerState<SettleScreen> {
           }
           if (!_prefilled) {
             _prefilled = true;
-            _amount.text = item.remaining.toString();
+            _amount.text = toWire(item.remaining);
           }
           final receivable = item.direction == 'receivable';
           final counterpartyIsMine = books.any(
