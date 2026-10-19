@@ -119,6 +119,47 @@ class FinlyApi {
     }, idempotencyKey: key),
   );
 
+  /// Whether this entry may be reversed or corrected on `date`, answered by the same rules a reversal meets.
+  Future<UndoCheck> undoCheck(String txnId, String date) async =>
+      UndoCheck.fromJson(
+        await client.get(
+          '/v1/entries/$txnId/undo-check',
+          query: {'date': date},
+        ),
+      );
+
+  /// Undoes a posted entry with a new, linked entry; the original stays in history. `key` as in [submit].
+  Future<PostingResult> reverse({
+    required String key,
+    required String txnId,
+    required String bookId,
+    required String valueDate,
+    required String reason,
+  }) async => PostingResult.fromJson(
+    await client.post('/v1/entries/$txnId/reverse', {
+      'bookId': bookId,
+      'valueDate': valueDate,
+      'reason': reason,
+    }, idempotencyKey: key),
+  );
+
+  /// Replaces a posted entry: its reversal and `replacement` post together as one entry. `key` as in [submit].
+  Future<PostingResult> correct({
+    required String key,
+    required String txnId,
+    required String bookId,
+    required String valueDate,
+    required String reason,
+    required Map<String, Object?> replacement,
+  }) async => PostingResult.fromJson(
+    await client.post('/v1/entries/$txnId/correct', {
+      'bookId': bookId,
+      'valueDate': valueDate,
+      'reason': reason,
+      'replacement': replacement,
+    }, idempotencyKey: key),
+  );
+
   Future<PostingResult> acknowledge(String txnId, {String? note}) async =>
       PostingResult.fromJson(
         await client.post('/v1/entries/$txnId/acknowledge', {'note': ?note}),

@@ -41,10 +41,11 @@ Legend: `[x]` done · `[~]` in progress · `[ ]` not started · 🔑 needs the o
 - [x] Domain money, intents, checks, wire format, buckets/blind index in paise; legacy rupee values read ×100; 0019
 - [x] App amount input and display with paise
 
-## M3 — Reversal and correction
+## M3 — Reversal and correction (0020, D-052)
 
-- [ ] Engine reversal/correction intents (mirror), service unwinding, rules, routes
-- [ ] App reverse/correct with reason and preview
+- [x] Engine reversal/correction intents (mirror), service unwinding, rules, routes, dry-run undo check
+- [x] App reverse/correct with reason and preview; translated, tappable links on the entry screen
+- [ ] Deploy 0020 and the API (three-channel fingerprint, health check)
 
 ## M4 — Reports and ledgers
 

@@ -401,6 +401,7 @@ class EntryDetail {
     required this.id,
     required this.reference,
     required this.typeLabel,
+    required this.intentType,
     required this.status,
     required this.valueDate,
     required this.pending,
@@ -415,6 +416,7 @@ class EntryDetail {
     id: j['id'] as String,
     reference: j['reference'] as String,
     typeLabel: j['typeLabel'] as String,
+    intentType: j['intentType'] as String,
     status: j['status'] as String,
     valueDate: j['valueDate'] as String,
     reason: j['reason'] as String?,
@@ -450,12 +452,18 @@ class EntryDetail {
   final String id;
   final String reference;
   final String typeLabel;
+
+  /// What kind of event it is (expense, transfer, reversal, correction, …).
+  final String intentType;
   final String status;
   final String valueDate;
   final String? reason;
   final String? createdBy;
   final bool pending;
   final List<EntryBook> books;
+
+  /// A posted entry that is not itself a reversal may be offered for reversing or correcting.
+  bool get undoable => status == 'posted' && intentType != 'reversal';
   final List<({String name, String status, String? note})> acknowledgements;
   final List<({String kind, String direction, String txnId, String? reference})>
   links;
@@ -522,6 +530,34 @@ class SessionInfo {
   final String createdAt;
   final String lastUsedAt;
   final bool current;
+}
+
+/// Whether an entry may be reversed or corrected today, as the server's own rules answer it (nothing is written).
+class UndoCheck {
+  const UndoCheck({
+    required this.allowed,
+    required this.waitsForAcknowledgement,
+    this.problemCode,
+    this.problemMessage,
+    this.intent,
+  });
+  factory UndoCheck.fromJson(Json j) {
+    final problem = (j['problem'] as Map?)?.cast<String, dynamic>();
+    return UndoCheck(
+      allowed: j['allowed'] as bool,
+      waitsForAcknowledgement: (j['waitsForAcknowledgement'] as num).toInt(),
+      problemCode: problem?['code'] as String?,
+      problemMessage: problem?['message'] as String?,
+      intent: (j['intent'] as Map?)?.cast<String, dynamic>(),
+    );
+  }
+  final bool allowed;
+  final int waitsForAcknowledgement;
+  final String? problemCode;
+  final String? problemMessage;
+
+  /// What the entry recorded, amounts as rupee text — only when every book and place in it is visible to this person.
+  final Json? intent;
 }
 
 class PostingResult {

@@ -10,6 +10,7 @@ import 'api/models.dart';
 import 'api/session_store.dart';
 import 'config.dart';
 import 'device.dart';
+import 'widgets.dart' show todayIso;
 
 final sessionStoreProvider = Provider<SessionStore>(
   (ref) => SecureSessionStore(),
@@ -200,6 +201,11 @@ final entryProvider = FutureProvider.autoDispose.family<EntryDetail, String>(
   (ref, txnId) => ref.watch(apiProvider).entry(txnId),
 );
 
+/// Whether an entry may be reversed or corrected today; refreshed with everything else after any change.
+final undoCheckProvider = FutureProvider.autoDispose.family<UndoCheck, String>(
+  (ref, txnId) => ref.watch(apiProvider).undoCheck(txnId, todayIso()),
+);
+
 final waitingProvider = FutureProvider.autoDispose<List<WaitingAnswer>>(
   (ref) => ref.watch(apiProvider).waiting(),
 );
@@ -226,6 +232,7 @@ void refreshMoney(WidgetRef ref) {
   ref.invalidate(placesProvider);
   ref.invalidate(openItemsProvider);
   ref.invalidate(entryProvider);
+  ref.invalidate(undoCheckProvider);
   ref.invalidate(waitingProvider);
   ref.invalidate(booksProvider);
   ref.read(entriesVersionProvider.notifier).bump();

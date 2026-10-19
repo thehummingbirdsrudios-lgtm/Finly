@@ -15,6 +15,7 @@ import 'features/books/create_book_screen.dart';
 import 'features/entries/entry_detail_screen.dart';
 import 'features/entries/entry_form_screen.dart';
 import 'features/entries/entry_kinds.dart';
+import 'features/entries/reverse_screen.dart';
 import 'features/entries/settle_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/settings/settings_screen.dart';
@@ -93,6 +94,21 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/entries/:id',
         builder: (_, s) => EntryDetailScreen(txnId: s.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/entries/:id/reverse',
+        builder: (_, s) => ReverseScreen(txnId: s.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/books/:id/correct/:txn',
+        builder: (_, s) => EntryFormScreen(
+          bookId: s.pathParameters['id']!,
+          kind: EntryKind.values.firstWhere(
+            (k) => k.name == s.uri.queryParameters['kind'],
+            orElse: () => EntryKind.expense,
+          ),
+          correctsTxnId: s.pathParameters['txn']!,
+        ),
       ),
       GoRoute(
         path: '/settings/password',

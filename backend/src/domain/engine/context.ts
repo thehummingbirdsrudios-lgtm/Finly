@@ -5,7 +5,7 @@
 import type { Id } from '../ids.ts';
 import type { Paise } from '../money.ts';
 import type { EntityKind } from '../ledger/coa.ts';
-import type { AccountRole, LedgerAccount, OpenItemKind } from '../ledger/types.ts';
+import type { AccountRole, LedgerAccount, OpenItemKind, PlannedJournal, SettlementKind } from '../ledger/types.ts';
 
 export interface EntityInfo {
   id: Id;
@@ -50,6 +50,27 @@ export interface OpenItemInfo {
   status: OpenItemStatus;
 }
 
+/** A journal as it was posted, with its id (a reversal points at what it mirrors). */
+export interface PostedJournal extends PlannedJournal {
+  id: Id;
+}
+
+export type HandoverStatus = 'recorded' | 'awaiting_confirmation' | 'confirmed' | 'disputed' | 'cancelled';
+
+/** A posted event as a reversal or correction sees it: what it posted, created and settled (RULEBOOK-01 §56–57). */
+export interface PostedEvent {
+  txnId: Id;
+  intentType: string;
+  status: string;
+  journals: PostedJournal[];
+  /** Open items the event created. */
+  createdOpenItems: Id[];
+  /** What the event settled and has not been given back (never `reversal` allocations themselves). */
+  allocations: { id: Id; openItemId: Id; amount: Paise; kind: SettlementKind }[];
+  /** Handovers (custody events) the event recorded, with their state now. */
+  handovers: { id: Id; status: HandoverStatus }[];
+}
+
 export interface EngineContext {
   entity(id: Id): EntityInfo;
   location(id: Id): LocationInfo;
@@ -62,6 +83,8 @@ export interface EngineContext {
   /** True when the person is an owner or partner of the firm on the posting date. */
   isOwner(firmId: Id, personId: Id): boolean;
   openItem(id: Id): OpenItemInfo;
+  /** A posted event, for reversing or correcting it. */
+  postedEvent(txnId: Id): PostedEvent;
 }
 
 export const MONEY_ROLE: Record<LocationKind, AccountRole> = {

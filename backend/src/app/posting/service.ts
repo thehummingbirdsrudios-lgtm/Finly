@@ -60,6 +60,20 @@ export interface SubmitCommand {
   followsTxnId?: Id;
 }
 
+/** Whether an entry may be reversed or corrected now, answered without locking or writing anything. */
+export interface UndoCheck {
+  allowed: boolean;
+  /** Why not, in words a person can act on (the same refusal a reversal would get). */
+  problem?: { code: ErrorCode; message: string };
+  /** People whose acknowledgement the reversal would wait for. */
+  waitsForAcknowledgement: number;
+  /**
+   * What the entry recorded (a correction's replacement for a correction), to start a correction from — only when the
+   * actor may see every book the entry touched.
+   */
+  intent?: Intent;
+}
+
 export interface PostingResult {
   txnId: Id;
   reference: string;
@@ -86,6 +100,7 @@ function validDate(s: string): boolean {
  * between places nobody holds, or that the same person holds, never does.
  */
 export function withHandoverPolicy(intent: Intent, c: DbContext): Intent {
+  if (intent.type === 'correction') return { ...intent, replacement: withHandoverPolicy(intent.replacement, c) };
   if (intent.type !== 'transfer') return intent;
   const policy = c.policy(intent.toLocationId).handoverConfirmation;
   const required = policy === 'required' || (policy === 'inherit' && c.handoverDefault);
@@ -198,20 +213,22 @@ export class PostingService {
     if (!type || type.intent_type !== cmd.intent.type) {
       fail('VALIDATION', 'Choose a transaction type that matches what happened.');
     }
+    const undoes = cmd.intent.type === 'reversal' || cmd.intent.type === 'correction' ? cmd.intent.txnId : null;
+    if (undoes) await this.checkUndo(tx, undoes, cmd);
     const c = await loadContext(tx, this.keys.cipher, cmd.intent, cmd.valueDate, { lockOpenItems: false });
     const intent = withHandoverPolicy(cmd.intent, c);
     if (intent.type === 'transit_confirm') await this.checkConfirmation(tx, intent);
     const plan = planPosting(intent, c);
     const entities = journalEntities(plan);
     if (!entities.includes(cmd.primaryEnvId)) fail('VALIDATION', 'Record the entry from one of the books it changes.');
-    await authorize(tx, c, entities);
+    await authorize(tx, c, plan);
 
     const txnId = uuidv7();
     const intentEnc = await this.keys.cipher.encryptText(encodeIntent(intent), ctx('txn', 'intent_enc', txnId));
     await tx.query(
       `insert into finly.txn (id, reference, txn_type_id, intent_type, primary_env_id, value_date, created_by_user_id,
-         reason, device_id, intent_enc, key_version)
-       values ($1, finly.next_reference('TX', $2::date), $3, $4, $5, $2::date, $6, $7, $8, $9, $10)`,
+         reason, device_id, intent_enc, key_version, reverses_txn_id)
+       values ($1, finly.next_reference('TX', $2::date), $3, $4, $5, $2::date, $6, $7, $8, $9, $10, $11)`,
       [
         txnId,
         cmd.valueDate,
@@ -223,6 +240,7 @@ export class PostingService {
         cmd.deviceId ?? null,
         intentEnc,
         keyVersionOf(intentEnc),
+        undoes,
       ],
     );
     for (const entity of entities) {
@@ -257,6 +275,145 @@ export class PostingService {
       txnId,
     }]);
     return { txnId };
+  }
+
+  /**
+   * Undoing an entry says why, is dated on or after the entry, and starts only when no other reversal or correction of
+   * it is live (the database's txn_one_live_reversal index settles a race). The engine decides the rest.
+   */
+  private async checkUndo(tx: Sql, txnId: Id, cmd: SubmitCommand): Promise<void> {
+    if (!cmd.reason?.trim()) fail('VALIDATION', 'Say why this entry is being reversed or corrected.');
+    await this.cancelStaleAttempts(tx, cmd.actorUserId, txnId);
+    const t = await this.undoable(tx, txnId);
+    this.mustSee(t, cmd.intent.type === 'correction');
+    if (cmd.valueDate < t.valueDate) fail('VALIDATION', 'Date the reversal on or after the entry it undoes.');
+    if (t.waiting) fail('CONFLICT', 'A reversal or correction of this entry is already waiting.');
+  }
+
+  /**
+   * Undoing an entry needs all of it in view, before any rule can name a place or account: every book and leg, except
+   * another person's personal books — that person sees and answers the reversal themselves (D-029). A correction
+   * rewrites every side, so it needs every side in view.
+   */
+  private mustSee(t: Awaited<ReturnType<PostingService['undoable']>>, correcting: boolean): void {
+    if (correcting ? !t.allVisible : !t.visibleOrAcknowledged) {
+      fail('FORBIDDEN', 'Only someone who can see all of this entry can reverse or correct it.');
+    }
+  }
+
+  /**
+   * An attempt that never got past its draft (the app crashed, or its key expired) must not hold the entry forever:
+   * after a while it is cancelled, with its own audit record, and a new attempt may start.
+   */
+  private async cancelStaleAttempts(tx: Sql, actor: Id, txnId: Id): Promise<void> {
+    const stale = await tx.query<{ id: string; primary_env_id: string }>(
+      `update finly.txn set status = 'cancelled'
+       where reverses_txn_id = $1 and status = 'draft' and entered_at < now() - interval '10 minutes'
+       returning id, primary_env_id`,
+      [txnId],
+    );
+    if (stale.length === 0) return;
+    await appendAudit(
+      tx,
+      this.keys.chain,
+      stale.map((s): AuditEntry => ({
+        actorUserId: actor,
+        action: 'txn.cancelled',
+        objectType: 'txn',
+        objectId: s.id,
+        envEntityId: s.primary_env_id,
+        txnId: s.id,
+        reason: 'stale',
+      })),
+    );
+  }
+
+  /**
+   * The entry to undo, if the actor may see it — exactly as the API's own read rules decide: through a leg in books
+   * they may read, outside any fund or place hidden from them. Its recorded request is offered back only when every
+   * book and every leg is theirs to see, so a correction never reveals a hidden place, fund or book.
+   */
+  private async undoable(tx: Sql, txnId: Id) {
+    const [t] = await tx.query<{
+      value_date: string;
+      waiting: boolean;
+      visible: boolean;
+      all_visible: boolean;
+      visible_or_acknowledged: boolean;
+      intent_enc: Uint8Array | null;
+    }>(
+      `with me as (
+         select coalesce(finly.actor_env_ids('read'), '{}') as envs, finly.actor_hidden_ids('fund') as funds,
+                finly.actor_hidden_ids('location') as places, finly.actor_person_id() as person
+       ), legs as (
+         select l.entity_id = any (me.envs)
+                  and (l.fund_id is null or l.fund_id <> all (me.funds))
+                  and (l.location_id is null or l.location_id <> all (me.places)) as seen,
+                e.kind = 'person' and l.entity_id is distinct from me.person as theirs
+         from finly.txn_leg l join finly.entity e on e.id = l.entity_id, me where l.txn_id = $1
+       ), books as (
+         select te.entity_id = any (me.envs) as seen,
+                e.kind = 'person' and te.entity_id is distinct from me.person as theirs
+         from finly.txn_entity te join finly.entity e on e.id = te.entity_id, me where te.txn_id = $1
+       )
+       select t.value_date::text as value_date, t.intent_enc,
+              exists (select 1 from finly.txn r where r.reverses_txn_id = t.id
+                        and r.status in ('draft', 'pending_approval', 'approved', 'pending_acknowledgement')) as waiting,
+              exists (select 1 from legs where seen) as visible,
+              not exists (select 1 from legs where not seen) and not exists (select 1 from books where not seen)
+                as all_visible,
+              not exists (select 1 from legs where not seen and not theirs)
+                and not exists (select 1 from books where not seen and not theirs) as visible_or_acknowledged
+       from finly.txn t where t.id = $1`,
+      [txnId],
+    );
+    // Never "exists but not yours": an entry the actor cannot see is simply not found.
+    if (!t?.visible) fail('NOT_FOUND', 'That entry was not found.');
+    return {
+      valueDate: t.value_date,
+      waiting: t.waiting,
+      allVisible: t.all_visible,
+      visibleOrAcknowledged: t.visible_or_acknowledged,
+      intentEnc: t.intent_enc,
+    };
+  }
+
+  /**
+   * Whether the actor may reverse or correct an entry today: the same engine and rights a reversal would meet, as a
+   * dry run. A refusal comes back as the problem to show; nothing is locked or written.
+   */
+  async undoCheck(actor: Id, txnId: Id, today: string): Promise<UndoCheck> {
+    try {
+      return await this.asLedger(actor, async (tx) => {
+        const t = await this.undoable(tx, txnId);
+        let recorded: Intent | undefined;
+        if (t.allVisible && t.intentEnc) {
+          const stored = decodeIntent(await this.keys.cipher.decryptText(t.intentEnc, ctx('txn', 'intent_enc', txnId)));
+          recorded = stored.type === 'correction' ? stored.replacement : stored;
+        }
+        try {
+          this.mustSee(t, false);
+          if (t.waiting) fail('CONFLICT', 'A reversal or correction of this entry is already waiting.');
+          if (today < t.valueDate) fail('VALIDATION', 'Date the reversal on or after the entry it undoes.');
+          const intent: Intent = { type: 'reversal', txnId };
+          const c = await loadContext(tx, this.keys.cipher, intent, today, { lockOpenItems: false });
+          const plan = planPosting(intent, c);
+          const decision = await authorize(tx, c, plan);
+          return { allowed: true, waitsForAcknowledgement: decision.needsAck.length, intent: recorded };
+        } catch (e) {
+          // Only the engine's and the rules' refusals are answers; anything from the database is a real error.
+          if (!(e instanceof FinlyError) || e.code === 'INTERNAL' || e.code === 'INTEGRITY') throw e;
+          return {
+            allowed: false,
+            problem: { code: e.code, message: e.message },
+            waitsForAcknowledgement: 0,
+            intent: recorded,
+          };
+        }
+      });
+    } catch (e) {
+      throw toFinlyError(e);
+    }
   }
 
   /**
@@ -329,9 +486,10 @@ export class PostingService {
     );
     if (rec?.record_status === 'completed') return await this.result(tx, txnId, true);
     const loaded = await this.lockEvent(tx, txnId, ['draft']);
-    const decision = await authorize(tx, loaded.c, loaded.entities);
+    const decision = await authorize(tx, loaded.c, loaded.plan);
     const slices = await lockSlices(tx, this.keys.cipher, loaded.plan);
-    await checkAvailable(tx, this.keys.cipher, loaded.c, slices, txnId);
+    // Money leaving books that wait for their owner is checked when the owner answers, not shown to whoever asked.
+    await checkAvailable(tx, this.keys.cipher, loaded.c, slices, txnId, new Set(decision.needsAck));
 
     if (decision.needsAck.length > 0) {
       const waiting = new Set(decision.needsAck);
@@ -384,6 +542,10 @@ export class PostingService {
     if (!statuses.includes(t.status)) fail('CONFLICT', 'This transaction was already handled.', { status: t.status });
     if (!t.intent_enc) fail('INTEGRITY', 'This transaction has no stored request.');
     const intent = decodeIntent(await this.keys.cipher.decryptText(t.intent_enc, ctx('txn', 'intent_enc', t.id)));
+    if (intent.type === 'reversal' || intent.type === 'correction') {
+      // The entry it undoes is the next lock in the global order (txn rows before periods, 06 §6.3).
+      await tx.query(`select id from finly.txn where id = $1 for no key update`, [intent.txnId]);
+    }
     const participants = (await tx.query<{ entity_id: string }>(
       `select entity_id from finly.txn_entity where txn_id = $1 order by entity_id`,
       [txnId],
@@ -430,6 +592,22 @@ export class PostingService {
     await writeBalances(tx, this.keys.cipher, slices, periodOf, written.lastJournal);
     await endHolds(tx, txnId, actor, 'consumed');
     await tx.query(`update finly.txn set status = 'posted', posted_at = now() where id = $1`, [txnId]);
+    const undone = loaded.plan.unwind?.txnId;
+    if (undone) {
+      // The undone entry's own history says what happened to it, in the books it was recorded from.
+      const [{ env }] = await tx.query<{ env: string }>(`select primary_env_id as env from finly.txn where id = $1`, [
+        undone,
+      ]);
+      await appendAudit(tx, this.keys.chain, [{
+        actorUserId: actor,
+        action: loaded.intent.type === 'correction' ? 'txn.corrected' : 'txn.reversed',
+        objectType: 'txn',
+        objectId: undone,
+        envEntityId: env,
+        txnId: undone,
+        reason: `by ${loaded.reference}`,
+      }]);
+    }
     await emit(tx, [
       ...loaded.entities.map((entity): OutboxEvent => ({
         topic: 'nudge.data_changed',
@@ -532,7 +710,7 @@ export class PostingService {
           [txnId],
         );
         await tx.query(`select set_config('finly.actor_user_id', $1, true)`, [creator]);
-        await authorize(tx, loaded.c, loaded.entities);
+        await authorize(tx, loaded.c, loaded.plan);
         await tx.query(`select set_config('finly.actor_user_id', $1, true)`, [actor]);
         const slices = await lockSlices(tx, this.keys.cipher, loaded.plan);
         await checkAvailable(tx, this.keys.cipher, loaded.c, slices, txnId);

@@ -28,9 +28,18 @@ List<(String, String, String)> givePurposes(AppLocalizations l) => [
 ];
 
 class EntryFormScreen extends ConsumerStatefulWidget {
-  const EntryFormScreen({super.key, required this.bookId, required this.kind});
+  const EntryFormScreen({
+    super.key,
+    required this.bookId,
+    required this.kind,
+    this.correctsTxnId,
+  });
   final String bookId;
   final EntryKind kind;
+
+  /// Set when the form corrects a posted entry (RULEBOOK-01 §57): it starts from what the entry recorded, asks what
+  /// was wrong, and saves the reversal and this entry together.
+  final String? correctsTxnId;
 
   @override
   ConsumerState<EntryFormScreen> createState() => _EntryFormScreenState();
@@ -58,7 +67,38 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
   String? _receiverExpenseCategory;
   String? _receiverIncomeCategory;
   bool _busy = false;
+  bool _prefilled = false;
   String? _error;
+
+  bool get _correcting => widget.correctsTxnId != null;
+
+  /// Fills the form once from what the corrected entry recorded (only kinds a form shows exactly, see
+  /// [correctionTarget]); the person then changes what was wrong.
+  void _prefill(Json it) {
+    _prefilled = true;
+    String amountOf(Object? raw) => toWire(parseServerAmount(raw));
+    switch (widget.kind) {
+      case EntryKind.expense:
+        final source = (it['sources'] as List).first as Map;
+        final allocation = (it['allocations'] as List).first as Map;
+        _amount.text = amountOf(source['amount']);
+        _place = source['locationId'] as String?;
+        _category = allocation['categoryId'] as String?;
+      case EntryKind.income:
+        _amount.text = amountOf(it['amount']);
+        _place = (it['receivedAt'] as Map?)?['locationId'] as String?;
+        _category = it['categoryId'] as String?;
+      case EntryKind.transfer:
+        _amount.text = amountOf(it['amount']);
+        _place = it['fromLocationId'] as String?;
+        _toPlace = it['toLocationId'] as String?;
+      case EntryKind.opening:
+        _amount.text = amountOf(it['amount']);
+        _place = it['locationId'] as String?;
+      case EntryKind.give:
+        break;
+    }
+  }
 
   @override
   void dispose() {
@@ -160,22 +200,32 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     setState(() => _error = null);
     if (!_form.currentState!.validate()) return;
     final amount = readAmount(_amount.text).value!;
+    final reason = _reason.text.trim();
     setState(() => _busy = true);
     try {
-      final r = await ref
-          .read(apiProvider)
-          .submit(
-            key: _requestKey,
-            typeKey: _typeKey,
-            bookId: widget.bookId,
-            valueDate: _date,
-            reason: _reason.text.trim().isEmpty ? null : _reason.text.trim(),
-            intent: _intent(amount),
-          );
+      final api = ref.read(apiProvider);
+      final r = _correcting
+          ? await api.correct(
+              key: _requestKey,
+              txnId: widget.correctsTxnId!,
+              bookId: widget.bookId,
+              valueDate: _date,
+              reason: reason,
+              replacement: _intent(amount),
+            )
+          : await api.submit(
+              key: _requestKey,
+              typeKey: _typeKey,
+              bookId: widget.bookId,
+              valueDate: _date,
+              reason: reason.isEmpty ? null : reason,
+              intent: _intent(amount),
+            );
       if (!mounted) return;
       refreshMoney(ref);
       final l = context.l10n;
       final text = switch (r.status) {
+        'posted' when _correcting => l.correctDone(r.reference),
         'posted' => l.formRecorded(r.reference),
         'pending_acknowledgement' => l.formWaitingAck(r.reference),
         _ => l.formOtherStatus(r.reference, r.status),
@@ -199,8 +249,30 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
     final bookName = book == null
         ? l.formTheseBooks
         : (book.personal ? l.formYourPersonalBooks : book.name);
+    if (_correcting) {
+      final check = ref.watch(undoCheckProvider(widget.correctsTxnId!));
+      final recorded = check.value?.intent;
+      if (!_prefilled && recorded != null) _prefill(recorded);
+      if (!_prefilled) {
+        return Scaffold(
+          appBar: AppBar(title: Text(l.correctTitle)),
+          body: check.isLoading
+              ? const LoadingView()
+              : Padding(
+                  padding: const EdgeInsets.all(FyDims.space4),
+                  child: FormMessage(
+                    check.hasError
+                        ? messageOf(context, check.error!)
+                        : l.correctByReversing,
+                  ),
+                ),
+        );
+      }
+    }
     return Scaffold(
-      appBar: AppBar(title: Text(widget.kind.title(l))),
+      appBar: AppBar(
+        title: Text(_correcting ? l.correctTitle : widget.kind.title(l)),
+      ),
       body: SafeArea(
         child: Form(
           key: _form,
@@ -208,7 +280,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
             padding: const EdgeInsets.all(FyDims.space4),
             children: [
               Text(
-                widget.kind.help(l),
+                _correcting ? l.correctHelp : widget.kind.help(l),
                 style: context.text.bodyMedium?.copyWith(
                   color: context.fy.inkMuted,
                 ),
@@ -231,9 +303,14 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                 controller: _reason,
                 maxLength: 500,
                 decoration: InputDecoration(
-                  labelText: l.commonNoteOptional,
-                  hintText: l.commonNoteHint,
+                  labelText: _correcting
+                      ? l.correctReasonLabel
+                      : l.commonNoteOptional,
+                  hintText: _correcting ? null : l.commonNoteHint,
                 ),
+                validator: (v) => _correcting && (v ?? '').trim().isEmpty
+                    ? l.undoReasonRequired
+                    : null,
               ),
               const SizedBox(height: FyDims.space4),
               FilledButton(
@@ -244,7 +321,7 @@ class _EntryFormScreenState extends ConsumerState<EntryFormScreen> {
                         height: 22,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Text(l.formRecord),
+                    : Text(_correcting ? l.correctSave : l.formRecord),
               ),
               const SizedBox(height: FyDims.space2),
               Text(

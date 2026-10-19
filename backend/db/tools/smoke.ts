@@ -147,6 +147,31 @@ const balances = Object.fromEntries(
 );
 step('balances by place', balances['Tijori'] === '30000' && balances['Shop bank'] === '20000', { balances });
 
+// Reverse the transfer (D-052): the dry run allows it, the reversal posts, the money is back, and only once.
+const transferId = transfer.body.txnId as string;
+const check = await call('GET', `/v1/entries/${transferId}/undo-check`, { token: t });
+const undo = { bookId: firmId, valueDate: today, reason: 'Smoke test' };
+const reversed = await call('POST', `/v1/entries/${transferId}/reverse`, {
+  token: t,
+  key: crypto.randomUUID(),
+  body: undo,
+});
+const again = await call('POST', `/v1/entries/${transferId}/reverse`, {
+  token: t,
+  key: crypto.randomUUID(),
+  body: undo,
+});
+const placesAfter = await call('GET', `/v1/books/${firmId}/places`, { token: t });
+const back = Object.fromEntries(
+  (placesAfter.body.items as { name: string; balance: string }[]).map((p) => [p.name, p.balance]),
+);
+step(
+  'transfer reversed once',
+  check.body.allowed === true && reversed.status === 201 && again.body.code === 'ALREADY_REVERSED' &&
+    back['Tijori'] === '50000' && back['Shop bank'] === '0',
+  { check: check.body.allowed, reversed: reversed.status, again: again.body.code, balances: back },
+);
+
 const out = await call('POST', '/v1/auth/sign-out', { token: t });
 const after = await call('GET', '/v1/books', { token: t });
 step('signed out', out.status === 204 && after.status === 401);

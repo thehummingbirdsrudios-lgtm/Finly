@@ -135,6 +135,8 @@ export interface PlannedJournal {
   /** Order of journals inside one master event; through-owner flows have two linked steps. */
   step: number;
   lines: PlannedLine[];
+  /** Set on a `reversal` journal: the posted journal it mirrors (a journal is reversed at most once). */
+  reversalOfJournalId?: Id;
 }
 
 /** Open-item kinds; `interentity` = one entity owes another (expense paid on behalf, own money, current account). */
@@ -165,8 +167,25 @@ export interface PlannedSettlement {
   kind: SettlementKind;
 }
 
+/**
+ * What undoing a posted event changes besides its mirror journals (RULEBOOK-01 §56–57, docs/architecture/operations.md
+ * §2.6). Nothing posted is edited: the event's status moves on, and every effect is answered by a new row.
+ */
+export interface PlannedUnwind {
+  /** The posted event being reversed or corrected; it ends `reversed` or `corrected`. */
+  txnId: Id;
+  /** Open items the event created, none of them settled: they end `reversed`. */
+  reversedOpenItems: Id[];
+  /** What the event settled, given back: a `reversal` allocation each, and the item's remainder restored. */
+  restoredAllocations: { allocationId: Id; openItemId: Id; amount: Paise }[];
+  /** Handovers the event started that still wait for the receiver: cancelled. */
+  cancelledHandovers: Id[];
+}
+
 export interface PostingPlan {
   journals: PlannedJournal[];
   openItems: PlannedOpenItem[];
   settlements: PlannedSettlement[];
+  /** Present when the plan reverses or corrects a posted event. */
+  unwind?: PlannedUnwind;
 }

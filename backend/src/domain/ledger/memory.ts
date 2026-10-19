@@ -12,6 +12,7 @@ import type {
   LocationInfo,
   LocationKind,
   OpenItemInfo,
+  PostedEvent,
 } from '../engine/context.ts';
 import { CATEGORY_TEMPLATE, type EntityKind, templateFor } from './coa.ts';
 import { type AccountRole, type LedgerAccount, NORMAL_SIDE, type PlannedJournal, type PostingPlan } from './types.ts';
@@ -38,6 +39,8 @@ export class MemoryLedger implements EngineContext {
   readonly openItems = new Map<Id, OpenItemInfo>();
   readonly journals: PlannedJournal[] = [];
   readonly lines: PostedLine[] = [];
+  /** Posted events by id, as the database keeps them (txn, journal, open_item, settlement_allocation). */
+  readonly events = new Map<Id, PostedEvent>();
 
   constructor() {
     for (const c of CATEGORY_TEMPLATE) {
@@ -112,28 +115,65 @@ export class MemoryLedger implements EngineContext {
   openItem(id: Id): OpenItemInfo {
     return this.openItems.get(id) ?? fail('OPEN_ITEM_NOT_FOUND', 'That outstanding item was not found.', { id });
   }
+  postedEvent(txnId: Id): PostedEvent {
+    return this.events.get(txnId) ?? fail('NOT_FOUND', 'That entry was not found.', { txnId });
+  }
 
   // ------------------------------------------------------------------------------------------- posting
 
-  /** Applies a checked plan; returns the ids of open items it created, in plan order. */
-  apply(plan: PostingPlan): Id[] {
+  /**
+   * Applies a checked plan as one posted event (`txnId`, generated when not given); returns the ids of open items it
+   * created, in plan order. An unwind is applied first, so a correction's replacement may settle what it gave back.
+   */
+  apply(plan: PostingPlan, event: { txnId?: Id; intentType?: string } = {}): Id[] {
+    const txnId = event.txnId ?? uuidv7();
+    if (this.events.has(txnId)) fail('CONFLICT', 'This entry was already posted.');
+    const restored = new Map<Id, Paise>();
+    for (const a of plan.unwind?.restoredAllocations ?? []) {
+      restored.set(a.openItemId, (restored.get(a.openItemId) ?? 0n) + a.amount);
+    }
     const settling = new Map<Id, Paise>();
     for (const s of plan.settlements) settling.set(s.openItemId, (settling.get(s.openItemId) ?? 0n) + s.amount);
     for (const [id, amount] of settling) {
-      if (amount > this.openItem(id).remaining) {
+      if (amount > this.openItem(id).remaining + (restored.get(id) ?? 0n)) {
         fail('SETTLEMENT_EXCEEDS_REMAINING', 'Settlement exceeds what remains.');
       }
     }
+    if (plan.unwind) {
+      const original = this.postedEvent(plan.unwind.txnId);
+      if (original.status !== 'posted') fail('ALREADY_REVERSED', 'This entry was already reversed or corrected.');
+      original.status = plan.journals.some((j) => j.kind !== 'reversal') ? 'corrected' : 'reversed';
+      for (const a of plan.unwind.restoredAllocations) {
+        const item = this.openItem(a.openItemId);
+        item.remaining += a.amount;
+        item.status = item.remaining === item.original ? 'open' : 'partially_settled';
+      }
+      for (const id of plan.unwind.reversedOpenItems) this.openItem(id).status = 'reversed';
+    }
+    const posted: PostedEvent = {
+      txnId,
+      intentType: event.intentType ?? 'unknown',
+      status: 'posted',
+      journals: [],
+      createdOpenItems: [],
+      allocations: [],
+      handovers: [],
+    };
     for (const j of plan.journals) {
-      const index = this.journals.push(j) - 1;
+      const journal = { ...j, id: uuidv7() };
+      posted.journals.push(journal);
+      const index = this.journals.push(journal) - 1;
       for (const l of j.lines) this.lines.push({ ...l, journalIndex: index });
     }
     for (const s of plan.settlements) {
       const item = this.openItem(s.openItemId);
       item.remaining -= s.amount;
       item.status = item.remaining === 0n ? 'settled' : 'partially_settled';
+      posted.allocations.push({ id: uuidv7(), openItemId: s.openItemId, amount: s.amount, kind: s.kind });
     }
-    return plan.openItems.map((o) => {
+    this.events.set(txnId, posted);
+    this.lastTxnId = txnId;
+    const created = plan.openItems.map((o) => {
       const id = uuidv7();
       this.openItems.set(id, {
         id,
@@ -150,7 +190,12 @@ export class MemoryLedger implements EngineContext {
       });
       return id;
     });
+    posted.createdOpenItems.push(...created);
+    return created;
   }
+
+  /** The event the last `apply` posted. */
+  lastTxnId?: Id;
 
   // ------------------------------------------------------------------------------------------- queries
 

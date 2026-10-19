@@ -137,8 +137,10 @@ export async function checkAvailable(
   c: DbContext,
   slices: Map<string, Slice>,
   ownTxnId: Id,
+  skip: ReadonlySet<Id> = new Set(),
 ): Promise<void> {
   for (const s of outflows(c, slices)) {
+    if (skip.has(s.entityId)) continue;
     const held = (await activeHolds(tx, cipher, s)).filter((h) => h.txnId !== ownTxnId).reduce(
       (t, h) => t + h.amount,
       0n,

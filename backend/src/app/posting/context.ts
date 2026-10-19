@@ -2,7 +2,9 @@
  * The engine's view of the world, loaded from the database for one request (docs/database/06 §6.2 step 6). The engine
  * is synchronous and pure, so everything a request can touch is loaded up front: the ids it names, the parties of the
  * open items it settles, every book-keeping entity's accounts, all categories (seeded keys such as `interest`), and
- * the owners of the firms involved on the posting date. Behaves like the reference `MemoryLedger`, error for error.
+ * the owners of the firms involved on the posting date. A reversal or correction also loads the event it undoes: its
+ * journals and lines, the open items it created, what it settled and its handovers. Behaves like the reference
+ * `MemoryLedger`, error for error.
  */
 import type { Cipher } from '../../crypto/cipher.ts';
 import { ctx as cryptoCtx } from '../../crypto/cipher.ts';
@@ -11,17 +13,28 @@ import type {
   CategoryInfo,
   EngineContext,
   EntityInfo,
+  HandoverStatus,
   LocationInfo,
   LocationKind,
   OpenItemInfo,
   OpenItemStatus,
+  PostedEvent,
+  PostedJournal,
 } from '../../domain/engine/context.ts';
 import type { Intent } from '../../domain/engine/intents.ts';
 import { fail } from '../../domain/errors.ts';
 import type { Id } from '../../domain/ids.ts';
 import { isUuid } from '../../domain/ids.ts';
 import type { EntityKind } from '../../domain/ledger/coa.ts';
-import type { AccountClass, AccountRole, LedgerAccount, OpenItemKind } from '../../domain/ledger/types.ts';
+import type {
+  AccountClass,
+  AccountRole,
+  JournalKind,
+  LedgerAccount,
+  OpenItemKind,
+  SettlementKind,
+  Side,
+} from '../../domain/ledger/types.ts';
 
 /** What the posting service needs about a place beyond the engine's view: its negative-balance and handover policies. */
 export interface LocationPolicy {
@@ -40,6 +53,7 @@ export class DbContext implements EngineContext {
   readonly accounts = new Map<Id, LedgerAccount>();
   readonly owners = new Set<string>();
   readonly openItems = new Map<Id, OpenItemInfo>();
+  readonly events = new Map<Id, PostedEvent>();
   /** system_setting handover_confirmation_default (F2: off unless the owner turns it on). */
   handoverDefault = false;
 
@@ -72,6 +86,9 @@ export class DbContext implements EngineContext {
   openItem(id: Id): OpenItemInfo {
     return this.openItems.get(id) ?? fail('OPEN_ITEM_NOT_FOUND', 'That outstanding item was not found.', { id });
   }
+  postedEvent(txnId: Id): PostedEvent {
+    return this.events.get(txnId) ?? fail('NOT_FOUND', 'That entry was not found.', { txnId });
+  }
   policy(locationId: Id): LocationPolicy {
     return this.policies.get(locationId) ?? fail('LOCATION_NOT_FOUND', 'That place was not found.', { locationId });
   }
@@ -90,8 +107,114 @@ export function idsIn(value: unknown, out = new Set<string>()): Set<string> {
 }
 
 export interface LoadOptions {
-  /** Lock the open items the intent names (`FOR UPDATE`, in id order) — when posting, never when only checking. */
+  /**
+   * Lock what the posting changes — the event a reversal undoes, then every open item touched (`FOR UPDATE`, in id
+   * order) — when posting, never when only checking.
+   */
   lockOpenItems: boolean;
+}
+
+/** The posted event a reversal or correction undoes, read in full; its ids join those the context loads. */
+async function loadUndone(
+  tx: Sql,
+  cipher: Cipher,
+  txnId: Id,
+  lock: boolean,
+): Promise<{ event: PostedEvent; ids: Set<string> }> {
+  const [t] = await tx.query<{ status: string; intent_type: string }>(
+    `select status, intent_type from finly.txn where id = $1 ${lock ? 'for no key update' : ''}`,
+    [txnId],
+  );
+  if (!t) fail('NOT_FOUND', 'That entry was not found.');
+  const ids = new Set<string>();
+  const journals = new Map<string, PostedJournal>();
+  for (
+    const j of await tx.query<{ id: string; entity_id: string; step: number; kind: JournalKind }>(
+      `select id, entity_id, step, kind from finly.journal where txn_id = $1 order by chain_seq`,
+      [txnId],
+    )
+  ) {
+    journals.set(j.id, { id: j.id, entityId: j.entity_id, step: j.step, kind: j.kind, lines: [] });
+  }
+  for (
+    const l of await tx.query<{
+      id: string;
+      journal_id: string;
+      entity_id: string;
+      ledger_account_id: string;
+      fund_id: string;
+      side: Side;
+      amount_enc: Uint8Array;
+      location_id: string | null;
+      counterparty_entity_id: string | null;
+      category_id: string | null;
+      holder_person_id: string | null;
+      expense_event_id: string | null;
+    }>(
+      `select id, journal_id, entity_id, ledger_account_id, fund_id, side, amount_enc, location_id,
+              counterparty_entity_id, category_id, holder_person_id, expense_event_id
+       from finly.journal_line where journal_id = any($1::uuid[]) order by journal_id, line_no`,
+      [[...journals.keys()]],
+    )
+  ) {
+    journals.get(l.journal_id)!.lines.push({
+      entityId: l.entity_id,
+      accountId: l.ledger_account_id,
+      side: l.side,
+      amount: await cipher.decryptAmount(new Uint8Array(l.amount_enc), cryptoCtx('journal_line', 'amount_enc', l.id)),
+      fundId: l.fund_id,
+      locationId: l.location_id ?? undefined,
+      counterpartyId: l.counterparty_entity_id ?? undefined,
+      categoryId: l.category_id ?? undefined,
+      projectId: l.expense_event_id ?? undefined,
+      holderPersonId: l.holder_person_id ?? undefined,
+    });
+    for (const id of [l.entity_id, l.location_id, l.counterparty_entity_id, l.holder_person_id]) if (id) ids.add(id);
+  }
+  const created = await tx.query<{ id: string }>(
+    `select id from finly.open_item where origin_txn_id = $1 order by id`,
+    [txnId],
+  );
+  const allocations: PostedEvent['allocations'] = [];
+  for (
+    const a of await tx.query<{ id: string; open_item_id: string; amount_enc: Uint8Array; kind: SettlementKind }>(
+      `select a.id, a.open_item_id, a.amount_enc, a.kind from finly.settlement_allocation a
+       where a.settlement_txn_id = $1 and a.kind <> 'reversal'
+         and not exists (select 1 from finly.settlement_allocation r where r.reversal_of_id = a.id)
+       order by a.id`,
+      [txnId],
+    )
+  ) {
+    allocations.push({
+      id: a.id,
+      openItemId: a.open_item_id,
+      amount: await cipher.decryptAmount(
+        new Uint8Array(a.amount_enc),
+        cryptoCtx('settlement_allocation', 'amount_enc', a.id),
+      ),
+      kind: a.kind,
+    });
+  }
+  // Handovers are read, not locked: their state is re-checked by the conditional update that cancels them, after the
+  // journal chain head, where a confirmation of the same handover also writes (06 §6.3 lock order).
+  const handovers = await tx.query<{ id: string; custody_status: HandoverStatus }>(
+    `select id, custody_status from finly.custody_event where txn_id = $1 order by id`,
+    [txnId],
+  );
+  for (const o of created) ids.add(o.id);
+  for (const a of allocations) ids.add(a.openItemId);
+  return {
+    event: {
+      txnId,
+      intentType: t.intent_type,
+      status: t.status,
+      journals: [...journals.values()],
+      createdOpenItems: created.map((o) => o.id),
+      allocations,
+      handovers: handovers.map((h) => ({ id: h.id, status: h.custody_status })),
+    },
+    ids,
+  };
 }
 
 interface OpenItemRow {
@@ -116,7 +239,13 @@ export async function loadContext(
   opts: LoadOptions,
 ): Promise<DbContext> {
   const c = new DbContext();
-  const ids = [...idsIn(intent)];
+  const named = idsIn(intent);
+  if (intent.type === 'reversal' || intent.type === 'correction') {
+    const undone = await loadUndone(tx, cipher, intent.txnId, opts.lockOpenItems);
+    c.events.set(intent.txnId, undone.event);
+    for (const id of undone.ids) named.add(id);
+  }
+  const ids = [...named];
 
   const items = await tx.query<OpenItemRow>(
     `select id, kind, debtor_entity_id, creditor_entity_id, debtor_role, creditor_role, debtor_fund_id,

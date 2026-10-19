@@ -412,3 +412,79 @@ Deno.test('an amount with paise posts exactly and comes back exactly (D-045)', a
   const summary = await call<{ money: string }>('GET', `/v1/books/${me.personId}/summary`, { token: t });
   assertEquals(summary.body.money, '1050.50');
 });
+
+Deno.test('an entry is reversed or corrected through its own routes, with a reason, and only by someone who may', async () => {
+  const me = await person('Ila');
+  const t = me.token;
+  const place = (await call<{ id: string }>('POST', `/v1/books/${me.personId}/places`, {
+    token: t,
+    body: { name: 'Purse', kind: 'cash', typeKey: 'hand_cash' },
+  })).body.id;
+  const opening = (amount: string) => ({
+    typeKey: 'opening_balance',
+    bookId: me.personId,
+    valueDate: today,
+    intent: { type: 'opening_balance', entityId: me.personId, locationId: place, amount },
+  });
+  const first = await call<{ txnId: string }>('POST', '/v1/entries', {
+    token: t,
+    key: crypto.randomUUID(),
+    body: opening('1000'),
+  });
+  const balance = async () =>
+    (await call<{ items: { id: string; balance: string }[] }>('GET', `/v1/books/${me.personId}/places`, { token: t }))
+      .body.items.find((p) => p.id === place)?.balance;
+
+  // Undoing is not an ordinary entry: the generic route refuses it.
+  const disguised = await call<{ code: string }>('POST', '/v1/entries', {
+    token: t,
+    key: crypto.randomUUID(),
+    body: { ...opening('1'), typeKey: 'reversal', intent: { type: 'reversal', txnId: first.body.txnId } },
+  });
+  assertEquals(disguised.status, 422);
+
+  const check = await call<{ allowed: boolean; intent?: { type: string; amount: string } }>(
+    'GET',
+    `/v1/entries/${first.body.txnId}/undo-check`,
+    { token: t },
+  );
+  assertEquals(check.body.allowed, true);
+  assertEquals(check.body.intent?.amount, '1000', 'the recorded entry comes back in rupees, ready to correct');
+  const other = await person('Om');
+  assertEquals((await call('GET', `/v1/entries/${first.body.txnId}/undo-check`, { token: other.token })).status, 404);
+
+  const noReason = await call<{ code: string }>('POST', `/v1/entries/${first.body.txnId}/correct`, {
+    token: t,
+    key: crypto.randomUUID(),
+    body: { bookId: me.personId, valueDate: today, reason: '', replacement: opening('900.50').intent },
+  });
+  assertEquals(noReason.status, 422);
+  const fixed = await call<{ status: string; txnId: string }>('POST', `/v1/entries/${first.body.txnId}/correct`, {
+    token: t,
+    key: crypto.randomUUID(),
+    body: { bookId: me.personId, valueDate: today, reason: 'Counted again', replacement: opening('900.50').intent },
+  });
+  assertEquals([fixed.status, fixed.body.status], [201, 'posted']);
+  assertEquals(await balance(), '900.50');
+  const detail = await call<{ status: string; links: { kind: string; direction: string }[] }>(
+    'GET',
+    `/v1/entries/${first.body.txnId}`,
+    { token: t },
+  );
+  assertEquals(detail.body.status, 'corrected');
+  assertEquals(detail.body.links.map((l) => `${l.kind}:${l.direction}`), ['corrects:from']);
+
+  const reversed = await call<{ status: string }>('POST', `/v1/entries/${fixed.body.txnId}/reverse`, {
+    token: t,
+    key: crypto.randomUUID(),
+    body: { bookId: me.personId, valueDate: today, reason: 'Not mine after all' },
+  });
+  assertEquals(reversed.body.status, 'posted');
+  assertEquals(await balance(), '0');
+  const twice = await call<{ code: string }>('POST', `/v1/entries/${fixed.body.txnId}/reverse`, {
+    token: t,
+    key: crypto.randomUUID(),
+    body: { bookId: me.personId, valueDate: today, reason: 'Again' },
+  });
+  assertEquals([twice.status, twice.body.code], [409, 'ALREADY_REVERSED']);
+});

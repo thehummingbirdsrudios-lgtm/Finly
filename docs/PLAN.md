@@ -84,12 +84,12 @@ fingerprints. New strings go into the ARB files. REQUIREMENTS.md rows updated in
 | M0 | Stabilise and record | Hosted-runtime fix; app bugs H1, M1–M7; sources ADDON-23/24, GR-06; D-044…D-051; this plan; REQUIREMENTS.md; l10n infrastructure (en/hi/gu ARB, Mukta fonts, language setting) |
 | M1 | Authorisation and integrity defects (0018) | Scoped permissions in RLS; no self-grants; restrict `user_role_auth`; approval required for approved/cancelled; `ensure_periods` actor check; book-scoped parties; password-change throttle; session settings from `system_setting`; write project/payment method/memo/holder; transit ↔ custody event; handover policy |
 | M2 | Paise (0019) | Money type, intents, wire format, buckets, app input and display in paise |
-| M3 | Reversal and correction | Mirror journals, unwind balances/items/holds, settlement block, once only, open period, routes, app actions with preview |
+| M3 | Reversal and correction (0020) ✅ | Mirror journals, unwind balances/items/holds, settlement block, once only, open period, routes, app actions with preview (D-052) |
 | M4 | Reports and ledgers | TB, account/place/party ledgers with running balances, P&L, balance sheet, cash flow, aging, Explain Balance, as-of and ranges, CSV; Reports hub |
 | M5 | Dashboard and net worth | Home dashboard across permitted books, net worth (book vs market), trends, last-updated; new navigation |
 | M6 | Entry workflows, journal, attachments | Remaining intents as forms, common expense, credit cards, deposits, reimbursement, handover, expense events, manual journal, review sheet with journal preview, duplicates, recents; attachments in private storage |
-| M7 | Loans (0020) | Terms, schedules (D-048), disbursement, repayments by component, accrual, overdue, restructure, write-off, statements, reminders |
-| M8 | Assets and investments (0021) | Register, purchase (capitalised), disposal gain/loss, depreciation, revaluation, investments, deposits, book vs market |
+| M7 | Loans (0021) | Terms, schedules (D-048), disbursement, repayments by component, accrual, overdue, restructure, write-off, statements, reminders |
+| M8 | Assets and investments (0022) | Register, purchase (capitalised), disposal gain/loss, depreciation, revaluation, investments, deposits, book vs market |
 | M9 | Users, activation, lock, security, audit | Admin service, single-use activation codes, M-PIN, biometrics, auto-lock, step-up, recovery codes, TOTP for super admin, devices, audit viewer, support sessions |
 | M10 | Approvals, members, ownership | D-040 policies and inbox; members and grants; owners/partners; place access and holder; setup wizard |
 | M11 | Documents and sharing | PDF receipts, vouchers, statements, reports; CSV/XLSX; preview → verify → share; history |

@@ -59,10 +59,14 @@ class DateField extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.label,
+    this.earliest,
   });
   final String value;
   final ValueChanged<String> onChanged;
   final String? label;
+
+  /// The first day that may be picked (yyyy-mm-dd); a reversal is never dated before the entry it undoes.
+  final String? earliest;
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +78,7 @@ class DateField extends StatelessWidget {
         final picked = await showDatePicker(
           context: context,
           initialDate: current.isAfter(now) ? now : current,
-          firstDate: DateTime(2000),
+          firstDate: DateTime.tryParse(earliest ?? '') ?? DateTime(2000),
           lastDate: now,
           helpText: context.l10n.dateWhenMoved,
         );

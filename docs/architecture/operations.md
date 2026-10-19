@@ -71,12 +71,18 @@ Depends on the approval rule, the approver's permission and segregation of dutie
 last approval runs the whole posting (2.1) in the same transaction; a rejection releases the hold. Two approvers at
 once: the txn row lock — the second sees "already decided".
 
-### 2.6 Reverse or correct
+### 2.6 Reverse or correct (D-052)
 
-Depends on the original posted event and everything derived from it: `journal`, `open_item.origin_txn_id`,
-`settlement_allocation`, `custody_event`, `txn_link`. Mirror journals + replacement event (correction) + links + item
-status changes, atomically. Refused with an explanation while settlements of its open items exist (reverse those
-first). Posted rows never change (`F1001`).
+| | |
+|---|---|
+| Depends on | The original posted event and everything derived from it: `journal`/`journal_line`, `open_item.origin_txn_id`, `settlement_allocation`, `custody_event`, `txn_link` — loaded by `loadUndone` (`posting/context.ts`) |
+| Atomic | Mirror journals (`reversal_of_journal_id`) + the replacement's journals, items and settlements (correction) + `reversal` allocations restoring what the original settled + its unsettled items → `reversed` + waiting handovers → `cancelled` + original → `reversed`/`corrected` + `txn_link` + audit of both events + balances, in the normal posting pipeline (two-phase submit, idempotency key, holds, acknowledgement) |
+| Locks | The undone event's `txn` row after the reversal's own (both before slices), then every open item touched in id order; handovers are cancelled by a conditional update after the chain head, where a confirmation also writes |
+| Refused | Already reversed/corrected (`ALREADY_REVERSED`); a reversal itself; an item it created partly or fully settled (`REVERSAL_BLOCKED_BY_SETTLEMENT`); a confirmed handover; an account or place deactivated since (Q10); no reason; a date before the original or in a closed month; a second live attempt (`txn_one_live_reversal`); without `txn.reverse` in a firm it changes |
+| Dry run | `GET /v1/entries/:id/undo-check` answers with the same engine and rights, writing nothing; it returns the recorded request (for a correction form) only when every book and leg is visible to the actor |
+| Routes | `POST /v1/entries/:id/reverse` `{bookId, valueDate, reason}`; `POST /v1/entries/:id/correct` `{bookId, valueDate, reason, replacement}` (Idempotency-Key as for entries) |
+
+Posted rows never change (`F1001`).
 
 ### 2.7 Close or reopen a period
 

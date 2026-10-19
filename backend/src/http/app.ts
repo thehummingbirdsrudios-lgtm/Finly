@@ -104,6 +104,14 @@ export function createApi(deps: ApiDeps): (req: Request, remoteAddr?: string) =>
     if (!isUuid(v)) fail('NOT_FOUND', 'That was not found.');
     return v;
   };
+  /** The client's promise that a resend is the same request (a UUID per entry, kept across retries). */
+  const idempotencyKey = (c: Ctx) => {
+    const key = c.req.headers.get('idempotency-key') ?? '';
+    if (!isUuid(key)) {
+      fail('VALIDATION', 'Send a new Idempotency-Key (a UUID) with every entry.', { field: 'Idempotency-Key' });
+    }
+    return key;
+  };
 
   // Health ------------------------------------------------------------------------------------------------------
   add('GET', '/v1/health', 'none', async (c) => {
@@ -239,10 +247,7 @@ export function createApi(deps: ApiDeps): (req: Request, remoteAddr?: string) =>
     return json(await deps.activity.entry(me(c).userId, id(c, 'id')), 200, c.requestId);
   });
   add('POST', '/v1/entries', 'full', async (c) => {
-    const key = c.req.headers.get('idempotency-key') ?? '';
-    if (!isUuid(key)) {
-      fail('VALIDATION', 'Send a new Idempotency-Key (a UUID) with every entry.', { field: 'Idempotency-Key' });
-    }
+    const key = idempotencyKey(c);
     const b = parse(
       z.object({
         typeKey: z.string().min(1).max(63),
@@ -265,6 +270,47 @@ export function createApi(deps: ApiDeps): (req: Request, remoteAddr?: string) =>
       reason: b.reason,
       deviceId: a.deviceId,
       followsTxnId: b.followsTxnId,
+    });
+    return json(r, r.replayed ? 200 : 201, c.requestId);
+  });
+  // Reverse or correct (RULEBOOK-01 §56–57): a new event that undoes a posted one, through the same posting pipeline —
+  // the same idempotency, locks, rights and acknowledgements as any entry.
+  add('GET', '/v1/entries/:id/undo-check', 'full', async (c) => {
+    const today = parse(date, c.url.searchParams.get('date') ?? new Date().toISOString().slice(0, 10));
+    return json(await deps.posting.undoCheck(me(c).userId, id(c, 'id'), today), 200, c.requestId);
+  });
+  const undoBody = z.object({ bookId: uuid, valueDate: date, reason: z.string().trim().min(1).max(500) });
+  add('POST', '/v1/entries/:id/reverse', 'full', async (c) => {
+    const key = idempotencyKey(c);
+    const b = parse(undoBody, await readJson(c.req));
+    const a = me(c);
+    const r = await deps.posting.submit({
+      actorUserId: a.userId,
+      idempotencyKey: key,
+      txnTypeKey: 'reversal',
+      intent: { type: 'reversal', txnId: id(c, 'id') },
+      valueDate: b.valueDate,
+      primaryEnvId: b.bookId,
+      reason: b.reason,
+      deviceId: a.deviceId,
+    });
+    return json(r, r.replayed ? 200 : 201, c.requestId);
+  });
+  add('POST', '/v1/entries/:id/correct', 'full', async (c) => {
+    const key = idempotencyKey(c);
+    const b = parse(undoBody.extend({ replacement: z.unknown() }), await readJson(c.req));
+    const replacement = parseIntent(b.replacement);
+    if (replacement.type === 'transit_confirm') fail('VALIDATION', 'Choose what the entry should have been.');
+    const a = me(c);
+    const r = await deps.posting.submit({
+      actorUserId: a.userId,
+      idempotencyKey: key,
+      txnTypeKey: 'correction',
+      intent: { type: 'correction', txnId: id(c, 'id'), replacement },
+      valueDate: b.valueDate,
+      primaryEnvId: b.bookId,
+      reason: b.reason,
+      deviceId: a.deviceId,
     });
     return json(r, r.replayed ? 200 : 201, c.requestId);
   });

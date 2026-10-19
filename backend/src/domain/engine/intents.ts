@@ -1,6 +1,6 @@
 /**
  * Business intents: what happened in the real world, in the user's terms (source, destination, owner, purpose,
- * amount). The engine turns an intent into balanced journals (ACCOUNTING-ENGINE.md §5). Amounts are whole rupees.
+ * amount). The engine turns an intent into balanced journals (ACCOUNTING-ENGINE.md §5). Amounts are paise (D-045).
  */
 import type { Id } from '../ids.ts';
 import type { Paise } from '../money.ts';
@@ -221,7 +221,28 @@ export interface CashAdjustmentIntent {
   categoryId: Id;
 }
 
+/**
+ * Undo a posted entry completely (RULEBOOK-01 §56): mirror journals of its own effect, its unsettled open items
+ * reversed, what it settled given back. The original is kept and marked `reversed`.
+ */
+export interface ReversalIntent {
+  type: 'reversal';
+  txnId: Id;
+}
+
+/**
+ * Replace a posted entry (RULEBOOK-01 §57, RULEBOOK-02 §91–92): its reversal and the right entry, posted together as
+ * one event. The original is kept and marked `corrected`. A partial correction is a replacement with the right amount.
+ */
+export interface CorrectionIntent {
+  type: 'correction';
+  txnId: Id;
+  replacement: Intent;
+}
+
 export type Intent =
+  | ReversalIntent
+  | CorrectionIntent
   | TransferIntent
   | TransitConfirmIntent
   | ExpenseIntent

@@ -1,9 +1,11 @@
 /**
  * Writes a checked plan into the ledger tables (docs/database/06 §6.2 steps 11–14): journals and lines on the global
  * journal hash chain, open items with the lines that created them, settlement allocations against locked items, and
- * custody events for money moved between places. Every amount is encrypted with its row's own context. Callers hold
- * the period, open-item and slice locks already; this module takes the reference counter and then the chain head,
- * in that order (06 §6.3).
+ * custody events for money moved between places. A reversal or correction also gives back what the undone event
+ * settled, closes the open items it created, cancels its waiting handovers, and moves it to `reversed` or `corrected`
+ * with a link — nothing posted is edited. Every amount is encrypted with its row's own context. Callers hold the
+ * period, open-item and slice locks already; this module takes the reference counter and then the chain head, in
+ * that order (06 §6.3).
  */
 import { type Cipher, ctx } from '../../crypto/cipher.ts';
 import type { HashChain } from '../../crypto/chain.ts';
@@ -34,6 +36,7 @@ export function journalContent(j: {
   kind: string;
   periodId: Id;
   valueDate: string;
+  reversalOfJournalId?: Id;
   lines: { id: Id; lineNo: number; line: PlannedLine }[];
 }): Record<string, unknown> {
   return {
@@ -44,6 +47,8 @@ export function journalContent(j: {
     kind: j.kind,
     period: j.periodId,
     date: j.valueDate,
+    // Only reversals carry it, so the content of every other journal hashes exactly as before.
+    ...(j.reversalOfJournalId ? { reverses: j.reversalOfJournalId } : {}),
     lines: j.lines.map(({ id, lineNo, line }) => ({
       id,
       no: lineNo,
@@ -109,8 +114,8 @@ export async function writeLedger(
     seq += 1n;
     await tx.query(
       `insert into finly.journal (id, txn_id, entity_id, step, kind, period_id, value_date, posted_by_user_id,
-         chain_seq, prev_hash, content_hash, hash_key_version)
-       values ($1, $2, $3, $4, $5, $6, $7::date, $8, $9, $10, $11, $12)`,
+         chain_seq, prev_hash, content_hash, hash_key_version, reversal_of_journal_id)
+       values ($1, $2, $3, $4, $5, $6, $7::date, $8, $9, $10, $11, $12, $13)`,
       [
         journalId,
         txnId,
@@ -124,6 +129,7 @@ export async function writeLedger(
         prev,
         hash,
         version,
+        j.reversalOfJournalId ?? null,
       ],
     );
     for (const { id, lineNo, line } of lines) {
@@ -214,7 +220,29 @@ export async function writeLedger(
     openItemIds.push(id);
   }
 
-  const settled = new Map<Id, bigint>();
+  // What is still owed on each item touched: an unwind gives back what the undone event settled first, then this
+  // event's own settlements apply — so a correction may settle again what the corrected payment settled. Every item
+  // was locked FOR UPDATE when the context was loaded and is written once.
+  const remaining = new Map<Id, bigint>();
+  const owedNow = (itemId: Id) => remaining.get(itemId) ?? c.openItem(itemId).remaining;
+  const unwind = plan.unwind;
+  for (const a of unwind?.restoredAllocations ?? []) {
+    const id = uuidv7();
+    await tx.query(
+      `insert into finly.settlement_allocation (id, settlement_txn_id, open_item_id, kind, amount_enc, key_version,
+         reversal_of_id)
+       values ($1, $2, $3, 'reversal', $4, $5, $6)`,
+      [
+        id,
+        txnId,
+        a.openItemId,
+        await cipher.encryptAmount(a.amount, ctx('settlement_allocation', 'amount_enc', id)),
+        version,
+        a.allocationId,
+      ],
+    );
+    remaining.set(a.openItemId, owedNow(a.openItemId) + a.amount);
+  }
   for (const s of plan.settlements) {
     const id = uuidv7();
     await tx.query(
@@ -229,27 +257,63 @@ export async function writeLedger(
         version,
       ],
     );
-    settled.set(s.openItemId, (settled.get(s.openItemId) ?? 0n) + s.amount);
+    remaining.set(s.openItemId, owedNow(s.openItemId) - s.amount);
   }
-  for (const [itemId, amount] of settled) {
-    const item = c.openItem(itemId); // locked FOR UPDATE when the context was loaded
-    if (amount > item.remaining) fail('SETTLEMENT_EXCEEDS_REMAINING', 'This settles more than is still outstanding.');
-    const remaining = item.remaining - amount;
+  for (const [itemId, left] of remaining) {
+    const item = c.openItem(itemId);
+    if (left < 0n) fail('SETTLEMENT_EXCEEDS_REMAINING', 'This settles more than is still outstanding.');
+    if (left > item.original) fail('INTEGRITY', 'An outstanding item would be owed more than it started with.');
     await tx.query(
       `update finly.open_item set remaining_enc = $2, key_version = $3, item_status = $4,
          settled_at = case when $4 = 'settled' then now() end, version = version + 1
        where id = $1`,
       [
         itemId,
-        await cipher.encryptAmount(remaining, ctx('open_item', 'remaining_enc', itemId)),
+        await cipher.encryptAmount(left, ctx('open_item', 'remaining_enc', itemId)),
         version,
-        remaining === 0n ? 'settled' : 'partially_settled',
+        left === 0n ? 'settled' : left === item.original ? 'open' : 'partially_settled',
       ],
     );
   }
 
-  if (input.intent.type === 'transfer') {
-    const t = input.intent;
+  if (unwind) {
+    for (const itemId of unwind.reversedOpenItems) {
+      const closed = await tx.query(
+        `update finly.open_item set item_status = 'reversed', version = version + 1
+         where id = $1 and item_status = 'open' returning id`,
+        [itemId],
+      );
+      if (closed.length === 0) {
+        fail('REVERSAL_BLOCKED_BY_SETTLEMENT', 'Part of what this entry left owing has been settled meanwhile.');
+      }
+    }
+    if (unwind.cancelledHandovers.length > 0) {
+      // Conditional, after the chain head: a confirmation of the same handover writes here too, so one of them wins.
+      const cancelled = await tx.query(
+        `update finly.custody_event set custody_status = 'cancelled'
+         where id = any($1::uuid[]) and custody_status in ('awaiting_confirmation', 'disputed') returning id`,
+        [unwind.cancelledHandovers],
+      );
+      if (cancelled.length !== unwind.cancelledHandovers.length) {
+        fail('CONFLICT', 'The handover was confirmed meanwhile. Record a transfer back instead.');
+      }
+    }
+    const corrected = input.intent.type === 'correction';
+    const moved = await tx.query(
+      `update finly.txn set status = $2 where id = $1 and status = 'posted' returning id`,
+      [unwind.txnId, corrected ? 'corrected' : 'reversed'],
+    );
+    if (moved.length === 0) fail('ALREADY_REVERSED', 'This entry was already reversed or corrected.');
+    await tx.query(
+      `insert into finly.txn_link (from_txn_id, to_txn_id, kind, created_by) values ($1, $2, $3, $4)`,
+      [txnId, unwind.txnId, corrected ? 'corrects' : 'reverses', input.actorUserId],
+    );
+  }
+
+  // A correction's own effect is its replacement: a replacement transfer records its handover like any transfer.
+  const effect = input.intent.type === 'correction' ? input.intent.replacement : input.intent;
+  if (effect.type === 'transfer') {
+    const t = effect;
     const id = uuidv7();
     await tx.query(
       `insert into finly.custody_event (id, txn_id, entity_id, fund_id, from_location_id, to_location_id,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/api/models.dart';
@@ -9,6 +10,7 @@ import '../../core/money.dart';
 import '../../core/providers.dart';
 import '../../core/widgets.dart';
 import '../../l10n/l10n.dart';
+import 'correction.dart';
 
 /// One entry in full, limited to the books the person may see: each book's journal lines (or its legs while the
 /// entry waits), who still has to acknowledge it, what it continues, and what it left owing.
@@ -96,17 +98,29 @@ class EntryDetailScreen extends ConsumerWidget {
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.link_rounded),
                   title: Text(link.reference ?? l.entryHiddenLink),
-                  subtitle: Text(
-                    link.direction == 'to'
-                        ? l.entryLinkTo(link.kind.replaceAll('_', ' '))
-                        : l.entryLinkFrom(link.kind.replaceAll('_', ' ')),
-                  ),
+                  subtitle: Text(_linkText(l, link.kind, link.direction)),
+                  onTap: link.reference == null
+                      ? null
+                      : () => context.push('/entries/${link.txnId}'),
                 ),
             ],
+            if (e.undoable) _UndoActions(entry: e),
           ],
         ),
       ),
     );
+  }
+
+  /// How two entries relate, said from this entry's side and in the person's language.
+  static String _linkText(AppLocalizations l, String kind, String direction) {
+    final to = direction == 'to';
+    return switch (kind) {
+      'reverses' => to ? l.linkReversesTo : l.linkReversesFrom,
+      'corrects' => to ? l.linkCorrectsTo : l.linkCorrectsFrom,
+      'follows' => to ? l.linkFollowsTo : l.linkFollowsFrom,
+      'confirms' => to ? l.linkConfirmsTo : l.linkConfirmsFrom,
+      _ => l.linkOther,
+    };
   }
 
   /// A plain-text summary through the Android share sheet (WhatsApp or anything else the person picks). Only what
@@ -152,6 +166,65 @@ class EntryDetailScreen extends ConsumerWidget {
         ShareParams(text: lines.join('\n'), subject: 'Finly ${e.reference}'),
       );
     }
+  }
+}
+
+/// Reverse and correct, offered only when the server's own rules allow it today. A refusal the person can act on (a
+/// settlement to undo first, a reversal already waiting) is shown in words; a missing right shows nothing at all.
+class _UndoActions extends ConsumerWidget {
+  const _UndoActions({required this.entry});
+  final EntryDetail entry;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final check = ref.watch(undoCheckProvider(entry.id)).value;
+    if (check == null) return const SizedBox.shrink();
+    final l = context.l10n;
+    if (!check.allowed) {
+      if (check.problemCode == 'FORBIDDEN') return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(top: FyDims.space4),
+        child: FormMessage(undoProblemText(context, check), error: false),
+      );
+    }
+    final target = correctionTarget(check.intent);
+    return Padding(
+      padding: const EdgeInsets.only(top: FyDims.space6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.edit_note_rounded),
+                  label: Text(l.entryCorrect),
+                  onPressed: target == null
+                      ? null
+                      : () => context.push(
+                          '/books/${target.bookId}/correct/${entry.id}'
+                          '?kind=${target.kind.name}',
+                        ),
+                ),
+              ),
+              const SizedBox(width: FyDims.space3),
+              Expanded(
+                child: FilledButton.tonalIcon(
+                  icon: const Icon(Icons.undo_rounded),
+                  label: Text(l.entryReverse),
+                  onPressed: () => context.push('/entries/${entry.id}/reverse'),
+                ),
+              ),
+            ],
+          ),
+          if (target == null)
+            Padding(
+              padding: const EdgeInsets.only(top: FyDims.space2),
+              child: Text(l.correctByReversing, style: context.text.bodySmall),
+            ),
+        ],
+      ),
+    );
   }
 }
 

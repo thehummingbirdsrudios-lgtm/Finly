@@ -16,11 +16,12 @@ export function checkJournal(journal: PlannedJournal, ctx: EngineContext): void 
   const perFund = new Map<string, Paise>();
   for (const line of journal.lines) {
     if (typeof line.amount !== 'bigint' || line.amount <= 0n || line.amount > MAX_AMOUNT) {
-      fail('AMOUNT_INVALID', 'Every amount must be a whole number of rupees above zero.');
+      fail('AMOUNT_INVALID', 'Every amount must be more than zero and within the limit.');
     }
     if (line.entityId !== journal.entityId) fail('UNBALANCED_JOURNAL', 'This entry could not be balanced.');
     const account = ctx.account(line.accountId);
     if (account.entityId !== line.entityId) fail('ACCOUNT_NOT_FOUND', 'An account in this entry belongs elsewhere.');
+    // A reversal too: an account deactivated since the original is reactivated first (08-open-questions Q10).
     if (!account.active) {
       fail('ACCOUNT_INACTIVE', `The account "${account.name}" is no longer active.`, { accountId: account.id });
     }
@@ -39,6 +40,9 @@ export function checkJournal(journal: PlannedJournal, ctx: EngineContext): void 
     if (line.side === 'Dr') dr += line.amount;
     else cr += line.amount;
     perFund.set(line.fundId, (perFund.get(line.fundId) ?? 0n) + signed);
+  }
+  if ((journal.kind === 'reversal') !== (journal.reversalOfJournalId !== undefined)) {
+    fail('INTEGRITY', 'A reversal journal must name the journal it mirrors.');
   }
   if (dr !== cr) fail('UNBALANCED_JOURNAL', 'This entry could not be balanced.', { debits: dr, credits: cr });
   for (const [fundId, net] of perFund) {

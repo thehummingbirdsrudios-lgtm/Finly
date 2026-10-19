@@ -4461,6 +4461,7 @@ Master transaction: one real-world event (H7). Its accounting is in journal/jour
 | change_xid | xid8 | no | pg_current_xact_id() | Transaction that last wrote the row; mobile delta-sync cursor (06 §6.6) |  |  |
 | intent_enc | finly.ciphertext | yes |  | The request this event was created from (AES-256-GCM, bound to txn.intent_enc:<id>). Re-planned under lock at posting; frozen after submission. | C — encrypted (AES-256-GCM, keys outside the database) |  |
 | key_version | integer | yes |  | Key version of intent_enc (rotation) |  |  |
+| reverses_txn_id | uuid | yes |  | For a reversal or correction: the posted event it undoes. At most one live attempt per event (txn_one_live_reversal). |  |  |
 
 **Keys and constraints**
 
@@ -4470,6 +4471,8 @@ Master transaction: one real-world event (H7). Its accounting is in journal/jour
 - Check: `CHECK (((intent_enc IS NULL) = (key_version IS NULL)))`
 - Check: `CHECK ((length(reason) <= 500))`
 - Check: `CHECK ((reference ~ '^TX-[0-9]{8}-[0-9]{6}$'::text))`
+- Check: `CHECK (((intent_type = ANY (ARRAY['reversal'::text, 'correction'::text])) = (reverses_txn_id IS NOT NULL)))`
+- Check: `CHECK ((reverses_txn_id <> id))`
 - Check: `CHECK ((status = ANY (ARRAY['draft'::text, 'pending_approval'::text, 'approved'::text, 'pending_acknowledgement'::text, 'posted'::text, 'rejected'::text, 'failed'::text, 'cancelled'::text, 'reversed'::text, 'corrected'::text])))`
 - Foreign key: `FOREIGN KEY (confidentiality_level_id) REFERENCES finly.confidentiality_level(id)`
 - Foreign key: `FOREIGN KEY (created_by_user_id) REFERENCES finly.app_user(id)`
@@ -4478,6 +4481,7 @@ Master transaction: one real-world event (H7). Its accounting is in journal/jour
 - Foreign key: `FOREIGN KEY (handled_by_entity_id) REFERENCES finly.entity(id)`
 - Foreign key: `FOREIGN KEY (payment_method_list, payment_method_id) REFERENCES finly.lookup_value(list_key, id)`
 - Foreign key: `FOREIGN KEY (primary_env_id) REFERENCES finly.entity(id)`
+- Foreign key: `FOREIGN KEY (reverses_txn_id) REFERENCES finly.txn(id)`
 - Foreign key: `FOREIGN KEY (txn_type_id) REFERENCES finly.txn_type(id)`
 - n: `NOT NULL change_xid`
 - n: `NOT NULL created_by_user_id`
@@ -4507,6 +4511,7 @@ Master transaction: one real-world event (H7). Its accounting is in journal/jour
 - `txn_pending_idx btree (primary_env_id, status, value_date DESC) WHERE (status = ANY (ARRAY['draft'::text, 'pending_approval'::text, 'approved'::text, 'failed'::text]))`
 - `txn_search_idx gin (search_tsv)`
 - `UNIQUE txn_id_value_date_key btree (id, value_date)`
+- `UNIQUE txn_one_live_reversal btree (reverses_txn_id) WHERE ((reverses_txn_id IS NOT NULL) AND (status <> ALL (ARRAY['rejected'::text, 'failed'::text, 'cancelled'::text])))`
 - `UNIQUE txn_reference_key btree (reference)`
 
 **Row-level security policies**

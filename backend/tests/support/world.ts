@@ -41,9 +41,9 @@ export function exampleWorld() {
 
 export type World = ReturnType<typeof exampleWorld>;
 
-/** Plans, checks and applies an intent; returns created open item ids. */
+/** Plans, checks and applies an intent as one posted event (`w.lastTxnId`); returns created open item ids. */
 export function post(w: MemoryLedger, intent: Intent): Id[] {
-  return w.apply(planPosting(intent, w));
+  return w.apply(planPosting(intent, w), { intentType: intent.type });
 }
 
 /** Every entity's trial balance balances and inter-entity balances are reciprocal. */

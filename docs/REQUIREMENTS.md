@@ -128,7 +128,7 @@ Abbreviations: UMA = ADDON-23; DEC = DECISIONS.md; tests are under `backend/test
 | ACC-13 | Available money check at commit | BP AC9 | ✅ | — | `PostingService` · `app/posting_test.ts` |
 | ACC-14 | Client sends the operation, never balances | BP J1–J2 | ✅ | — | intents API |
 | ACC-15 | Atomic commit of journals, balances, items, audit, outbox | BP J4 | ✅ | — | `db/outbox_intent_test.ts` |
-| ACC-16 | State machine incl. pending acknowledgement, reversed, corrected | BP J5, D-029 | 🟡 | M3 | reversed/corrected not reachable |
+| ACC-16 | State machine incl. pending acknowledgement, reversed, corrected | BP J5, D-029 | ✅ | — | posted → reversed/corrected by the writer only (D-052) · `app/reversal_test.ts` |
 | ACC-17 | Idempotency key on every mutation | BP J3 | ✅ | — | `idempotency_record` · `app/posting_test.ts` |
 | ACC-18 | Lock order; two concurrent spends — one wins | BP J3 | ✅ | — | `db/concurrency_test.ts` (PG17/18) |
 | ACC-19 | Impact preview | BP G1–G5 | ⬜ | M6 | |
@@ -160,7 +160,7 @@ Abbreviations: UMA = ADDON-23; DEC = DECISIONS.md; tests are under `backend/test
 | ACC-45 | Explain Balance | BP AC13 | ⬜ | M4 | |
 | ACC-46 | Transactional outbox with idempotent consumers | A-15 §9 | 🟡 | M14 | outbox written; no consumer |
 | ACC-47 | Expense policy per company | BP J7 | ⬜ | M10 | |
-| ACC-48 | ADDON-23's ten mandatory accounting rules | UMA §2 | 🟡 | M3–M8 | rules 1–5, 8, 10 covered by engine/tests; 6–7 in M8; 9 in M3 |
+| ACC-48 | ADDON-23's ten mandatory accounting rules | UMA §2 | 🟡 | M8 | rules 1–5 and 8–10 covered by engine/tests (9: `engine/reversal_test.ts`); 6–7 in M8 |
 | ACC-49 | Reconciliation (expected/actual/difference/resolution) | BP S, A-20 §15 | ⬜ | M12 | `reconciliation` table only |
 | ACC-50 | Bank, card, UPI, wallet scenarios | RB3 §44–46 | ⬜ | M6 | |
 | ACC-51 | Overdraft / negative-balance rules per account | BP H6, J3 | 🟡 | M6 | `negative_policy` forbid only effective |
@@ -192,9 +192,9 @@ Abbreviations: UMA = ADDON-23; DEC = DECISIONS.md; tests are under `backend/test
 | ENTRY-17 | Single review sheet with impact preview | BP UX3, G5 | ⬜ | M6 | |
 | ENTRY-18 | Duplicate warning with reason | BP J3 | ⬜ | M6 | |
 | ENTRY-19 | Repeat last, templates, recents | BP UX3 | ⬜ | M6 | |
-| ENTRY-20 | Drafts autosaved; posted entries corrected, never edited | BP UX1, UMA §6 | 🟡 | M3, M13 | posted immutable ✅; drafts in M13 |
+| ENTRY-20 | Drafts autosaved; posted entries corrected, never edited | BP UX1, UMA §6 | 🟡 | M13 | posted immutable and corrected by a linked event ✅ (`app/reversal_test.ts`, `app/test/reversal_test.dart`); drafts in M13 |
 | ENTRY-21 | Entries into another person's books await acknowledgement | GR-03 Q1, D-029 | ✅ | — | `acknowledge` · `app/posting_test.ts`; inbox screen |
-| ENTRY-22 | Detail page with sentence, status, links, audit | BP F4, UMA §6 | 🟡 | M3, M9 | `entry_detail_screen.dart`; audit trail missing |
+| ENTRY-22 | Detail page with sentence, status, links, audit | BP F4, UMA §6 | 🟡 | M9 | `entry_detail_screen.dart` with translated, tappable links and reverse/correct; audit trail missing |
 | ENTRY-23 | Universal entry for all types (method, reference, notes, attachments) | UMA §6 | 🟡 | M6 | |
 | ENTRY-24 | Reference `TX-YYYYMMDD-NNNNNN` | BP H7 | ✅ | — | `next_reference` · smoke |
 | ENTRY-25 | Batch / spreadsheet daily entry | A-21 §3.3 | ⬜ | M15 | |
@@ -204,17 +204,17 @@ Abbreviations: UMA = ADDON-23; DEC = DECISIONS.md; tests are under `backend/test
 
 | ID | Requirement | Source | Status | M | Implementation · proof |
 |---|---|---|---|---|---|
-| COR-01 | Posted history immutable; reverse/correct/adjust only | BP H15, UMA §2 | 🟡 | M3 | immutability triggers · `db/lifecycle_test.ts` |
-| COR-02 | Reversal = exact mirror, linked; open period if original closed | BP AC10 ex13 | ⬜ | M3 | `mirror()` unused |
-| COR-03 | Correction = reversal + new linked event | BP AC1 | ⬜ | M3 | |
-| COR-04 | Blocked while settlements depend on it | BP EC5 | ⬜ | M3 | |
-| COR-05 | No double reversal | BP EC5 | 🟡 | M3 | unique index · `db/lifecycle_test.ts` |
-| COR-06 | Inter-entity reversal atomic | BP EC5 | ⬜ | M3 | |
-| COR-07 | Partial reversal = linked adjustment/refund | OQ Q12 | ⬜ | M3 | |
-| COR-08 | Reversal into a deactivated account refused | OQ Q10 | ⬜ | M3 | |
-| COR-09 | Impact preview for reversal/correction | BP G5 | ⬜ | M3 | |
-| COR-10 | Reverse permission separate; step-up for high value | BP L2, N12 | ⬜ | M3, M9 | `txn.reverse` seeded |
-| COR-11 | Drafts/pending void without ledger effect | RB1 §58 | 🟡 | M3 | refused drafts marked failed |
+| COR-01 | Posted history immutable; reverse/correct/adjust only | BP H15, UMA §2 | ✅ | — | immutability triggers · `db/lifecycle_test.ts`; reversal and correction (D-052) · `app/reversal_test.ts` |
+| COR-02 | Reversal = exact mirror, linked; open period if original closed | BP AC10 ex13 | ✅ | — | `undo()`/`mirror()` with `reversal_of_journal_id`, `txn_link 'reverses'`; dated on or after the original (default today), refused in a closed month · `engine/reversal_test.ts`, `app/reversal_test.ts` (month close itself: M14) |
+| COR-03 | Correction = reversal + new linked event | BP AC1 | ✅ | — | one `correction` event: mirrors, then the replacement; `txn_link 'corrects'` · `engine/reversal_test.ts`, `app/reversal_test.ts`, `http/api_test.ts` |
+| COR-04 | Blocked while settlements depend on it | BP EC5 | ✅ | — | `REVERSAL_BLOCKED_BY_SETTLEMENT`; settlements given back by `reversal` allocations · `engine/reversal_test.ts`, `app/reversal_test.ts` |
+| COR-05 | No double reversal | BP EC5 | ✅ | — | status check under the original's row lock, `txn_link_reversed_once`, `journal_reversed_once`, one live attempt (`txn_one_live_reversal`, 0020) · `app/reversal_test.ts` |
+| COR-06 | Inter-entity reversal atomic | BP EC5 | ✅ | — | every book's mirror in one posting; someone else's personal books acknowledge first · `engine/reversal_test.ts`, `app/reversal_test.ts` |
+| COR-07 | Partial reversal = linked adjustment/refund | OQ Q12 | ✅ | — | a correction with the right amount (never a partial mirror, D-052) · `engine/reversal_test.ts` |
+| COR-08 | Reversal into a deactivated account refused | OQ Q10 | ✅ | — | `ACCOUNT_INACTIVE` / `LOCATION_INACTIVE` until reactivated · `engine/reversal_test.ts` |
+| COR-09 | Impact preview for reversal/correction | BP G5 | 🟡 | M6 | reversal preview per book (`reverse_screen.dart`) · `app/test/reversal_test.dart`; correction journal preview with ACC-19 |
+| COR-10 | Reverse permission separate; step-up for high value | BP L2, N12 | 🟡 | M9 | `txn.reverse` per book, never implied by `txn.create` (`policy.ts`) · `app/reversal_test.ts`; step-up in M9 |
+| COR-11 | Drafts/pending void without ledger effect | RB1 §58 | 🟡 | M10 | refused drafts marked failed; a rejected reversal frees the entry · `app/reversal_test.ts`; the maker's withdrawal with approvals (M10) |
 | COR-12 | Reclassification, account merge, debt↔capital | RB2 §134 | ⬜ | M15 | |
 
 ## APR — approvals

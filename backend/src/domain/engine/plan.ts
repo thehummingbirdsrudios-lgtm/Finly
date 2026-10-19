@@ -15,11 +15,12 @@ import type {
   PlannedLine,
   PlannedOpenItem,
   PlannedSettlement,
+  PlannedUnwind,
   PostingPlan,
   SettlementKind,
   Side,
 } from '../ledger/types.ts';
-import { type EngineContext, type EntityInfo, MONEY_ROLE } from './context.ts';
+import { type EngineContext, type EntityInfo, MONEY_ROLE, type PostedJournal } from './context.ts';
 import type * as I from './intents.ts';
 
 class PlanBuilder {
@@ -743,6 +744,10 @@ function loan(ctx: EngineContext, it: I.LoanIntent): PostingPlan {
 function loanRepayment(ctx: EngineContext, it: I.LoanRepaymentIntent): PostingPlan {
   const item = ctx.openItem(it.loanOpenItemId);
   if (item.kind !== 'loan') fail('VALIDATION', 'This is not a loan.');
+  // Interest may still be paid on a loan repaid in full; never on one reversed or written off.
+  if (item.status === 'reversed' || item.status === 'written_off') {
+    fail('VALIDATION', 'This loan was reversed or written off.', { openItemId: item.id });
+  }
   if (it.principal < 0n || it.interest < 0n || it.principal + it.interest === 0n) {
     fail('AMOUNT_INVALID', 'Enter the principal and interest being repaid.');
   }
@@ -872,6 +877,11 @@ function offset(ctx: EngineContext, it: I.OffsetIntent): PostingPlan {
   if (a.debtorId !== c.creditorId || a.creditorId !== c.debtorId) {
     fail('VALIDATION', 'These two items are not owed in opposite directions between the same two entities.');
   }
+  for (const item of [a, c]) {
+    if (item.status === 'settled' || item.status === 'reversed' || item.status === 'written_off') {
+      fail('VALIDATION', 'This item is already closed.', { openItemId: item.id });
+    }
+  }
   if (it.amount > a.remaining || it.amount > c.remaining) {
     fail('SETTLEMENT_EXCEEDS_REMAINING', 'The set-off is larger than what remains on one of the items.');
   }
@@ -918,6 +928,10 @@ function cashAdjustment(ctx: EngineContext, it: I.CashAdjustmentIntent): Posting
 /** Business intent → posting plan. Throws `FinlyError` with a plain-language message when the intent is invalid. */
 export function planPosting(intent: I.Intent, ctx: EngineContext): PostingPlan {
   switch (intent.type) {
+    case 'reversal':
+      return reversal(ctx, intent);
+    case 'correction':
+      return correction(ctx, intent);
     case 'transfer':
       return transfer(ctx, intent);
     case 'transit_confirm':
@@ -956,11 +970,135 @@ export function planPosting(intent: I.Intent, ctx: EngineContext): PostingPlan {
 }
 
 /** The exact mirror of posted journals: same lines and dimensions, sides swapped (RULEBOOK-01 §56). */
-export function mirror(journals: readonly PlannedJournal[]): PlannedJournal[] {
+export function mirror(journals: readonly PostedJournal[]): PlannedJournal[] {
   return journals.map((j) => ({
     entityId: j.entityId,
     kind: 'reversal',
     step: j.step,
+    reversalOfJournalId: j.id,
     lines: j.lines.map((l) => ({ ...l, side: l.side === 'Dr' ? 'Cr' : 'Dr' })),
   }));
+}
+
+/**
+ * Everything a posted event did, undone (docs/architecture/operations.md §2.6). An event's own effect is its journals
+ * that are not themselves mirrors: a correction's own effect is its replacement, so undoing a correction removes the
+ * corrected entry and leaves the original undone — exactly as if the correction had been a reversal plus a new entry.
+ * Refused, with the reason, whenever undoing would leave something inconsistent behind.
+ */
+function undo(ctx: EngineContext, txnId: Id): PostingPlan & { unwind: PlannedUnwind } {
+  const ev = ctx.postedEvent(txnId);
+  if (ev.status === 'reversed' || ev.status === 'corrected') {
+    fail('ALREADY_REVERSED', 'This entry was already reversed or corrected.', { status: ev.status });
+  }
+  if (ev.status !== 'posted') fail('VALIDATION', 'Only a posted entry can be reversed or corrected.');
+  if (ev.intentType === 'transit_confirm' || ev.handovers.some((h) => h.status === 'confirmed')) {
+    fail('VALIDATION', 'The receiver has confirmed this handover. Record a transfer back instead.');
+  }
+  const own = ev.journals.filter((j) => j.kind !== 'reversal');
+  if (own.length === 0) {
+    fail('VALIDATION', 'A reversal cannot itself be undone. Record the entry again if it was right.');
+  }
+  // Money goes back only to places still in use; one closed since is reopened first (08-open-questions Q10).
+  for (const line of own.flatMap((j) => j.lines)) {
+    if (!line.locationId) continue;
+    const place = ctx.location(line.locationId);
+    if (!place.active) {
+      fail('LOCATION_INACTIVE', `"${place.name}" is no longer in use. Reactivate it to undo this entry.`, {
+        locationId: place.id,
+      });
+    }
+  }
+  for (const id of ev.createdOpenItems) {
+    const item = ctx.openItem(id);
+    if (item.status !== 'open' || item.remaining !== item.original) {
+      fail(
+        'REVERSAL_BLOCKED_BY_SETTLEMENT',
+        'Part of what this entry left owing has been settled. Reverse those settlements first.',
+        { openItemId: id },
+      );
+    }
+  }
+  for (const a of ev.allocations) {
+    const item = ctx.openItem(a.openItemId);
+    if (item.status === 'written_off' || item.status === 'reversed') {
+      fail('VALIDATION', 'An amount this entry settled has since been written off or reversed.', {
+        openItemId: item.id,
+      });
+    }
+  }
+  return {
+    journals: mirror(own),
+    openItems: [],
+    settlements: [],
+    unwind: {
+      txnId,
+      reversedOpenItems: [...ev.createdOpenItems],
+      restoredAllocations: ev.allocations.map((a) => ({
+        allocationId: a.id,
+        openItemId: a.openItemId,
+        amount: a.amount,
+      })),
+      cancelledHandovers: ev.handovers
+        .filter((h) => h.status === 'awaiting_confirmation' || h.status === 'disputed')
+        .map((h) => h.id),
+    },
+  };
+}
+
+/**
+ * The engine's view after an unwind: settled amounts given back are owed again, and the items the undone event
+ * created are gone. A correction's replacement is planned against this view, so it may settle what the original did.
+ */
+export function afterUnwind(ctx: EngineContext, u: PlannedUnwind): EngineContext {
+  const back = new Map<Id, Paise>();
+  for (const a of u.restoredAllocations) back.set(a.openItemId, (back.get(a.openItemId) ?? 0n) + a.amount);
+  const gone = new Set(u.reversedOpenItems);
+  return {
+    entity: (id) => ctx.entity(id),
+    location: (id) => ctx.location(id),
+    category: (id) => ctx.category(id),
+    categoryByKey: (key) => ctx.categoryByKey(key),
+    account: (id) => ctx.account(id),
+    accountByRole: (entityId, role) => ctx.accountByRole(entityId, role),
+    accountByCode: (entityId, code) => ctx.accountByCode(entityId, code),
+    isOwner: (firmId, personId) => ctx.isOwner(firmId, personId),
+    postedEvent: (txnId) => ctx.postedEvent(txnId),
+    openItem: (id) => {
+      const item = ctx.openItem(id);
+      if (gone.has(id)) return { ...item, status: 'reversed' };
+      const plus = back.get(id);
+      if (plus === undefined) return item;
+      const remaining = item.remaining + plus;
+      if (remaining > item.original) fail('INTEGRITY', 'An outstanding item would be owed more than it started with.');
+      return { ...item, remaining, status: remaining === item.original ? 'open' : 'partially_settled' };
+    },
+  };
+}
+
+function reversal(ctx: EngineContext, it: I.ReversalIntent): PostingPlan {
+  const plan = undo(ctx, it.txnId);
+  checkPlan(plan, ctx);
+  return plan;
+}
+
+/** Intents a correction may not use as its replacement: undoing is not an entry, and a handover is confirmed once. */
+const NOT_A_REPLACEMENT = new Set<I.Intent['type']>(['reversal', 'correction', 'transit_confirm']);
+
+function correction(ctx: EngineContext, it: I.CorrectionIntent): PostingPlan {
+  if (!it.replacement || NOT_A_REPLACEMENT.has(it.replacement.type)) {
+    fail('VALIDATION', 'Choose what the entry should have been.');
+  }
+  const undone = undo(ctx, it.txnId);
+  const replacement = planPosting(it.replacement, afterUnwind(ctx, undone.unwind));
+  // Replacement journals follow the mirrors: a journal is unique per event, entity and step.
+  const offset = Math.max(...undone.journals.map((j) => j.step));
+  const plan: PostingPlan = {
+    journals: [...undone.journals, ...replacement.journals.map((j) => ({ ...j, step: j.step + offset }))],
+    openItems: replacement.openItems,
+    settlements: replacement.settlements,
+    unwind: undone.unwind,
+  };
+  checkPlan(plan, ctx);
+  return plan;
 }
